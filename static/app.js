@@ -14,6 +14,33 @@ let bekliyor = false;
 
 /* ---------- yardımcılar ---------- */
 
+// Sunucuda API_TOKEN tanimliysa anahtar buradan okunur. Tarayiciya inen
+// anahtar gizli degildir; gercek kullanici bazli yetki icin istekler
+// portalin kendi sunucusu uzerinden vekillenmelidir.
+const TOKEN_ANAHTARI = "vtasistan.token";
+
+function tokenAl() {
+  try { return localStorage.getItem(TOKEN_ANAHTARI) || ""; } catch (e) { return ""; }
+}
+
+function basliklar(ekJson) {
+  const h = ekJson ? { "Content-Type": "application/json" } : {};
+  const t = tokenAl();
+  if (t) h["Authorization"] = "Bearer " + t;
+  return h;
+}
+
+async function tokenIste() {
+  const girilen = window.prompt(
+    "Bu sunucu API anahtari istiyor." + String.fromCharCode(10) +
+    "Anahtari girin (.env dosyasindaki API_TOKEN):"
+  );
+  if (girilen && girilen.trim()) {
+    try { localStorage.setItem(TOKEN_ANAHTARI, girilen.trim()); } catch (e) {}
+    location.reload();
+  }
+}
+
 function el(etiket, sinif, metin) {
   const d = document.createElement(etiket);
   if (sinif) d.className = sinif;
@@ -286,7 +313,7 @@ async function gonder(metin) {
   try {
     const yanit = await fetch("/api/sohbet", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: basliklar(true),
       body: JSON.stringify({ message: metin, session_id: oturumId }),
     });
     const veri = await yanit.json();
@@ -331,7 +358,7 @@ document.getElementById("ornekler").addEventListener("click", (e) => {
 document.getElementById("sifirlaBtn").addEventListener("click", async () => {
   await fetch("/api/oturum/sifirla", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: basliklar(true),
     body: JSON.stringify({ session_id: oturumId }),
   });
   oturumId = null;
@@ -342,7 +369,9 @@ document.getElementById("sifirlaBtn").addEventListener("click", async () => {
 
 async function durumYukle() {
   try {
-    const veri = await (await fetch("/api/durum")).json();
+    const yanitDurum = await fetch("/api/durum", { headers: basliklar(false) });
+    if (yanitDurum.status === 401) { await tokenIste(); return; }
+    const veri = await yanitDurum.json();
     const db = veri.database;
     durumNokta.className = "nokta " + (db.ok ? "acik" : "kapali");
     durumMetin.textContent = db.ok ? "Veritabanına bağlı" : "Bağlantı kurulamadı";
@@ -377,7 +406,8 @@ async function semaYukle(yenile = false) {
   tabloListesiEl.innerHTML = "";
   tabloListesiEl.appendChild(el("div", "bos-not", yenile ? "Şema taranıyor…" : "Yükleniyor…"));
   try {
-    const veri = await (await fetch("/api/sema" + (yenile ? "?yenile=true" : ""))).json();
+    const veri = await (await fetch("/api/sema" + (yenile ? "?yenile=true" : ""),
+                                    { headers: basliklar(false) })).json();
     tabloListesiEl.innerHTML = "";
 
     if (!veri.tables || !veri.tables.length) {

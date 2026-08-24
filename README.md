@@ -273,6 +273,35 @@ Yapay zekanın ürettiği her SQL, çalışmadan önce üç katmandan geçer:
 Metin sabitleri (`WHERE Unvan LIKE '%delete%'`) ve köşeli parantezli kolon adları
 (`[Deleted]`) yanlış alarm üretmez — tarama öncesi ayıklanır.
 
+### API erişim koruması
+
+`.env` içindeki **`API_TOKEN`** doldurulduğunda tüm `/api/*` uçları anahtar ister:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # anahtar üret
+```
+
+```
+API_TOKEN=urettiginiz-anahtar
+```
+
+İstekler `Authorization: Bearer <anahtar>` veya `X-API-Token: <anahtar>` gönderir.
+Widget'a `data-token="<anahtar>"` olarak verilir; tam sayfa arayüz 401 alınca
+anahtarı sorar ve tarayıcıda saklar.
+
+**Boş bırakılırsa API korumasızdır** — sunucuya erişebilen herkes veritabanını
+sorgulayabilir ve LLM kotanızı tüketebilir. Yerel denemede sorun değil, gerçek
+şirket verisiyle çalışırken doldurulmalıdır.
+
+> **Sınır:** Tarayıcıya inen anahtar gizli değildir; sayfayı görebilen herkes
+> okuyabilir. Bu koruma, internete açık bir sunucuda yetkisiz erişimi ve kota
+> tüketimini engeller — portalın kendi kullanıcılarını birbirinden ayırmaz.
+> Kullanıcı bazlı yetki gerekiyorsa istekler portalın kendi sunucusu üzerinden
+> vekillenmelidir.
+
+Ayrıca ham SQL çalıştırma ucu (`/api/sql`) **varsayılan olarak kapalıdır**;
+doğal dil akışını atladığı için yalnızca `ALLOW_RAW_SQL=on` ile açılır.
+
 ### Güvenlik testleri
 
 Bu katman projenin tek kritik güvencesi olduğu için regresyon testleriyle korunur:
@@ -338,6 +367,18 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 | `QUERY_TIMEOUT` | `30` | Sorgu zaman aşımı (saniye) |
 | `MAX_TOOL_TURNS` | `6` | Yapay zekanın ard arda çalıştırabileceği maksimum sorgu |
 | `CORS_ORIGINS` | `*` | Widget'ın gömülebileceği alan adları (virgülle ayrılır) |
+
+---
+
+## Portal panosu (canlı özet)
+
+Örnek portal sayfasındaki kartlar ve "Son hareketler" tablosu `/api/ozet`
+ucundan **canlı** okunur; sayfada gömülü sabit rakam yoktur. Yapay zekaya
+gidilmediği için token harcamaz. Sorgular 60 saniye önbelleklenir.
+
+Aktif veritabanı için tanım yoksa bölüm boş kalır ve bunu açıkça söyler —
+uydurma rakam gösterilmez. Kendi veritabanınız için tanımları
+[app/ozet.py](app/ozet.py) içindeki `TANIMLAR` sözlüğüne ekleyin.
 
 ---
 

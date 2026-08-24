@@ -8,7 +8,7 @@ from typing import Any
 
 import anthropic
 import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import time
 
@@ -20,6 +20,8 @@ from .config import settings
 from .db import run_select, test_connection
 from .llm import sohbet_et
 from . import sqlcache
+from .ozet import ozet_getir
+from .guvenlik import dogrula, koruma_durumu
 from .schema import get_schema, refresh_schema, schema_to_prompt
 
 app = FastAPI(title="Veritabani Chatbot", version="1.0.0")
@@ -49,7 +51,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Token"],
 )
 
 # Oturum -> tam konusma gecmisi. Tek islemli calisma icin bellekte tutulur.
@@ -109,7 +111,7 @@ ORNEK_SORULAR = {
 }
 
 
-@app.get("/api/durum")
+@app.get("/api/durum", dependencies=[Depends(dogrula)])
 def durum() -> dict:
     """Baglanti ve yapilandirma durumu (arayuzdeki gosterge icin)."""
     baglanti = test_connection()
@@ -123,10 +125,24 @@ def durum() -> dict:
         "effort": settings.claude_effort,
         "api_key_var": settings.llm_key_var,
         "max_rows": settings.max_rows,
+        **koruma_durumu(),
     }
 
 
-@app.get("/api/onbellek")
+@app.get("/api/ozet", dependencies=[Depends(dogrula)])
+def ozet() -> dict:
+    """Portal panosundaki ozet kartlari.
+
+    Rakamlar veritabanindan canli okunur, sayfada sabit deger yoktur.
+    Yapay zekaya gidilmez; token harcamaz.
+    """
+    try:
+        return ozet_getir()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Ozet alinamadi: {exc}") from exc
+
+
+@app.get("/api/onbellek", dependencies=[Depends(dogrula)])
 def onbellek_durumu() -> dict:
     """Soru -> SQL onbelleginin durumu.
 
@@ -136,7 +152,7 @@ def onbellek_durumu() -> dict:
     return sqlcache.istatistik()
 
 
-@app.post("/api/onbellek/temizle")
+@app.post("/api/onbellek/temizle", dependencies=[Depends(dogrula)])
 def onbellek_temizle() -> dict:
     """Onbellegi bosaltir.
 
@@ -147,7 +163,7 @@ def onbellek_temizle() -> dict:
     return {"ok": True, "mesaj": "Onbellek temizlendi."}
 
 
-@app.get("/api/sema")
+@app.get("/api/sema", dependencies=[Depends(dogrula)])
 def sema(yenile: bool = False) -> dict:
     """Veritabani semasini dondurur."""
     try:
@@ -166,13 +182,13 @@ def sema(yenile: bool = False) -> dict:
     }
 
 
-@app.get("/api/sema/onizleme")
+@app.get("/api/sema/onizleme", dependencies=[Depends(dogrula)])
 def sema_onizleme() -> dict:
     """Yapay zekaya gonderilen sema metninin birebir kopyasi (hata ayiklama icin)."""
     return {"prompt": schema_to_prompt()}
 
 
-@app.post("/api/sohbet")
+@app.post("/api/sohbet", dependencies=[Depends(dogrula)])
 def sohbet(istek: ChatIstegi) -> dict:
     if not settings.llm_key_var:
         anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
@@ -239,7 +255,7 @@ def sohbet(istek: ChatIstegi) -> dict:
     return {"session_id": oturum_id, **cevap.to_dict()}
 
 
-@app.post("/api/oturum/sifirla")
+@app.post("/api/oturum/sifirla", dependencies=[Depends(dogrula)])
 def oturum_sifirla(istek: OturumIstegi | None = None) -> dict:
     """Sohbet gecmisini temizler."""
     if istek and istek.session_id:
@@ -247,9 +263,17 @@ def oturum_sifirla(istek: OturumIstegi | None = None) -> dict:
     return {"ok": True}
 
 
-@app.post("/api/sql")
+@app.post("/api/sql", dependencies=[Depends(dogrula)])
 def sql_calistir(istek: SqlIstegi) -> dict:
     """Uretilen SQL'i elle duzenleyip yeniden calistirmak icin."""
+    if not settings.allow_raw_sql:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Ham SQL ucu kapali. Acmak icin .env dosyasina ALLOW_RAW_SQL=on ekleyin. "
+                "Bu uc dogal dil akisini atlar; yalnizca guvendiginiz ortamda acin."
+            ),
+        )
     try:
         sonuc = run_select(istek.sql)
     except Exception as exc:  # noqa: BLE001

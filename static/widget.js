@@ -22,6 +22,15 @@
   const ORNEK_ELLE_VERILDI = Boolean(ds.ornekler);
   // data-acik="1" verilirse panel ilk aciliste kendiliginden acik gelir.
   const ACIK_BASLANGIC = ds.acik === "1" || ds.acik === "true";
+  // Sunucuda API_TOKEN tanimliysa data-token ile gonderilmelidir.
+  // NOT: Tarayiciya inen anahtar gizli degildir; sayfayi goren okuyabilir.
+  const TOKEN = (ds.token || "").trim();
+
+  function basliklar(ekJson) {
+    const h = ekJson ? { "Content-Type": "application/json" } : {};
+    if (TOKEN) h["Authorization"] = "Bearer " + TOKEN;
+    return h;
+  }
   let ORNEKLER = (ds.ornekler ||
     "1 ay içinde sözleşmeleri bitecek müşteriler|Vadesi geçmiş faturaların toplamı|Şehirlere göre aktif müşteri sayısı"
   ).split("|").filter(Boolean);
@@ -587,7 +596,7 @@
     try {
       const yanit = await fetch(API + "/api/sohbet", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: basliklar(true),
         body: JSON.stringify({ message: metin, session_id: oturumId }),
       });
       const veri = await yanit.json();
@@ -642,7 +651,7 @@
     try {
       await fetch(API + "/api/oturum/sifirla", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: basliklar(true),
         body: JSON.stringify({ session_id: oturumId }),
       });
     } catch (e) { /* sunucuya ulasilamasa da yerel gecmisi temizle */ }
@@ -671,7 +680,7 @@
 
   async function durumYukle() {
     try {
-      const veri = await (await fetch(API + "/api/durum")).json();
+      const veri = await (await fetch(API + "/api/durum", { headers: basliklar(false) })).json();
       const ok = veri.database && veri.database.ok;
       noktaEl.className = "nokta " + (ok ? "acik" : "kapali");
       // Sunucu, aktif veritabanina uygun ornek sorulari bildirir.

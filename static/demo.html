@@ -73,44 +73,21 @@
 
 <main>
   <h1>Genel Bakış</h1>
-  <p class="alt">Bu sayfa, widget'ın gerçek bir portala gömüldüğünde nasıl göründüğünü gösteren örnektir. Karttaki rakamlar sabittir — <b>gerçek veri sağ alttaki asistandan gelir</b>.</p>
+  <p class="alt">Bu sayfa, widget'ın gerçek bir portala gömüldüğünde nasıl göründüğünü gösteren örnektir. Aşağıdaki rakamlar <b>veritabanından canlı okunur</b>; kendi sorunuzu sormak için sağ alttaki asistanı kullanın.</p>
 
-  <div class="kartlar">
-    <div class="kart">
-      <div class="etiket">Aktif Müşteri</div>
-      <div class="deger">584</div>
-      <div class="fark">+12 bu ay</div>
-    </div>
-    <div class="kart">
-      <div class="etiket">Katalogdaki Film</div>
-      <div class="deger">1.000</div>
-      <div class="fark">16 kategori</div>
-    </div>
-    <div class="kart">
-      <div class="etiket">Toplam Tahsilat</div>
-      <div class="deger">67.416 $</div>
-      <div class="fark">16.044 ödeme</div>
-    </div>
-    <div class="kart">
-      <div class="etiket">İade Edilmemiş</div>
-      <div class="deger">183</div>
-      <div class="fark dusus">takip gerekiyor</div>
-    </div>
-  </div>
+  <div class="kartlar" id="kartlar"></div>
 
-  <div class="panel">
+  <div class="panel" id="hareketlerPaneli" hidden>
     <h2>Son hareketler</h2>
     <table>
-      <thead>
-        <tr><th>Müşteri</th><th>Film</th><th>Tarih</th><th>Durum</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>MARY SMITH</td><td>ACADEMY DINOSAUR</td><td>14.08.2005</td><td><span class="rozet yesil">İade edildi</span></td></tr>
-        <tr><td>PATRICIA JOHNSON</td><td>BUCKET BROTHERHOOD</td><td>13.08.2005</td><td><span class="rozet sari">Dışarıda</span></td></tr>
-        <tr><td>LINDA WILLIAMS</td><td>ROCKETEER MOTHER</td><td>12.08.2005</td><td><span class="rozet yesil">İade edildi</span></td></tr>
-        <tr><td>BARBARA JONES</td><td>SCALAWAG DUCK</td><td>11.08.2005</td><td><span class="rozet sari">Dışarıda</span></td></tr>
-      </tbody>
+      <thead><tr id="hareketBaslik"></tr></thead>
+      <tbody id="hareketGovde"></tbody>
     </table>
+  </div>
+
+  <div class="panel" id="ozetYok" hidden>
+    <h2>Özet tanımlı değil</h2>
+    <table><tbody><tr><td id="ozetYokMetin"></td></tr></tbody></table>
   </div>
 
   <div class="ipucu">
@@ -123,7 +100,8 @@
   </div>
 </main>
 
-<!-- Widget: tek satır. data-api boş bırakılırsa aynı sunucu kullanılır. -->
+<!-- Widget: tek satır. data-api boş bırakılırsa aynı sunucu kullanılır.
+     Sunucuda API_TOKEN tanımlıysa data-token="<anahtar>" ekleyin. -->
 <script src="/static/widget.js"
         data-api=""
         data-acik="1"
@@ -132,6 +110,43 @@
         data-renk="#3452d8"></script>
 
 <script>
+  // Pano rakamlari veritabanindan CANLI gelir; sayfada sabit deger yoktur.
+  // Veritabani degisince kendiliginden guncellenir.
+  fetch('/api/ozet').then(r => r.json()).then(o => {
+    const kartlar = document.getElementById('kartlar');
+    if (!o.tanimli) {
+      const yok = document.getElementById('ozetYok');
+      document.getElementById('ozetYokMetin').textContent =
+        '"' + o.database + '" veritabani icin ozet kartlari tanimlanmamis. ' +
+        'Uydurma rakam gostermemek icin bu bolum bos birakildi; ' +
+        'tanimlari app/ozet.py icine ekleyebilirsiniz.';
+      yok.hidden = false;
+      return;
+    }
+    for (const k of o.kartlar) {
+      const d = document.createElement('div');
+      d.className = 'kart';
+      const e = document.createElement('div'); e.className = 'etiket'; e.textContent = k.etiket;
+      const v = document.createElement('div'); v.className = 'deger';  v.textContent = k.deger;
+      const a = document.createElement('div'); a.className = 'fark' + (k.dusus ? ' dusus' : ''); a.textContent = k.alt;
+      d.append(e, v, a);
+      kartlar.appendChild(d);
+    }
+    if (o.hareketler) {
+      const bas = document.getElementById('hareketBaslik');
+      for (const kol of o.hareketler.kolonlar) {
+        const th = document.createElement('th'); th.textContent = kol; bas.appendChild(th);
+      }
+      const gov = document.getElementById('hareketGovde');
+      for (const satir of o.hareketler.satirlar) {
+        const tr = document.createElement('tr');
+        for (const h of satir) { const td = document.createElement('td'); td.textContent = h; tr.appendChild(td); }
+        gov.appendChild(tr);
+      }
+      document.getElementById('hareketlerPaneli').hidden = false;
+    }
+  }).catch(() => {});
+
   // Örnek soruyu sunucudan al: aktif veritabanı değişince buton da değişir.
   fetch('/api/durum').then(r => r.json()).then(d => {
     const soru = (d.ornekler || [])[0];

@@ -80,6 +80,11 @@ class Settings:
     # Sema onbelleginin omru. Veritabani canliysa kolon/tablo degisebilir;
     # bu sure dolunca sema yeniden taranir. 0 = hic eskime (statik sema).
     schema_ttl: int
+    # Bos ise API korumasizdir (yalnizca yerel deneme icin). Doluysa tum
+    # /api/* uclari Authorization: Bearer ya da X-API-Token bekler.
+    api_token: str
+    # Ham SQL calistirma ucu (/api/sql). Arayuz kullanmiyor; varsayilan kapali.
+    allow_raw_sql: bool
     cors_origins: list[str]
 
     base_dir: Path = BASE_DIR
@@ -201,6 +206,8 @@ def load_settings() -> Settings:
         sql_cache=os.getenv("SQL_CACHE", "on").strip().lower() not in {"off", "0", "false", "hayir"},
         sql_cache_ttl=_int("SQL_CACHE_TTL", 604800),
         schema_ttl=_int("SCHEMA_TTL", 3600),
+        api_token=os.getenv("API_TOKEN", "").strip(),
+        allow_raw_sql=os.getenv("ALLOW_RAW_SQL", "off").strip().lower() in {"on", "1", "true", "evet"},
         cors_origins=_liste("CORS_ORIGINS", ["*"]),
     )
 
