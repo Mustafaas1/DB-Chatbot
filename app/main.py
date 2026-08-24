@@ -10,6 +10,8 @@ import anthropic
 import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import time
+
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -152,9 +154,13 @@ def sema(yenile: bool = False) -> dict:
         veri = refresh_schema() if yenile else get_schema()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Sema okunamadi: {exc}") from exc
+    alindi = veri.get("alindi")
     return {
         "database": veri["database"],
         "table_count": len(veri["tables"]),
+        "alindi": alindi,
+        "yas_saniye": round(time.time() - alindi) if alindi else None,
+        "ttl_saniye": settings.schema_ttl,
         "tables": veri["tables"],
         "views": veri.get("views", []),
     }

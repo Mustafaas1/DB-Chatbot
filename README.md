@@ -341,6 +341,30 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 
 ---
 
+## Şema tazeliği (canlı veritabanı)
+
+Şema bir kez taranıp `schema_cache.json`'a yazılır. Veritabanı canlıysa kolon
+veya tablo değişebileceği için bu önbellek **`SCHEMA_TTL`** (varsayılan 1 saat)
+dolduğunda kendiliğinden yeniden taranır.
+
+Ayrıca sorgu `Unknown column` / `Invalid object name` gibi bir hata verirse
+şema **anında** tazelenir ve modele güncel haliyle tekrar denemesi söylenir.
+Art arda tetiklenmemesi için en fazla 60 saniyede bir yenilenir; sözdizimi
+veya bağlantı hatalarında tazeleme yapılmaz.
+
+Bu, aşağıdaki SQL önbelleğinin şema parmak izi korumasının çalışması için de
+gereklidir — şema önbelleği bayat kalırsa parmak izi de bayat kalırdı.
+
+Şemanın yaşını görmek için:
+
+```bash
+curl http://127.0.0.1:8000/api/sema
+```
+
+Şeması hiç değişmeyen kurulumlarda `SCHEMA_TTL=0` ile kapatılabilir.
+
+---
+
 ## Soru → SQL önbelleği
 
 Aynı soru ikinci kez sorulduğunda "hangi SQL yazılmalı" sorusu yapay zekaya

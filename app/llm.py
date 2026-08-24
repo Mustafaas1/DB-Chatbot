@@ -13,7 +13,7 @@ import openai
 
 from .config import settings
 from .db import QueryResult, run_select
-from .schema import load_notes, schema_to_prompt
+from .schema import load_notes, schema_to_prompt, sema_hatasi_mi, otomatik_yenile
 from . import sqlcache
 from .sqlguard import SqlGuardError
 
@@ -256,7 +256,14 @@ def _sql_araci_calistir(
         )
     except Exception as exc:  # noqa: BLE001 - hatayi modele geri besliyoruz
         adimlar.append({"sql": sql, "description": aciklama, "ok": False, "error": str(exc)})
-        return f"SQL HATASI: {exc}\nSorguyu duzeltip tekrar dene.", True, None
+        ek = ""
+        # "Unknown column" / "Invalid object name" gibi hatalar semanin
+        # degistigine isaret eder. Canli veritabaninda bu normaldir; semayi
+        # tazeleyip modele guncel haliyle tekrar denemesini soyluyoruz.
+        # (Cagiran taraf hata durumunda semayi zaten yeniden gonderiyor.)
+        if sema_hatasi_mi(str(exc)) and otomatik_yenile():
+            ek = " Veritabani semasi yenilendi; guncel sema ile tekrar dene."
+        return f"SQL HATASI: {exc}" + ek + " Sorguyu duzeltip tekrar dene.", True, None
 
 
 def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> ChatCevabi:

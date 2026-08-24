@@ -8,18 +8,82 @@ onbellege alinir. Veritabaninda yapisal degisiklik olursa arayuzden
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
 from .config import settings
 from .db import get_connection
 
-__all__ = ["get_schema", "refresh_schema", "schema_to_prompt", "load_notes"]
+__all__ = [
+    "get_schema", "refresh_schema", "schema_to_prompt", "load_notes",
+    "sema_hatasi_mi", "otomatik_yenile",
+]
 
 CACHE_PATH: Path = settings.base_dir / "schema_cache.json"
 NOTES_PATH: Path = settings.base_dir / "schema_notes.md"
 
 _bellek_onbellegi: dict[str, Any] | None = None
+# Otomatik yenilemenin art arda tetiklenmesini onler.
+_son_otomatik_yenileme: float = 0.0
+OTOMATIK_YENILEME_ARALIGI = 60.0
+
+# Semanin degistigine isaret eden veritabani hatalari. Model olmayan bir
+# kolona sorgu yazdiysa sema onbellegimiz bayat olabilir.
+SEMA_HATA_IZLERI = (
+    "unknown column",        # MySQL 1054
+    "unknown table",         # MySQL 1109
+    "doesn't exist",         # MySQL 1146
+    "does not exist",
+    "invalid column name",   # MSSQL 207
+    "invalid object name",   # MSSQL 208
+)
+
+
+def sema_hatasi_mi(hata: str) -> bool:
+    """Hata metni, semanin degismis olabilecegine mi isaret ediyor?"""
+    h = (hata or "").lower()
+    return any(iz in h for iz in SEMA_HATA_IZLERI)
+
+
+def _bayat(sema: dict[str, Any] | None) -> bool:
+    """Sema onbellegi omrunu doldurdu mu?"""
+    if not sema:
+        return True
+    ttl = settings.schema_ttl
+    if ttl <= 0:
+        return False  # eskime kapali
+    return (time.time() - float(sema.get("alindi") or 0)) > ttl
+
+
+def _sema_kaydet(sema: dict[str, Any]) -> dict[str, Any]:
+    """Semayi zaman damgasiyla bellege ve diske yazar."""
+    global _bellek_onbellegi
+    sema["alindi"] = time.time()
+    _bellek_onbellegi = sema
+    try:
+        CACHE_PATH.write_text(json.dumps(sema, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass  # onbellek yazilamazsa bellekteki kopya yeterli
+    return sema
+
+
+def otomatik_yenile() -> bool:
+    """Sema hatasi sonrasi semayi tazeler. Tazelediyse True doner.
+
+    Model art arda hatali sorgu yazarsa veritabanini yormamak icin
+    aralikla sinirlandirilmistir.
+    """
+    global _son_otomatik_yenileme
+    if time.time() - _son_otomatik_yenileme < OTOMATIK_YENILEME_ARALIGI:
+        return False
+    _son_otomatik_yenileme = time.time()
+    try:
+        refresh_schema()
+        return True
+    except Exception:  # noqa: BLE001 - yenileme basarisizsa akis surmeli
+        return False
+
 
 SATIR_SONU = chr(10)
 
@@ -183,12 +247,7 @@ def refresh_schema() -> dict[str, Any]:
                 "tables": list(tablolar.values()),
                 "views": gorunumler,
             }
-            _bellek_onbellegi = sema
-            try:
-                CACHE_PATH.write_text(json.dumps(sema, ensure_ascii=False, indent=2), encoding="utf-8")
-            except OSError:
-                pass
-            return sema
+            return _sema_kaydet(sema)
 
         tablolar: dict[str, dict[str, Any]] = {}
         for sema, tablo, satir_sayisi in cursor.execute(TABLO_SORGUSU).fetchall():
@@ -242,13 +301,7 @@ def refresh_schema() -> dict[str, Any]:
         "views": gorunumler,
     }
 
-    _bellek_onbellegi = sema
-    try:
-        CACHE_PATH.write_text(json.dumps(sema, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        pass  # onbellek yazilamazsa bellekteki kopya yeterli
-
-    return sema
+    return _sema_kaydet(sema)
 
 
 def get_schema(force: bool = False) -> dict[str, Any]:
@@ -257,14 +310,19 @@ def get_schema(force: bool = False) -> dict[str, Any]:
 
     if force:
         return refresh_schema()
-    if _bellek_onbellegi is not None:
+    # Canli veritabaninda kolon/tablo degisebilir; omru dolan sema yeniden
+    # taranir. Aksi halde model olmayan kolonlara sorgu yazar ve SQL
+    # onbelleginin sema parmak izi de bayat kalirdi.
+    if _bellek_onbellegi is not None and not _bayat(_bellek_onbellegi):
         return _bellek_onbellegi
     if CACHE_PATH.exists():
         try:
-            _bellek_onbellegi = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
-            if (_bellek_onbellegi.get("database") == settings.database_name
-                    and _bellek_onbellegi.get("db_type") == settings.db_type):
-                return _bellek_onbellegi
+            diskteki = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+            if (diskteki.get("database") == settings.database_name
+                    and diskteki.get("db_type") == settings.db_type
+                    and not _bayat(diskteki)):
+                _bellek_onbellegi = diskteki
+                return diskteki
         except (OSError, json.JSONDecodeError):
             pass
     return refresh_schema()

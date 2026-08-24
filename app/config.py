@@ -77,6 +77,9 @@ class Settings:
     # sorgu her seferinde yeniden calisir, veri canli kalir.
     sql_cache: bool
     sql_cache_ttl: int
+    # Sema onbelleginin omru. Veritabani canliysa kolon/tablo degisebilir;
+    # bu sure dolunca sema yeniden taranir. 0 = hic eskime (statik sema).
+    schema_ttl: int
     cors_origins: list[str]
 
     base_dir: Path = BASE_DIR
@@ -197,6 +200,7 @@ def load_settings() -> Settings:
         max_tool_turns=_int("MAX_TOOL_TURNS", 6),
         sql_cache=os.getenv("SQL_CACHE", "on").strip().lower() not in {"off", "0", "false", "hayir"},
         sql_cache_ttl=_int("SQL_CACHE_TTL", 604800),
+        schema_ttl=_int("SCHEMA_TTL", 3600),
         cors_origins=_liste("CORS_ORIGINS", ["*"]),
     )
 
