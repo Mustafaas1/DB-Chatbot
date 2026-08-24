@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Veritabanı Asistanı</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="uygulama">
+    <aside class="yan-panel">
+      <div class="marka">
+        <div class="marka-ikon">DB</div>
+        <div>
+          <div class="marka-ad">Veritabanı Asistanı</div>
+          <div class="marka-alt">Doğal dilde sorgula</div>
+        </div>
+      </div>
+
+      <div class="durum-kutu" id="durumKutu">
+        <div class="durum-satir"><span class="nokta bekliyor" id="durumNokta"></span><span id="durumMetin">Bağlantı kontrol ediliyor…</span></div>
+        <dl class="durum-detay" id="durumDetay"></dl>
+      </div>
+
+      <div class="panel-baslik">
+        <span>Tablolar</span>
+        <button class="mini-buton" id="semaYenileBtn" title="Şemayı veritabanından yeniden tara">Yenile</button>
+      </div>
+      <div class="tablo-listesi" id="tabloListesi">
+        <div class="bos-not">Yükleniyor…</div>
+      </div>
+    </aside>
+
+    <main class="ana">
+      <div class="ust-bar">
+        <div class="ust-bar-baslik">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.6A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor"/><circle cx="12" cy="11.5" r="1" fill="currentColor"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/></svg>
+          <span>Sohbet</span>
+        </div>
+        <div class="ust-bar-eylemler">
+          <a class="ust-bar-btn ust-bar-link" href="/" title="Panel görünümüne dön" aria-label="Panel görünümüne dön">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6H3M15 21v-6h6M3 21l6-6M21 3l-6 6"/></svg>
+          </a>
+          <button class="ust-bar-btn" id="sifirlaBtn" title="Sohbeti temizle" aria-label="Sohbeti temizle">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sohbet" id="sohbet">
+        <div class="karsilama">
+          <div class="karsilama-ikon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.6A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor"/><circle cx="12" cy="11.5" r="1" fill="currentColor"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/></svg>
+          </div>
+          <h1>Verilerinize anında ulaşın</h1>
+          <p>Satış raporlarından müşteri analizlerine, sözleşme takibinden finansal özetlere — sorunuzu yazın, cevabı tablo olarak alın.</p>
+          <div class="ornekler" id="ornekler"></div>
+        </div>
+      </div>
+
+      <form class="giris-alani" id="form">
+        <textarea id="mesaj" rows="1" placeholder="Sorunuzu yazın… (Enter ile gönder, Shift+Enter yeni satır)" autocomplete="off"></textarea>
+        <button type="submit" id="gonderBtn" title="Gönder">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 20.5 21 12 3 3.5 3 10l12 2-12 2z" fill="currentColor"/></svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
