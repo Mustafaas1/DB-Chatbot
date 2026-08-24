@@ -388,6 +388,22 @@ küçültür (8.275 → 1.145 karakter).
 `SESSION_TTL` (varsayılan 24 saat) dokunulmayan oturumları, `MAX_SESSIONS`
 (varsayılan 500) ise toplam sayıyı sınırlar; temizlik açılışta yapılır.
 
+### Eski sonuç satırları bağlamdan çıkarılır
+
+Önceki turların sorgu sonuçları modele **veri satırları olmadan** gönderilir;
+geriye yalnızca "N satır döndü" bilgisi kalır. Canlı veritabanında o satırlar
+bayatlamış olabilir ve model güncel değeri sorgulamak yerine eskisini
+tekrarlayabilirdi. İçinde bulunulan turun satırları elbette korunur — cevap
+onlardan üretilir.
+
+Her iki sağlayıcıda da geçerlidir (Groq ve Claude mesaj biçimleri farklı
+olduğu için ayrı ayrı uygulanır).
+
+> **Sınır:** Modelin kendi önceki *cevapları* sayı içermeye devam eder
+> ("Sports kategorisinde 74 film var"). Bunlar silinemez, çünkü "peki en azı
+> hangisi?" gibi devam soruları o bağlama dayanır. Sistem talimatı modele
+> önce sorgulamasını, tahmin yürütmemesini söyler.
+
 ---
 
 ## Portal panosu (canlı özet)

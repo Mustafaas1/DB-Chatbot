@@ -266,10 +266,44 @@ def _sql_araci_calistir(
         return f"SQL HATASI: {exc}" + ek + " Sorguyu duzeltip tekrar dene.", True, None
 
 
+def _claude_gecmisi_kirp(mesajlar: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Onceki turlarin sonuc satirlarini Claude gecmisinden de cikarir.
+
+    Groq tarafiyla ayni gerekce: canli veritabaninda eski satirlar bayat
+    olabilir. Claude'da arac sonuclari {"role": "user", "content": [
+    {"type": "tool_result", ...}]} seklinde tasinir, bu yuzden ayri bir
+    gezinme gerekir.
+
+    Sinir, icerigi duz metin olan son "user" mesajidir: arac sonuclari da
+    "user" rolu tasidigi icin rol tek basina yeterli degil.
+    """
+    son_soru = -1
+    for i, m in enumerate(mesajlar):
+        if m.get("role") == "user" and isinstance(m.get("content"), str):
+            son_soru = i
+
+    kirpilmis: list[dict[str, Any]] = []
+    for i, m in enumerate(mesajlar):
+        icerik = m.get("content")
+        if i < son_soru and m.get("role") == "user" and isinstance(icerik, list):
+            yeni_bloklar = []
+            for blok in icerik:
+                if isinstance(blok, dict) and blok.get("type") == "tool_result":
+                    yeni_bloklar.append(
+                        {**blok, "content": _arac_ozeti(str(blok.get("content") or ""))}
+                    )
+                else:
+                    yeni_bloklar.append(blok)
+            kirpilmis.append({**m, "content": yeni_bloklar})
+        else:
+            kirpilmis.append(m)
+    return kirpilmis
+
+
 def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> ChatCevabi:
     """Anthropic Claude ile arac dongusu."""
     client = get_client()
-    mesajlar: list[dict[str, Any]] = list(gecmis or [])
+    mesajlar: list[dict[str, Any]] = _claude_gecmisi_kirp(list(gecmis or []))
     mesajlar.append({"role": "user", "content": mesaj})
 
     adimlar: list[dict[str, Any]] = []
@@ -364,7 +398,29 @@ OZET_BUTCESI = 400
 
 # Groq'un dakikalik token limiti dusuk oldugu icin gecmisi sinirli tutuyoruz.
 GROQ_GECMIS_SINIRI = 10      # sistem mesaji haric tutulacak mesaj sayisi
-ESKI_ARAC_SONUCU_SINIRI = 220  # onceki turlarin arac ciktilari bu kadar karaktere kisalir
+
+
+def _arac_ozeti(icerik: str) -> str:
+    """Onceki turun arac ciktisindan VERI SATIRLARINI atar.
+
+    Geriye yalnizca "kac satir dondu" bilgisi kalir. Boylece model, verisi
+    degismis olabilecek eski sonuclari tekrarlayamaz; guncel bir deger
+    gerekiyorsa sorguyu yeniden calistirmak zorunda kalir. Canli
+    veritabaninda bu, bayat sayi bildirmesini engeller.
+
+    Hata mesajlari veri icermez ve sorguyu duzeltmek icin gereklidir;
+    onlara dokunulmaz.
+    """
+    if not icerik:
+        return icerik
+    bas = icerik.split("\n", 1)[0]
+    if not bas.startswith("Sorgu basarili."):
+        return icerik
+    return (
+        bas
+        + " (Onceki turun sonuc satirlari baglamdan cikarildi. Guncel deger"
+        + " gerekiyorsa sorguyu yeniden calistir.)"
+    )
 
 
 def _groq_gecmisi_kirp(
@@ -385,15 +441,17 @@ def _groq_gecmisi_kirp(
     sistem = mesajlar[:1] if mesajlar[0].get("role") == "system" else []
     kalan = mesajlar[len(sistem):]
 
-    # 1) Son iki arac ciktisi disindakileri kisalt
-    arac_indeksleri = [i for i, m in enumerate(kalan) if m.get("role") == "tool"]
-    for i in arac_indeksleri[:-2]:
-        icerik = kalan[i].get("content") or ""
-        if len(icerik) > ESKI_ARAC_SONUCU_SINIRI:
-            kalan[i] = {
-                **kalan[i],
-                "content": icerik[:ESKI_ARAC_SONUCU_SINIRI] + " ...(onceki sonuc kisaltildi)",
-            }
+    # 1) Onceki turlarin sonuc SATIRLARINI tamamen cikar.
+    # Sinir, son "user" mesajidir: ondan sonrasi icinde bulundugumuz turdur ve
+    # modelin cevabi uretmek icin o satirlara ihtiyaci vardir. Oncesi ise
+    # gecmis turlara aittir; verisi bu arada degismis olabilir, bu yuzden
+    # yalnizca "kac satir dondu" bilgisi birakilir.
+    son_user = max(
+        (i for i, m in enumerate(kalan) if m.get("role") == "user"), default=-1
+    )
+    for i, m in enumerate(kalan):
+        if i < son_user and m.get("role") == "tool":
+            kalan[i] = {**m, "content": _arac_ozeti(m.get("content") or "")}
 
     # 2) Hala uzunsa bastan at, kesme noktasini user mesajina hizala
     if len(kalan) > sinir:

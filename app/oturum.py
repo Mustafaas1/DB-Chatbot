@@ -54,6 +54,30 @@ def _baglanti() -> sqlite3.Connection:
     return conn
 
 
+def _sade(deger: Any) -> Any:
+    """Gecmisi JSON'a cevrilebilir hale getirir.
+
+    Claude yolu gecmise Anthropic SDK blok nesneleri koyar (TextBlock,
+    ToolUseBlock). Bunlar pydantic modelidir ve json.dumps ile dogrudan
+    cevrilemez; sozluge donusturuyoruz. Anthropic API'si blok sozluklerini
+    zaten kabul ettigi icin geri yuklendiginde de calisir.
+    """
+    if deger is None or isinstance(deger, (str, int, float, bool)):
+        return deger
+    if isinstance(deger, dict):
+        return {k: _sade(v) for k, v in deger.items()}
+    if isinstance(deger, (list, tuple)):
+        return [_sade(v) for v in deger]
+    for yontem in ("model_dump", "dict"):
+        cagrilabilir = getattr(deger, yontem, None)
+        if callable(cagrilabilir):
+            try:
+                return _sade(cagrilabilir())
+            except Exception:  # noqa: BLE001 - son care str()
+                break
+    return str(deger)
+
+
 def _sistemsiz(gecmis: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Sistem mesajini ayiklar; her istekte guncel semayla yeniden uretilir."""
     return [m for m in gecmis if m.get("role") != "system"]
@@ -85,7 +109,10 @@ def kaydet(oturum_id: str, gecmis: list[dict[str, Any]]) -> None:
     """Gecmisi saklar. Sistem mesaji bilincli olarak atilir."""
     if not oturum_id:
         return
-    veri = json.dumps(_sistemsiz(gecmis), ensure_ascii=False)
+    try:
+        veri = json.dumps(_sade(_sistemsiz(gecmis)), ensure_ascii=False)
+    except (TypeError, ValueError):
+        return  # cevrilemezse oturum saklanmaz; sohbet yine de calismali
     try:
         with _kilit, _baglanti() as conn:
             conn.execute(

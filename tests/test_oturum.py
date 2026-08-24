@@ -135,3 +135,25 @@ def test_istatistik():
     d = oturum.istatistik()
     assert d["oturum_sayisi"] == 1
     assert d["depo"] == "sqlite"
+
+
+def test_sdk_nesneleri_saklanabilir():
+    """Claude yolu gecmise Anthropic SDK bloklari koyar; bunlar dogrudan
+    JSON'a cevrilemez ve saklamayi patlatirdi."""
+    from anthropic.types import TextBlock
+
+    oturum.kaydet("c1", [
+        {"role": "user", "content": "soru"},
+        {"role": "assistant", "content": [TextBlock(type="text", text="cevap")]},
+    ])
+    okunan = oturum.getir("c1")
+    assert len(okunan) == 2
+    assert okunan[1]["content"][0]["text"] == "cevap"
+
+
+def test_cevrilemeyen_deger_cokmeye_yol_acmaz():
+    class Tuhaf:
+        def __repr__(self): return "<tuhaf>"
+
+    oturum.kaydet("c2", [{"role": "user", "content": Tuhaf()}])
+    assert oturum.getir("c2") is not None
