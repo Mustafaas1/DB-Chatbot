@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from .config import settings
 from .db import run_select, test_connection
 from .llm import sohbet_et
+from . import sqlcache
 from .schema import get_schema, refresh_schema, schema_to_prompt
 
 app = FastAPI(title="Veritabani Chatbot", version="1.0.0")
@@ -121,6 +122,27 @@ def durum() -> dict:
         "api_key_var": settings.llm_key_var,
         "max_rows": settings.max_rows,
     }
+
+
+@app.get("/api/onbellek")
+def onbellek_durumu() -> dict:
+    """Soru -> SQL onbelleginin durumu.
+
+    Onbellek sonuc saklamaz; yalnizca hangi sorunun hangi SQL'e karsilik
+    geldigini tutar. Sorgular her seferinde yeniden calisir.
+    """
+    return sqlcache.istatistik()
+
+
+@app.post("/api/onbellek/temizle")
+def onbellek_temizle() -> dict:
+    """Onbellegi bosaltir.
+
+    Sema degisikligi zaten kayitlari kendiliginden dusurur; bu uc, is
+    kurallari degistiginde elle mudahale icindir.
+    """
+    sqlcache.temizle()
+    return {"ok": True, "mesaj": "Onbellek temizlendi."}
 
 
 @app.get("/api/sema")

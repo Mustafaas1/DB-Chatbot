@@ -14,6 +14,7 @@ import openai
 from .config import settings
 from .db import QueryResult, run_select
 from .schema import load_notes, schema_to_prompt
+from . import sqlcache
 from .sqlguard import SqlGuardError
 
 __all__ = ["ChatCevabi", "sohbet_et", "get_client"]
@@ -523,6 +524,57 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     }
     sema_gerekli = True
 
+    # --- Onbellek ---
+    # Ayni soru daha once sorulduysa hangi SQL'in yazilacagini biliyoruz.
+    # Sorguyu YINE DE bastan calistiriyoruz: onbellek sonuc degil, yalnizca
+    # sorgu metni saklar. Boylece veri canli kalir ama "SQL uret" cagrisi
+    # tamamen atlanir (soru basina ~1900 token).
+    # Yalnizca konusmanin ilk sorusunda denenir; devam sorulari onceki
+    # baglama bagli oldugu icin tek basina tekrarlanamaz.
+    ilk_soru = not (gecmis or [])
+    onbellek_kullanildi = False
+    if ilk_soru:
+        onbellek_sqli = sqlcache.getir(mesaj)
+        if onbellek_sqli:
+            icerik, hata, sonuc = _sql_araci_calistir(
+                onbellek_sqli, "Daha once ayni soru icin uretilen sorgu", adimlar
+            )
+            if hata:
+                # Sema veya veri degismis olabilir; onbellegi yok sayip
+                # normal akisa donuyoruz ki model sorguyu bastan yazsin.
+                adimlar.clear()
+            else:
+                son_sonuc = sonuc
+                onbellek_kullanildi = True
+                sema_gerekli = False
+                mesajlar.append(
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "onbellek_0",
+                                "type": "function",
+                                "function": {
+                                    "name": "sql_calistir",
+                                    "arguments": json.dumps(
+                                        {"sql": onbellek_sqli, "aciklama": ""},
+                                        ensure_ascii=False,
+                                    ),
+                                },
+                            }
+                        ],
+                    }
+                )
+                mesajlar.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": "onbellek_0",
+                        "name": "sql_calistir",
+                        "content": icerik,
+                    }
+                )
+
     for _ in range(settings.max_tool_turns):
         mesajlar = _groq_gecmisi_kirp(mesajlar)
         if sema_gerekli or mesajlar[0].get("role") != "system":
@@ -567,6 +619,11 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
 
         if not secim.tool_calls:
             metin = (secim.content or "").strip()
+            # Tek sorguyla cevaplanan ilk sorulari onbellege al. Coklu adimli
+            # veya konusma baglamina bagli sorular tek basina tekrarlanamaz.
+            # sqlcache.yaz(), sabit tarih iceren sorgulari kendisi reddeder.
+            if ilk_soru and not onbellek_kullanildi and len(adimlar) == 1 and adimlar[0].get("ok"):
+                sqlcache.yaz(mesaj, adimlar[0]["sql"])
             return ChatCevabi(
                 metin or "Cevap uretilemedi.", adimlar, son_sonuc, mesajlar, kullanim
             )

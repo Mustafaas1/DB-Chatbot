@@ -5,3 +5,4 @@ __pycache__/
 venv/
 schema_cache.json
 *.log
+sql_cache.json

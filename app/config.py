@@ -73,6 +73,10 @@ class Settings:
     schema_exclude: list[str]
     query_timeout: int
     max_tool_turns: int
+    # Soru -> SQL onbellegi. SONUC saklanmaz, yalnizca sorgunun kendisi;
+    # sorgu her seferinde yeniden calisir, veri canli kalir.
+    sql_cache: bool
+    sql_cache_ttl: int
     cors_origins: list[str]
 
     base_dir: Path = BASE_DIR
@@ -191,6 +195,8 @@ def load_settings() -> Settings:
         schema_exclude=_liste("SCHEMA_EXCLUDE_TABLES", []),
         query_timeout=_int("QUERY_TIMEOUT", 30),
         max_tool_turns=_int("MAX_TOOL_TURNS", 6),
+        sql_cache=os.getenv("SQL_CACHE", "on").strip().lower() not in {"off", "0", "false", "hayir"},
+        sql_cache_ttl=_int("SQL_CACHE_TTL", 604800),
         cors_origins=_liste("CORS_ORIGINS", ["*"]),
     )
 

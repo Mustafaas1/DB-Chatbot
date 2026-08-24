@@ -341,6 +341,35 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 
 ---
 
+## Soru → SQL önbelleği
+
+Aynı soru ikinci kez sorulduğunda "hangi SQL yazılmalı" sorusu yapay zekaya
+tekrar sorulmaz. Ölçülen kazanç: **4.452 → 1.959 token, 2,4 sn → 0,5 sn**.
+
+**Veritabanı canlıysa da güvenlidir**, çünkü:
+
+| Tehlike | Önlem |
+|---|---|
+| Veri değişti, eski sonuç dönebilir | **Sonuç hiç saklanmaz.** Yalnızca sorgu metni saklanır; sorgu her seferinde yeniden çalışır. |
+| Şema değişti, eski SQL patlar | Önbellek anahtarı şemanın parmak izini içerir. Kolon eklenince/silinince tüm kayıtlar kendiliğinden düşer. |
+| "Son 1 ay" sabit tarihe çevrilmiş, yarın yanlış sonuç verir | Sabit tarih (`'2026-08-24'`, `24.08.2026`, `20260824`) içeren sorgular **hiç saklanmaz**. `CURDATE()` / `GETDATE()` / `NOW()` kullananlar çalışma anında yeniden hesaplandığı için saklanır. |
+| İş kuralları zamanla değişti | `SQL_CACHE_TTL` (varsayılan 7 gün) emniyet ağı. |
+| Önbellekteki SQL bozulmuş olabilir | Çalıştırılmadan önce yine `sqlguard`'dan geçer. Hata verirse önbellek yok sayılır, model sorguyu baştan yazar. |
+
+Yalnızca konuşmanın **ilk** sorusu ve **tek sorguyla** cevaplanan sorular saklanır;
+devam soruları önceki bağlama bağlı olduğu için tek başına tekrarlanamaz.
+
+Durumu görmek ve temizlemek:
+
+```bash
+curl http://127.0.0.1:8000/api/onbellek
+curl -X POST http://127.0.0.1:8000/api/onbellek/temizle
+```
+
+Tamamen kapatmak için `.env` içinde `SQL_CACHE=off`.
+
+---
+
 ## Bilinen sınırlar
 
 - **Oturumlar bellekte tutulur.** Uygulama yeniden başlarsa sohbet geçmişi silinir ve
