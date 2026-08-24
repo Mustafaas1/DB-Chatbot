@@ -457,6 +457,8 @@ tekrar sorulmaz. Ölçülen kazanç: **4.452 → 1.959 token, 2,4 sn → 0,5 sn*
 | İş kuralları zamanla değişti | `SQL_CACHE_TTL` (varsayılan 7 gün) emniyet ağı. |
 | Önbellekteki SQL bozulmuş olabilir | Çalıştırılmadan önce yine `sqlguard`'dan geçer. Hata verirse önbellek yok sayılır, model sorguyu baştan yazar. |
 
+Her iki sağlayıcıda da geçerlidir (Groq ve Claude).
+
 Yalnızca konuşmanın **ilk** sorusu ve **tek sorguyla** cevaplanan sorular saklanır;
 devam soruları önceki bağlama bağlı olduğu için tek başına tekrarlanamaz.
 

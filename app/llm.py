@@ -84,6 +84,10 @@ LEHCE: MYSQL 8
   MAX(tarih) ile veri araligini kontrol et ve bulgunu kullaniciya soyle."""
 
 
+# Onbellekten gelen sorgu icin uydurulan arac cagrisi kimligi (her iki saglayici).
+ONBELLEK_ARAC_ID = "onbellek_0"
+
+
 def _sistem_talimati() -> str:
     """Aktif veritabani lehcesine gore sistem talimatini olusturur."""
     lehce = MYSQL_TALIMATI if settings.is_mysql else MSSQL_TALIMATI
@@ -310,6 +314,52 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Ch
     son_sonuc: QueryResult | None = None
     kullanim = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0}
 
+    # --- Onbellek ---
+    # Groq yolundaki ile ayni gerekce: ayni soru daha once sorulduysa hangi
+    # SQL'in yazilacagini biliyoruz ve "SQL uret" cagrisini atlayabiliriz.
+    # Sorgu YINE DE bastan calistirilir; onbellek sonuc degil yalnizca sorgu
+    # metni saklar, dolayisiyla veri canli kalir.
+    ilk_soru = not (gecmis or [])
+    onbellek_kullanildi = False
+    if ilk_soru:
+        onbellek_sqli = sqlcache.getir(mesaj)
+        if onbellek_sqli:
+            icerik, hata, sonuc = _sql_araci_calistir(
+                onbellek_sqli, "Daha once ayni soru icin uretilen sorgu", adimlar
+            )
+            if hata:
+                # Sema veya veri degismis olabilir; onbellegi yok sayip
+                # normal akisa donuyoruz ki model sorguyu bastan yazsin.
+                adimlar.clear()
+            else:
+                son_sonuc = sonuc
+                onbellek_kullanildi = True
+                mesajlar.append(
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": ONBELLEK_ARAC_ID,
+                                "name": "sql_calistir",
+                                "input": {"sql": onbellek_sqli, "aciklama": ""},
+                            }
+                        ],
+                    }
+                )
+                mesajlar.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": ONBELLEK_ARAC_ID,
+                                "content": icerik,
+                            }
+                        ],
+                    }
+                )
+
     for _ in range(settings.max_tool_turns):
         yanit = client.messages.create(
             model=settings.claude_model,
@@ -342,6 +392,16 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Ch
         arac_cagrilari = [b for b in yanit.content if b.type == "tool_use"]
         if not arac_cagrilari:
             metin = "\n".join(b.text for b in yanit.content if b.type == "text").strip()
+            # Tek sorguyla cevaplanan ilk sorulari onbellege al. Coklu adimli
+            # veya konusma baglamina bagli sorular tek basina tekrarlanamaz.
+            # sqlcache.yaz(), sabit tarih iceren sorgulari kendisi reddeder.
+            if (
+                ilk_soru
+                and not onbellek_kullanildi
+                and len(adimlar) == 1
+                and adimlar[0].get("ok")
+            ):
+                sqlcache.yaz(mesaj, adimlar[0]["sql"])
             return ChatCevabi(
                 metin or "Cevap uretilemedi.", adimlar, son_sonuc, mesajlar, kullanim
             )
@@ -619,7 +679,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
                         "content": "",
                         "tool_calls": [
                             {
-                                "id": "onbellek_0",
+                                "id": ONBELLEK_ARAC_ID,
                                 "type": "function",
                                 "function": {
                                     "name": "sql_calistir",
@@ -635,7 +695,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
                 mesajlar.append(
                     {
                         "role": "tool",
-                        "tool_call_id": "onbellek_0",
+                        "tool_call_id": ONBELLEK_ARAC_ID,
                         "name": "sql_calistir",
                         "content": icerik,
                     }
