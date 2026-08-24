@@ -85,6 +85,10 @@ class Settings:
     api_token: str
     # Ham SQL calistirma ucu (/api/sql). Arayuz kullanmiyor; varsayilan kapali.
     allow_raw_sql: bool
+    # Sohbet oturumlari SQLite'ta saklanir; sunucu yeniden baslayinca
+    # konusmalar kaybolmasin ve worker'lar ayni veriyi gorsun diye.
+    session_ttl: int
+    max_sessions: int
     cors_origins: list[str]
 
     base_dir: Path = BASE_DIR
@@ -208,6 +212,8 @@ def load_settings() -> Settings:
         schema_ttl=_int("SCHEMA_TTL", 3600),
         api_token=os.getenv("API_TOKEN", "").strip(),
         allow_raw_sql=os.getenv("ALLOW_RAW_SQL", "off").strip().lower() in {"on", "1", "true", "evet"},
+        session_ttl=_int("SESSION_TTL", 86400),
+        max_sessions=_int("MAX_SESSIONS", 500),
         cors_origins=_liste("CORS_ORIGINS", ["*"]),
     )
 

@@ -495,17 +495,18 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     """
     client = get_groq_client()
 
-    mesajlar: list[dict[str, Any]] = list(gecmis or [])
-    if not mesajlar:
-        bugun = datetime.date.today().isoformat()
-        sistem = (
-            _sistem_talimati()
-            + "\n\n--- VERITABANI SEMASI ---\n"
-            + schema_to_prompt()
-            + "\n\nBugunun tarihi: "
-            + bugun
-        )
-        mesajlar.append({"role": "system", "content": sistem})
+    # Sistem mesaji HER ISTEKTE yeniden uretilir; gecmisten gelen eski kopya
+    # kullanilmaz. Aksi halde oturum basladiktan sonra sema degistiginde o
+    # konusma sonsuza dek eski semayi tasirdi.
+    onceki = [m for m in (gecmis or []) if m.get("role") != "system"]
+    sistem = (
+        _sistem_talimati()
+        + "\n\n--- VERITABANI SEMASI ---\n"
+        + schema_to_prompt()
+        + "\n\nBugunun tarihi: "
+        + datetime.date.today().isoformat()
+    )
+    mesajlar: list[dict[str, Any]] = [{"role": "system", "content": sistem}, *onceki]
     mesajlar.append({"role": "user", "content": mesaj})
 
     adimlar: list[dict[str, Any]] = []

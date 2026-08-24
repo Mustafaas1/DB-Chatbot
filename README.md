@@ -370,6 +370,26 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 
 ---
 
+## Sohbet oturumları
+
+Oturumlar SQLite'ta (`oturumlar.db`) saklanır. Önceden bir Python sözlüğünde
+tutuluyorlardı; bunun iki sorunu vardı: sunucu her yeniden başlatıldığında tüm
+konuşmalar siliniyordu (`--reload` açıkken her dosya kaydında oluyordu) ve
+birden fazla worker çalıştırıldığında her worker'ın kendi kopyası olduğu için
+kullanıcılar rastgele bağlam kaybediyordu.
+
+**Sistem mesajı bilinçli olarak saklanmaz.** Sistem mesajı veritabanı şemasını
+içerir; saklansaydı bir oturum başladıktan sonra şema değiştiğinde o konuşma
+sonsuza dek eski şemayı kullanırdı — yani [şema tazeliği](#şema-tazeliği-canlı-veritabanı)
+bölümündeki koruma sürüp giden konuşmalar için işlemezdi. Sistem mesajı her
+istekte güncel şemayla yeniden üretilir. Bu ayrıca saklanan veriyi ~%86
+küçültür (8.275 → 1.145 karakter).
+
+`SESSION_TTL` (varsayılan 24 saat) dokunulmayan oturumları, `MAX_SESSIONS`
+(varsayılan 500) ise toplam sayıyı sınırlar; temizlik açılışta yapılır.
+
+---
+
 ## Portal panosu (canlı özet)
 
 Örnek portal sayfasındaki kartlar ve "Son hareketler" tablosu `/api/ozet`

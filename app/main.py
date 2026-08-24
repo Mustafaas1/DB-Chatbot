@@ -11,6 +11,7 @@ import openai
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import time
+from contextlib import asynccontextmanager
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,9 +23,17 @@ from .llm import sohbet_et
 from . import sqlcache
 from .ozet import ozet_getir
 from .guvenlik import dogrula, koruma_durumu
+from . import oturum as oturum_deposu
 from .schema import get_schema, refresh_schema, schema_to_prompt
 
-app = FastAPI(title="Veritabani Chatbot", version="1.0.0")
+@asynccontextmanager
+async def yasam_dongusu(_: FastAPI):
+    """Acilista suresi dolmus oturumlari temizle."""
+    oturum_deposu.bakim()
+    yield
+
+
+app = FastAPI(title="Veritabani Chatbot", version="1.0.0", lifespan=yasam_dongusu)
 
 STATIC_DIR = settings.base_dir / "static"
 
@@ -54,10 +63,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-API-Token"],
 )
 
-# Oturum -> tam konusma gecmisi. Tek islemli calisma icin bellekte tutulur.
-# Cok islemli/olcekli dagitimda Redis gibi bir depoya tasinmalidir.
-OTURUMLAR: dict[str, list[dict[str, Any]]] = {}
-MAKS_OTURUM = 200
+# Oturum gecmisi SQLite'ta tutulur (app/oturum.py). Bellekte tutuldugunda
+# sunucu her yeniden baslatildiginda konusmalar siliniyordu ve birden fazla
+# worker calistirildiginda her worker'in kendi kopyasi oluyordu.
 
 
 class ChatIstegi(BaseModel):
@@ -126,6 +134,7 @@ def durum() -> dict:
         "api_key_var": settings.llm_key_var,
         "max_rows": settings.max_rows,
         **koruma_durumu(),
+        "oturum": oturum_deposu.istatistik(),
     }
 
 
@@ -198,7 +207,7 @@ def sohbet(istek: ChatIstegi) -> dict:
         )
 
     oturum_id = istek.session_id or uuid.uuid4().hex
-    gecmis = OTURUMLAR.get(oturum_id, [])
+    gecmis = oturum_deposu.getir(oturum_id)
 
     try:
         cevap = sohbet_et(istek.message, gecmis)
@@ -248,9 +257,7 @@ def sohbet(istek: ChatIstegi) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    if len(OTURUMLAR) >= MAKS_OTURUM and oturum_id not in OTURUMLAR:
-        OTURUMLAR.pop(next(iter(OTURUMLAR)))  # en eski oturumu dusur
-    OTURUMLAR[oturum_id] = cevap.gecmis
+    oturum_deposu.kaydet(oturum_id, cevap.gecmis)
 
     return {"session_id": oturum_id, **cevap.to_dict()}
 
@@ -259,7 +266,7 @@ def sohbet(istek: ChatIstegi) -> dict:
 def oturum_sifirla(istek: OturumIstegi | None = None) -> dict:
     """Sohbet gecmisini temizler."""
     if istek and istek.session_id:
-        OTURUMLAR.pop(istek.session_id, None)
+        oturum_deposu.sil(istek.session_id)
     return {"ok": True}
 
 
