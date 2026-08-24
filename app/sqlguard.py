@@ -39,6 +39,12 @@ STRING_LITERAL = re.compile(r"'(?:[^']|'')*'")
 KOSELI_TANIMLAYICI = re.compile(r"\[[^\]]*\]")
 CIFT_TIRNAK_TANIMLAYICI = re.compile(r'"[^"]*"')
 KELIME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# sys.sp_who / dbo.xp_cmdshell gibi nitelikli adlar. KELIME nokta icermedigi
+# icin bunlari ayri taramak gerekir; aksi halde "sys.sp_" oneki hicbir zaman
+# eslesmez. Nokta cevresinde bosluk birakilarak da yazilabilir.
+NITELIKLI_AD = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)+"
+)
 
 
 def _yorumlari_ve_metinleri_temizle(sql: str) -> str:
@@ -102,8 +108,13 @@ def validate_sql(sql: str) -> str:
             "Bu chatbot yalnizca veri okuyabilir."
         )
 
-    for kelime in kelimeler:
-        if kelime.startswith(YASAKLI_ONEKLER):
-            raise SqlGuardError(f"Yasakli sistem proseduru: {kelime}")
+    # Hem yalin (xp_cmdshell) hem nitelikli (sys.sp_who) adlari denetle.
+    nitelikli = {
+        re.sub(r"\s*\.\s*", ".", ad).lower()
+        for ad in NITELIKLI_AD.findall(temiz)
+    }
+    for ad in sorted(kelimeler | nitelikli):
+        if ad.startswith(YASAKLI_ONEKLER):
+            raise SqlGuardError(f"Yasakli sistem proseduru: {ad}")
 
     return sql.rstrip(";").strip()

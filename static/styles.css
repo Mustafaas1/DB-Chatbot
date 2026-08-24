@@ -252,3 +252,20 @@ td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
   text-align: center; font-size: 12.5px; color: var(--soluk);
   border-top: 1px dashed var(--kenar); padding-top: 12px; margin: 4px auto 18px;
 }
+
+/* ---------- grafik ---------- */
+.grafik { padding: 14px 16px 6px; display: none; gap: 9px; }
+.sonuc-kutu.grafik-modu .grafik { display: grid; }
+.sonuc-kutu.grafik-modu .tablo-sarici { display: none; }
+.grafik-satir {
+  display: grid; grid-template-columns: minmax(0, 190px) 1fr auto;
+  align-items: center; gap: 12px;
+}
+.grafik-etiket {
+  font-size: 13px; color: var(--soluk);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grafik-yol { background: var(--zemin); border-radius: 5px; height: 20px; overflow: hidden; }
+.grafik-cubuk { height: 100%; border-radius: 5px; background: var(--vurgu-gradyan); }
+.grafik-deger { font-size: 13px; font-variant-numeric: tabular-nums; color: #1b2a6b; font-weight: 600; }
+.grafik-not { font-size: 12px; color: var(--soluk); padding: 4px 0 8px; }

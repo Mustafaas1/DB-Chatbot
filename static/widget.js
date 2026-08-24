@@ -221,6 +221,15 @@
   }
   .csv-buton:hover { border-color: var(--renk); color: var(--renk); }
   .tablo-sarici { overflow: auto; max-height: 260px; }
+  .grafik { padding: 10px 12px 4px; display: none; gap: 7px; }
+  .sonuc.grafik-modu .grafik { display: grid; }
+  .sonuc.grafik-modu .tablo-sarici { display: none; }
+  .grafik-satir { display: grid; grid-template-columns: minmax(0,88px) 1fr auto; align-items: center; gap: 8px; }
+  .grafik-etiket { font-size: 11.5px; color: var(--soluk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grafik-yol { background: #eef1f6; border-radius: 4px; height: 15px; overflow: hidden; }
+  .grafik-cubuk { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--renk-koyu), var(--renk)); }
+  .grafik-deger { font-size: 11.5px; font-variant-numeric: tabular-nums; color: #1b1f24; }
+  .grafik-not { font-size: 11px; color: var(--soluk); padding: 2px 0 6px; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th {
     position: sticky; top: 0; background: var(--zemin); z-index: 1;
@@ -388,11 +397,80 @@
     return kutu;
   }
 
+
+  /* ---------- grafik ----------
+     Sonuc iki kolonluysa ve biri sayisal, digeri etiketse cubuk grafik
+     cizilebilir. Karar tamamen istemcide verilir; yapay zekaya sorulmaz,
+     yani ek token harcamaz. */
+  function grafikVerisi(sonuc) {
+    if (!sonuc || !sonuc.columns || sonuc.columns.length !== 2) return null;
+    if (!sonuc.rows || sonuc.rows.length < 2) return null;
+
+    const sayi = (v) => typeof v === "number" && isFinite(v);
+    const solSayi = sonuc.rows.every((s) => sayi(s[0]));
+    const sagSayi = sonuc.rows.every((s) => sayi(s[1]));
+
+    // Tam olarak bir kolon sayisal olmali; ikisi de sayi ya da ikisi de
+    // metinse cubuk grafik anlam tasimaz.
+    let etiketIdx, degerIdx;
+    if (sagSayi && !solSayi) { etiketIdx = 0; degerIdx = 1; }
+    else if (solSayi && !sagSayi) { etiketIdx = 1; degerIdx = 0; }
+    else return null;
+
+    const SINIR = 12;
+    const veri = sonuc.rows.slice(0, SINIR).map((s) => ({
+      etiket: s[etiketIdx] === null || s[etiketIdx] === undefined ? "—" : String(s[etiketIdx]),
+      deger: s[degerIdx],
+    }));
+
+    // Negatif degerlerde tek yonlu cubuk yaniltici olur.
+    if (veri.some((d) => d.deger < 0)) return null;
+    const enBuyuk = Math.max.apply(null, veri.map((d) => d.deger));
+    if (!(enBuyuk > 0)) return null;
+
+    return {
+      veri: veri,
+      enBuyuk: enBuyuk,
+      kirpildi: sonuc.rows.length > SINIR,
+      toplamSatir: sonuc.rows.length,
+    };
+  }
+
+  function grafikCiz(g) {
+    const kutu = el("div", "grafik");
+    for (const d of g.veri) {
+      const satir = el("div", "grafik-satir");
+      satir.appendChild(el("span", "grafik-etiket", d.etiket));
+      const yol = el("div", "grafik-yol");
+      const cubuk = el("div", "grafik-cubuk");
+      // En kucuk deger de gorunur kalsin diye taban genislik veriyoruz.
+      cubuk.style.width = Math.max(2, (d.deger / g.enBuyuk) * 100) + "%";
+      yol.appendChild(cubuk);
+      satir.appendChild(yol);
+      satir.appendChild(el("span", "grafik-deger", d.deger.toLocaleString("tr-TR")));
+      kutu.appendChild(satir);
+    }
+    if (g.kirpildi) {
+      kutu.appendChild(el("div", "grafik-not",
+        g.toplamSatir + " satırın ilk 12'si gösteriliyor"));
+    }
+    return kutu;
+  }
+
   function sonucCiz(sonuc) {
     const kutu = el("div", "sonuc");
 
     const ust = el("div", "sonuc-ust");
     ust.appendChild(el("span", null, sonuc.row_count + " satır · " + sonuc.columns.length + " kolon"));
+    const g = grafikVerisi(sonuc);
+    if (g) {
+      const gBtn = el("button", "csv-buton", "Grafik");
+      gBtn.addEventListener("click", () => {
+        const grafikte = kutu.classList.toggle("grafik-modu");
+        gBtn.textContent = grafikte ? "Tablo" : "Grafik";
+      });
+      ust.appendChild(gBtn);
+    }
     const btn = el("button", "csv-buton", "Excel'e aktar");
     btn.addEventListener("click", () => csvIndir(sonuc));
     ust.appendChild(btn);
@@ -428,6 +506,8 @@
     tablo.appendChild(tbody);
     sarici.appendChild(tablo);
     kutu.appendChild(sarici);
+
+    if (g) kutu.appendChild(grafikCiz(g));
 
     if (sonuc.truncated) {
       kutu.appendChild(el("div", "uyari", "Sonuç " + sonuc.row_count + " satırda kesildi; sorunuzu daraltın."));

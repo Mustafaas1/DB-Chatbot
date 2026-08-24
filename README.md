@@ -273,6 +273,21 @@ Yapay zekanın ürettiği her SQL, çalışmadan önce üç katmandan geçer:
 Metin sabitleri (`WHERE Unvan LIKE '%delete%'`) ve köşeli parantezli kolon adları
 (`[Deleted]`) yanlış alarm üretmez — tarama öncesi ayıklanır.
 
+### Güvenlik testleri
+
+Bu katman projenin tek kritik güvencesi olduğu için regresyon testleriyle korunur:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest tests/ -q
+```
+
+52 test; `DROP`/`UPDATE`/`TRUNCATE`, `SELECT ... INTO`, `INTO OUTFILE`,
+`LOAD_FILE`, `BENCHMARK`, `SLEEP`, `WAITFOR`, `xp_cmdshell`, `sys.sp_who`,
+çoklu ifade ve yorum içine gizlenmiş komutları kapsar. Ayrıca yanlış alarm
+üretmemesi gereken durumları (`LIKE '%delete%'`, `` `rename` ``, `c.name`)
+doğrular.
+
 ---
 
 ## Proje yapısı

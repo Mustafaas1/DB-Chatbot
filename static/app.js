@@ -124,11 +124,72 @@ function csvIndir(sonuc) {
   URL.revokeObjectURL(url);
 }
 
+/* ---------- grafik ----------
+   Sonuc iki kolonluysa ve biri sayisal, digeri etiketse cubuk grafik
+   cizilebilir. Karar istemcide verilir; yapay zekaya sorulmaz, token harcamaz. */
+function grafikVerisi(sonuc) {
+  if (!sonuc || !sonuc.columns || sonuc.columns.length !== 2) return null;
+  if (!sonuc.rows || sonuc.rows.length < 2) return null;
+
+  const gecerli = (v) => sayiMi(v) && isFinite(v);
+  const solSayi = sonuc.rows.every((s) => gecerli(s[0]));
+  const sagSayi = sonuc.rows.every((s) => gecerli(s[1]));
+
+  // Tam olarak bir kolon sayisal olmali; ikisi de sayi ya da ikisi de metinse
+  // cubuk grafik anlam tasimaz.
+  let etiketIdx, degerIdx;
+  if (sagSayi && !solSayi) { etiketIdx = 0; degerIdx = 1; }
+  else if (solSayi && !sagSayi) { etiketIdx = 1; degerIdx = 0; }
+  else return null;
+
+  const SINIR = 12;
+  const veri = sonuc.rows.slice(0, SINIR).map((s) => ({
+    etiket: s[etiketIdx] === null || s[etiketIdx] === undefined ? "—" : String(s[etiketIdx]),
+    deger: s[degerIdx],
+  }));
+
+  // Negatif degerlerde tek yonlu cubuk yaniltici olur.
+  if (veri.some((d) => d.deger < 0)) return null;
+  const enBuyuk = Math.max.apply(null, veri.map((d) => d.deger));
+  if (!(enBuyuk > 0)) return null;
+
+  return { veri, enBuyuk, kirpildi: sonuc.rows.length > SINIR, toplamSatir: sonuc.rows.length };
+}
+
+function grafikOlustur(g) {
+  const kutu = el("div", "grafik");
+  for (const d of g.veri) {
+    const satir = el("div", "grafik-satir");
+    satir.appendChild(el("span", "grafik-etiket", d.etiket));
+    const yol = el("div", "grafik-yol");
+    const cubuk = el("div", "grafik-cubuk");
+    // En kucuk deger de gorunur kalsin diye taban genislik veriyoruz.
+    cubuk.style.width = Math.max(2, (d.deger / g.enBuyuk) * 100) + "%";
+    yol.appendChild(cubuk);
+    satir.appendChild(yol);
+    satir.appendChild(el("span", "grafik-deger", d.deger.toLocaleString("tr-TR")));
+    kutu.appendChild(satir);
+  }
+  if (g.kirpildi) {
+    kutu.appendChild(el("div", "grafik-not", `${g.toplamSatir} satırın ilk 12'si gösteriliyor`));
+  }
+  return kutu;
+}
+
 function sonucTablosuOlustur(sonuc) {
   const kutu = el("div", "sonuc-kutu");
 
   const ust = el("div", "sonuc-ust");
   ust.appendChild(el("span", null, `${sonuc.row_count} satır · ${sonuc.columns.length} kolon`));
+  const g = grafikVerisi(sonuc);
+  if (g) {
+    const gBtn = el("button", "mini-buton", "Grafik");
+    gBtn.addEventListener("click", () => {
+      const grafikte = kutu.classList.toggle("grafik-modu");
+      gBtn.textContent = grafikte ? "Tablo" : "Grafik";
+    });
+    ust.appendChild(gBtn);
+  }
   const indirBtn = el("button", "mini-buton", "Excel'e aktar (CSV)");
   indirBtn.addEventListener("click", () => csvIndir(sonuc));
   ust.appendChild(indirBtn);
@@ -162,6 +223,8 @@ function sonucTablosuOlustur(sonuc) {
   tablo.appendChild(tbody);
   sarici.appendChild(tablo);
   kutu.appendChild(sarici);
+
+  if (g) kutu.appendChild(grafikOlustur(g));
 
   if (sonuc.truncated) {
     kutu.appendChild(
