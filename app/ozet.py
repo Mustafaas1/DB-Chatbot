@@ -23,49 +23,50 @@ ONBELLEK_OMRU = 60.0
 _onbellek: dict[str, Any] = {}
 
 
-SAKILA = {
+# Tum sorgular IsDeleted = 0 filtresi kullanir: bu veritabaninda kayitlar
+# fiziksel silinmez, isaretlenir. Filtresiz sayilar yanlis cikar.
+CRM = {
     "kartlar": [
         {
-            "etiket": "Aktif Müşteri",
-            "sql": "SELECT COUNT(*) FROM customer WHERE active = 1",
-            "alt_sql": "SELECT COUNT(*) FROM customer",
-            "alt_bicim": "{} kayıtlı müşteri",
-        },
-        {
-            "etiket": "Katalogdaki Film",
-            "sql": "SELECT COUNT(*) FROM film",
-            "alt_sql": "SELECT COUNT(*) FROM category",
-            "alt_bicim": "{} kategori",
-        },
-        {
-            "etiket": "Toplam Tahsilat",
-            "sql": "SELECT ROUND(SUM(amount), 2) FROM payment",
-            "birim": " $",
-            "alt_sql": "SELECT COUNT(*) FROM payment",
-            "alt_bicim": "{} ödeme",
-        },
-        {
-            "etiket": "İade Edilmemiş",
-            "sql": "SELECT COUNT(*) FROM rental WHERE return_date IS NULL",
-            "alt_bicim": "takip gerekiyor",
+            "etiket": "Açık Destek Bileti",
+            "sql": "SELECT COUNT(*) FROM TicketRecords WHERE IsDeleted=0 AND Asama <> N'Tamamlandı'",
+            "alt_sql": "SELECT COUNT(*) FROM TicketRecords WHERE IsDeleted=0",
+            "alt_bicim": "toplam {} bilet",
             "dusus": True,
+        },
+        {
+            "etiket": "Açık Teklif",
+            "sql": "SELECT COUNT(*) FROM Teklifler WHERE IsDeleted=0 AND Durum IN (N'Teklif', N'Gönderildi')",
+            "alt_sql": "SELECT COUNT(*) FROM Teklifler WHERE IsDeleted=0",
+            "alt_bicim": "toplam {} teklif",
+        },
+        {
+            "etiket": "Faturalanacak Tutar",
+            "sql": "SELECT ROUND(SUM(Tutar), 2) FROM Invoices WHERE IsDeleted=0 AND Durum=N'Faturalanacak'",
+            "alt_sql": "SELECT COUNT(*) FROM Invoices WHERE IsDeleted=0 AND Durum=N'Faturalanacak'",
+            "alt_bicim": "{} fatura (karışık para birimi)",
+        },
+        {
+            "etiket": "Aktif Sözleşme",
+            "sql": "SELECT COUNT(*) FROM ContractRecords WHERE IsDeleted=0",
+            "alt_sql": "SELECT COUNT(*) FROM Contacts WHERE IsDeleted=0",
+            "alt_bicim": "{} kontak kaydı",
         },
     ],
     "hareketler_sql": """
-        SELECT CONCAT(c.first_name, ' ', c.last_name) AS Musteri,
-               f.title AS Film,
-               r.rental_date AS Tarih,
-               CASE WHEN r.return_date IS NULL THEN 'Dışarıda' ELSE 'İade edildi' END AS Durum
-        FROM rental r
-        JOIN customer c ON c.customer_id = r.customer_id
-        JOIN inventory i ON i.inventory_id = r.inventory_id
-        JOIN film f ON f.film_id = i.film_id
-        ORDER BY r.rental_date DESC
-        LIMIT 5
+        SELECT TOP 5
+               BiletNo   AS [Bilet No],
+               Baslik    AS [Konu],
+               Musteri   AS [Musteri],
+               Asama     AS [Durum]
+        FROM TicketRecords
+        WHERE IsDeleted = 0
+        ORDER BY OlusturmaTarihi DESC
     """,
 }
 
-TANIMLAR: dict[str, dict[str, Any]] = {"sakila": SAKILA}
+
+TANIMLAR: dict[str, dict[str, Any]] = {"gokkusagi_passwordvault": CRM}
 
 
 def _tek_deger(sql: str) -> Any:

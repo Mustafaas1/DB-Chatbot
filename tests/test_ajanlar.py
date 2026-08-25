@@ -13,10 +13,10 @@ from app.schema import schema_to_prompt
 
 
 @pytest.fixture(autouse=True)
-def sakila_ajanlari(monkeypatch):
+def crm_ajanlari(monkeypatch):
     """Testler, gelistiricinin bagli oldugu veritabanina gore degismemeli.
 
-    ajanlari_getir() aktif veritabanina bakiyor; burada Sakila ajan kumesini
+    ajanlari_getir() aktif veritabanina bakiyor; burada CRM ajan kumesini
     sabitliyoruz ki .env degisince testler kirilmasin.
     """
     import dataclasses
@@ -24,7 +24,7 @@ def sakila_ajanlari(monkeypatch):
     from app import schema as sema_modulu
 
     sabit = dataclasses.replace(
-        ajan_modulu.settings, db_type="mysql", mysql_database="sakila"
+        ajan_modulu.settings, db_type="mssql", mssql_database="gokkusagi_passwordvault"
     )
     monkeypatch.setattr(ajan_modulu, "settings", sabit)
     monkeypatch.setattr(sema_modulu, "settings", sabit)
@@ -69,11 +69,11 @@ def test_ajan_sozlugu_isteme_giriyor(monkeypatch):
     from app import schema as sema_modulu
 
     sahte = {
-        "database": "sakila",
-        "db_type": "mysql",
-        "tables": [{"name": "film", "schema": "", "row_count": 1000,
-                    "columns": [{"name": "film_id", "type": "int", "nullable": False}],
-                    "primary_key": ["film_id"], "foreign_keys": []}],
+        "database": "gokkusagi_passwordvault",
+        "db_type": "mssql",
+        "tables": [{"name": "Teklifler", "schema": "dbo", "row_count": 190,
+                    "columns": [{"name": "Id", "type": "uniqueidentifier", "nullable": False}],
+                    "primary_key": ["Id"], "foreign_keys": []}],
         "views": [],
     }
     monkeypatch.setattr(sema_modulu, "get_schema", lambda *a, **k: sahte)

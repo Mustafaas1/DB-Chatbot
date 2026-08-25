@@ -26,6 +26,8 @@ class Ajan:
     aciklama: str
     renk: str
     ornekler: list[str] = field(default_factory=list)
+    #: Ajanin gorebilecegi tablolar. Bos ise tum tablolar (kucuk semalar icin).
+    tablolar: list[str] = field(default_factory=list)
 
     @property
     def sozluk_yolu(self) -> Path:
@@ -40,64 +42,105 @@ class Ajan:
             return ""
 
 
-SAKILA_AJANLARI = [
+# --- Gokkusagi CRM ---
+# Sema 66 sorgulanabilir tablo iceriyor; tamamini her ajana gondermek soru
+# basina ~5300 token demekti. Her ajan yalnizca kendi bolumunun tablolarini
+# gorur. Bolumler arasi sorular planlayici tarafindan zincire bolunur.
+
+CRM_AJANLARI = [
     Ajan(
         kod="satis",
         ad="Satış Ajanı",
         aciklama=(
-            "Kiralama islemleri, en cok/az kiralanan filmler, musteri satin alma "
-            "davranisi, donem karsilastirmalari, magaza ve personel satis performansi."
+            "Teklifler, teklif kalemleri, satis firsatlari, musteri kontaklari, "
+            "urun katalogu, satis temsilcisi performansi, kazanilan/kaybedilen teklifler."
         ),
         renk="#2f6fed",
+        tablolar=[
+            "Teklifler", "TeklifKalemleri", "TeklifActivities",
+            "OpportunityRecords", "OpportunityActivities",
+            "Contacts", "Products", "CustomerProducts",
+        ],
         ornekler=[
-            "En çok kiralanan 10 film hangileri?",
-            "Mağazalara göre aylık kiralama sayısı",
-            "En çok kiralama yapan 10 müşteri",
+            "Durumlarına göre teklif sayısı",
+            "En yüksek tutarlı 10 teklif",
+            "Satış temsilcisine göre kazanılan teklifler",
+        ],
+    ),
+    Ajan(
+        kod="destek",
+        ad="Destek Ajanı",
+        aciklama=(
+            "Destek biletleri (ticket), bilet asamalari ve oncelikleri, destek "
+            "kanallari, atanan kisiler, bilet gecmisi ve cozum sureleri."
+        ),
+        renk="#b45309",
+        tablolar=["TicketRecords", "TicketActivities", "TicketImportLog", "Contacts"],
+        ornekler=[
+            "Aşamalarına göre bilet sayısı",
+            "En çok bilet atanan 10 kişi",
+            "Kanallara göre destek talepleri",
         ],
     ),
     Ajan(
         kod="finans",
         ad="Finans Ajanı",
         aciklama=(
-            "Ciro, tahsilat, odeme tutarlari, ortalama sepet, gecikme ve iade "
-            "edilmemis kiralamalarin mali etkisi, donemsel finansal ozetler."
+            "Faturalar, fatura kalemleri, sozlesmeler, tutarlar ve para birimleri, "
+            "sozlesme yenileme tarihleri, faturalanacak/kesilen tutarlar."
         ),
         renk="#16a34a",
+        tablolar=[
+            "Invoices", "InvoiceKalemleri",
+            "ContractRecords", "ContractActivities",
+            "Products",
+        ],
         ornekler=[
-            "Aylara göre toplam ciro",
-            "En çok harcama yapan 10 müşteri",
-            "Ortalama ödeme tutarı nedir?",
+            "Durumlarına göre fatura tutarları",
+            "Bu yıl bitecek sözleşmeler",
+            "Para birimine göre toplam fatura tutarı",
         ],
     ),
     Ajan(
-        kod="envanter",
-        ad="Envanter Ajanı",
+        kod="proje",
+        ad="Proje Ajanı",
         aciklama=(
-            "Film katalogu, kategoriler, stok/kopya sayilari, magaza bazli "
-            "mevcudiyet, hic kiralanmamis veya dusuk dolasimli urunler."
-        ),
-        renk="#b45309",
-        ornekler=[
-            "Kategorilere göre film sayısı",
-            "Hiç kiralanmamış film var mı?",
-            "Mağazalarda kaç kopya var?",
-        ],
-    ),
-    Ajan(
-        kod="musteri",
-        ad="Müşteri Ajanı",
-        aciklama=(
-            "Musteri kimligi, iletisim ve adres bilgileri, aktif/pasif durumu, "
-            "sehir ve ulke dagilimi, musteri segmentleri."
+            "Projeler, is paketleri, proje gorevleri, ilerleme durumlari, "
+            "kanban panosu gorevleri ve atamalar."
         ),
         renk="#7c3aed",
+        tablolar=[
+            "Projects", "ProjectTasks", "ProjectWorkPackages",
+            "ProjectActivities", "ProjectSupportItems",
+            "KanbanTasks", "KanbanTaskNotes",
+        ],
         ornekler=[
-            "Şehirlere göre aktif müşteri sayısı",
-            "Kaç pasif müşterimiz var?",
-            "Ülkelere göre müşteri dağılımı",
+            "Durumlarına göre proje görevi sayısı",
+            "Tamamlanmamış görevleri olan projeler",
+            "Kanban panosunda önceliğe göre görev dağılımı",
+        ],
+    ),
+    Ajan(
+        kod="ik",
+        ad="İK Ajanı",
+        aciklama=(
+            "Izin talepleri ve onay durumlari, nobet cizelgeleri, giris-cikis "
+            "kayitlari, takvim etkinlikleri, calisan onerileri."
+        ),
+        renk="#0891b2",
+        tablolar=[
+            "LeaveRequests", "DutySchedules", "AttendanceRecords",
+            "CalendarEvents", "CalendarEventAttendees",
+            "Suggestions", "SuggestionVotes", "PersonalTodos",
+        ],
+        ornekler=[
+            "İzin türlerine göre talep sayısı",
+            "Aylara göre izin gün sayısı",
+            "Onay bekleyen izin talepleri",
         ],
     ),
 ]
+
 
 # Bolumleri tanimlanmamis veritabanlarinda tek bir genel ajan kullanilir.
 GENEL_AJAN = Ajan(
@@ -107,7 +150,7 @@ GENEL_AJAN = Ajan(
     renk="#3452d8",
 )
 
-AJAN_TANIMLARI: dict[str, list[Ajan]] = {"sakila": SAKILA_AJANLARI}
+AJAN_TANIMLARI: dict[str, list[Ajan]] = {"gokkusagi_passwordvault": CRM_AJANLARI}
 
 VARSAYILAN_AJAN = GENEL_AJAN
 

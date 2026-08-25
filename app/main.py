@@ -182,13 +182,13 @@ def tam_ekran() -> FileResponse:
 
 # Aktif veritabanina gore arayuzde gosterilecek ornek sorular.
 ORNEK_SORULAR = {
-    "sakila": [
-        "En çok kiralanan 10 film hangileri?",
-        "Kategorilere göre film sayısı ve toplam ciro",
-        "En çok harcama yapan 10 müşteri",
-        "Hiç kiralanmamış film var mı?",
-        "İade edilmemiş kiralamalar hangileri?",
-        "Mağazalara göre aylık kiralama sayısı",
+    "gokkusagi_passwordvault": [
+        "Aşamalarına göre açık destek biletleri",
+        "Durumlarına göre teklif sayısı ve toplam tutarı",
+        "Bu yıl bitecek sözleşmeler hangileri?",
+        "En çok bilet atanan 10 kişi",
+        "Para birimine göre faturalanacak tutar",
+        "İzin türlerine göre talep sayısı",
     ],
     "varsayilan": [
         "1 ay içinde sözleşmeleri bitecek müşteriler",

@@ -331,7 +331,7 @@ def get_schema(force: bool = False) -> dict[str, Any]:
 def load_notes() -> str:
     """Is kurallari / terim sozlugu dosyasini okur.
 
-    Once aktif veritabanina ozel dosyayi arar (schema_notes.sakila.md gibi),
+    Once aktif veritabanina ozel dosyayi arar (schema_notes.<veritabani>.md),
     bulamazsa genel schema_notes.md dosyasina duser. Boylece veritabani
     degistirildiginde yanlis terim sozlugu yapay zekaya gonderilmez.
     """
@@ -397,14 +397,22 @@ def _kompakt_tablo(tablo: dict[str, Any]) -> str:
     return satir
 
 
-def schema_to_prompt(sema: dict[str, Any] | None = None, ek_sozluk: str = "") -> str:
+def schema_to_prompt(sema: dict[str, Any] | None = None, ek_sozluk: str = "", sadece: set[str] | None = None) -> str:
     """Semayi, sistem mesajina gomulecek kompakt metne cevirir."""
     sema = sema or get_schema()
     lehce = "MySQL 8" if sema.get("db_type") == "mysql" else "MS SQL Server"
     satirlar: list[str] = [f"Veritabani: {sema['database']}  ({lehce})", ""]
 
     haric = {a.lower() for a in settings.schema_exclude}
-    tablolar = [t for t in sema["tables"] if t["name"].lower() not in haric]
+    # Bolum ajani yalnizca kendi tablolarini gorur. 66 tabloluk bir semada
+    # tamamini gondermek soru basina ~5300 token demek; kapsam bunu
+    # ajan basina ~1000 tokene indiriyor.
+    kapsam = {a.lower() for a in sadece} if sadece else None
+    tablolar = [
+        t for t in sema["tables"]
+        if t["name"].lower() not in haric
+        and (kapsam is None or t["name"].lower() in kapsam)
+    ]
 
     if settings.schema_style == "compact":
         satirlar.append("Tablolar (kolon:tip, PK=birincil anahtar, ->hedef=yabanci anahtar, ?=bos olabilir):")

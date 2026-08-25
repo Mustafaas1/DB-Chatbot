@@ -67,7 +67,7 @@ def test_mesru_sorgular_engellenmez(sql):
 
 
 def test_yasak_listesi_bossa_her_sey_serbest(monkeypatch):
-    """Sakila gibi hassas tablosu olmayan kurulumlarda davranis degismemeli."""
+    """Hassas tablosu olmayan kurulumlarda davranis degismemeli."""
     from app import config
 
     monkeypatch.setattr(

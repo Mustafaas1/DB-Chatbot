@@ -200,7 +200,7 @@ def load_settings() -> Settings:
         mysql_port=_int("MYSQL_PORT", 3306),
         mysql_user=os.getenv("MYSQL_USER", "root").strip(),
         mysql_password=os.getenv("MYSQL_PASSWORD", ""),
-        mysql_database=os.getenv("MYSQL_DATABASE", "sakila").strip(),
+        mysql_database=os.getenv("MYSQL_DATABASE", "").strip(),
         max_rows=_int("MAX_ROWS", 500),
         model_row_sample=_int("MODEL_ROW_SAMPLE", 15),
         schema_style=os.getenv("SCHEMA_STYLE", "compact").strip().lower(),

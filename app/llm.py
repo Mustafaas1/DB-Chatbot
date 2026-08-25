@@ -80,7 +80,7 @@ LEHCE: MYSQL 8
 - GROUP BY'da SELECT'teki gruplanmamis kolonlara dikkat (ONLY_FULL_GROUP_BY acik olabilir).
 - "1 ay icinde bitecek" -> t >= CURDATE() AND t < DATE_ADD(CURDATE(), INTERVAL 1 MONTH).
   "gecen ay", "bu yil", "son 3 ay" ifadelerini DATE_ADD/DATE_SUB ile hesapla.
-- DIKKAT: Sakila verisi gecmis tarihlidir. "son ay" gibi bir soruda sonuc bos gelirse
+- DIKKAT: Veri gecmis tarihli olabilir. "son ay" gibi bir soruda sonuc bos gelirse
   MAX(tarih) ile veri araligini kontrol et ve bulgunu kullaniciya soyle."""
 
 
@@ -650,7 +650,11 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
     sistem = (
         _sistem_talimati()
         + "\n\n--- VERITABANI SEMASI ---\n"
-        + schema_to_prompt(ek_sozluk=ajan.sozluk() if ajan else "")
+        + schema_to_prompt(
+            ek_sozluk=ajan.sozluk() if ajan else "",
+            # Bolum ajani yalnizca kendi tablolarini gorur.
+            sadece=set(ajan.tablolar) if (ajan and ajan.tablolar) else None,
+        )
         + "\n\nBugunun tarihi: "
         + datetime.date.today().isoformat()
     )
@@ -661,7 +665,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
     son_sonuc: QueryResult | None = None
     kullanim = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0}
 
-    # Tablo/kolon listesi sistem mesajinin en buyuk parcasi (Sakila'da ~650
+    # Tablo/kolon listesi sistem mesajinin en buyuk parcasi (~650-1500
     # token) ve her API cagrisinda yeniden gonderiliyor. Oysa sorgu calistiktan
     # sonraki cagrinin isi sadece donen satirlari ozetlemek; tablo listesine
     # ihtiyaci yok. O cagrilarda listeyi cikariyoruz; bu, dakikalik token
