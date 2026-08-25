@@ -6,114 +6,164 @@
 <title>Sonuç — Veritabanı Asistanı</title>
 <style>
   :root {
-    --zemin: #f1f4f9; --panel: #fff; --kenar: #e4e8ef;
-    --soluk: #6b7686; --renk: #3452d8; --metin: #16191f;
-    --golge: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.14);
+    --zemin: #eef1f6;
+    --panel: #fff;
+    --kenar: #e5e9f0;
+    --soluk: #6b7686;
+    --silik: #98a2b3;
+    --renk: #3452d8;
+    --metin: #131824;
+    --golge: 0 1px 2px rgba(16,24,40,.04), 0 10px 30px -14px rgba(16,24,40,.20);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--zemin); color: var(--metin);
     font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
-    padding: 34px 22px 72px;
     -webkit-font-smoothing: antialiased;
   }
-  .sarici { max-width: 960px; margin: 0 auto; }
+  .sarici { max-width: 1080px; margin: 0 auto; padding: 0 20px 72px; }
 
-  .soru {
-    font-size: 13px; color: var(--soluk); margin: 0 0 16px;
-    padding-left: 11px; border-left: 2px solid var(--kenar);
-  }
-  .soru b { color: var(--metin); font-weight: 600; }
+  /* ---------- ust bant ---------- */
+  .bant { background: var(--renk); color: #fff; padding: 26px 0 0; margin-bottom: 22px; }
+  .bant-ic { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  .bant .soru { font-size: 12.5px; opacity: .72; margin: 0 0 6px; letter-spacing: .01em; }
+  .bant h1 { font-size: 26px; margin: 0 0 6px; font-weight: 660; letter-spacing: -.02em; }
+  .bant .gorev { font-size: 13.5px; opacity: .82; margin: 0 0 20px; max-width: 70ch; }
 
-  /* Diger ajanlarin sekmeleri: sayfalari birbirine baglayan kisim */
-  .sekmeler { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  /* sekmeler: alt cizgili gercek sekme gorunumu */
+  .sekmeler { display: flex; gap: 4px; overflow-x: auto; }
   .sekme {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 7px 14px; border-radius: 999px; text-decoration: none;
-    border: 1px solid var(--kenar); background: var(--panel);
-    color: var(--soluk); font-size: 13px; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    padding: 11px 16px; border-radius: 10px 10px 0 0; text-decoration: none;
+    color: rgba(255,255,255,.72); font-size: 13.5px; font-weight: 550;
+    border-bottom: 3px solid transparent; transition: all .15s;
   }
-  .sekme:hover { border-color: var(--renk); color: var(--metin); }
-  .sekme .nokta { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .sekme.aktif { color: #fff; border-color: transparent; font-weight: 600; }
-  .sekme.aktif .nokta { background: #fff; }
+  .sekme:hover { color: #fff; background: rgba(255,255,255,.08); }
+  .sekme .nokta { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; opacity: .7; }
+  .sekme.aktif {
+    color: var(--metin); background: var(--zemin);
+    border-bottom-color: var(--zemin); font-weight: 640;
+  }
+  .sekme.aktif .nokta { opacity: 1; }
 
-  .ust { display: flex; align-items: center; gap: 11px; margin-bottom: 5px; }
-  .ust .imza {
-    width: 32px; height: 32px; border-radius: 9px; flex: none;
-    display: grid; place-items: center; color: #fff;
-    font-size: 13px; font-weight: 700; background: var(--renk);
+  /* ---------- olcu kutulari ---------- */
+  .olculer {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 20px;
   }
-  h1 { font-size: 21px; margin: 0; font-weight: 660; letter-spacing: -.01em; }
-  .gorev { color: var(--soluk); font-size: 13.5px; margin: 0 0 8px; padding-left: 43px; }
-  .kunye {
-    display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 43px;
-    margin: 0 0 22px; font-size: 12.5px; color: var(--soluk);
+  .olcu {
+    background: var(--panel); border: 1px solid var(--kenar);
+    border-radius: 12px; padding: 13px 16px;
   }
-  .kunye span { display: inline-flex; align-items: center; gap: 5px; }
+  .olcu .ad {
+    font-size: 11px; color: var(--silik); text-transform: uppercase;
+    letter-spacing: .07em; font-weight: 620;
+  }
+  .olcu .deger {
+    font-size: 21px; font-weight: 680; margin-top: 3px;
+    font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  }
+  .olcu .alt { font-size: 12px; color: var(--soluk); margin-top: 1px; }
 
+  /* ---------- kartlar ---------- */
   .kart {
     background: var(--panel); border: 1px solid var(--kenar);
-    border-radius: 16px; padding: 22px 24px; margin-bottom: 18px;
-    box-shadow: var(--golge);
+    border-radius: 14px; margin-bottom: 18px; box-shadow: var(--golge);
+    overflow: hidden;
   }
-  .kart h2 {
-    font-size: 11.5px; margin: 0 0 16px; font-weight: 660; color: var(--soluk);
-    text-transform: uppercase; letter-spacing: .07em;
+  .kart > h2 {
+    font-size: 11.5px; margin: 0; padding: 15px 20px 0; font-weight: 660;
+    color: var(--silik); text-transform: uppercase; letter-spacing: .07em;
   }
-  .cevap { border-left: 3px solid var(--renk); }
-  .cevap p { margin: 0; font-size: 15px; line-height: 1.7; }
+  .kart-ic { padding: 16px 20px 20px; }
 
-  .grafik { display: grid; gap: 4px; }
-  .satir {
-    display: grid; grid-template-columns: minmax(0, 240px) 1fr minmax(90px, auto);
-    align-items: center; gap: 14px; padding: 5px 8px; border-radius: 8px;
-  }
-  .satir:hover { background: var(--zemin); }
-  .etiket { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .yol { background: var(--zemin); border-radius: 5px; height: 22px; overflow: hidden; }
-  .cubuk { height: 100%; border-radius: 5px; background: var(--renk); opacity: .9; transition: width .4s ease; }
-  .deger { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 660; text-align: right; }
-  .not { font-size: 12.5px; color: var(--soluk); margin-top: 16px; }
+  .ozet p { margin: 0; font-size: 15.5px; line-height: 1.72; }
+  .ozet { border-left: 3px solid var(--renk); }
 
-  .tablo-sarici { overflow-x: auto; margin: -4px -6px; padding: 4px 6px; }
+  /* ---------- grafik ---------- */
+  .grafik { display: grid; gap: 2px; }
+  .cizgi {
+    display: grid; grid-template-columns: minmax(0, 34%) 1fr minmax(84px, auto);
+    align-items: center; gap: 16px; padding: 7px 10px; border-radius: 9px;
+  }
+  .cizgi:hover { background: var(--zemin); }
+  .cizgi .ad {
+    font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .yol { background: #eef1f6; border-radius: 6px; height: 26px; overflow: hidden; }
+  .cubuk {
+    height: 100%; border-radius: 6px; background: var(--renk);
+    transition: width .5s cubic-bezier(.22,.61,.36,1);
+  }
+  .cizgi .sayi {
+    font-size: 14px; font-weight: 680; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .not { font-size: 12.5px; color: var(--soluk); margin-top: 14px; }
+
+  /* ---------- tablo ---------- */
+  .tablo-sarici { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
-  th {
-    text-align: left; font-weight: 620; color: var(--soluk); font-size: 11.5px;
-    text-transform: uppercase; letter-spacing: .05em;
-    padding: 10px 14px; border-bottom: 1.5px solid var(--kenar); white-space: nowrap;
+  thead th {
+    position: sticky; top: 0; background: var(--panel); z-index: 1;
+    text-align: left; font-weight: 640; color: var(--silik); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 12px 20px; border-bottom: 1.5px solid var(--kenar); white-space: nowrap;
   }
-  th.sayi { text-align: right; }
-  td { padding: 11px 14px; border-bottom: 1px solid #f2f4f8; }
+  thead th.sayi { text-align: right; }
+  td { padding: 11px 20px; border-bottom: 1px solid #f3f5f9; }
   td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:nth-child(even) { background: #fafbfd; }
+  tbody tr:hover { background: #f4f7fc; }
   tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: var(--zemin); }
-  .bos { color: var(--soluk); }
+  td.bos { color: var(--silik); }
+
+  .bos-kart { padding: 40px 20px; text-align: center; color: var(--soluk); }
+
+  @media (max-width: 640px) {
+    .bant h1 { font-size: 21px; }
+    .cizgi { grid-template-columns: minmax(0, 42%) 1fr auto; gap: 10px; }
+    thead th, td { padding-left: 14px; padding-right: 14px; }
+  }
 
   @media (prefers-color-scheme: dark) {
-    :root { --zemin: #12151c; --panel: #1a1f29; --kenar: #2b313d; --soluk: #94a3b8; --metin: #e6e9ef; }
-    td { border-bottom-color: #232935; }
+    :root {
+      --zemin: #10131a; --panel: #191d27; --kenar: #272d3a;
+      --soluk: #98a2b3; --silik: #6b7686; --metin: #e8ebf1;
+    }
+    .yol { background: #232937; }
+    td { border-bottom-color: #212734; }
+    tbody tr:nth-child(even) { background: #1c212c; }
+    tbody tr:hover { background: #212837; }
+    thead th { background: var(--panel); }
   }
 </style>
 </head>
 <body>
-<div class="sarici">
-  <p class="soru" id="soru"></p>
-  <div class="sekmeler" id="sekmeler"></div>
 
-  <div class="ust">
-    <span class="imza" id="imza"></span>
+<div class="bant" id="bant">
+  <div class="bant-ic">
+    <p class="soru" id="soru"></p>
     <h1 id="baslik">Sonuç</h1>
+    <p class="gorev" id="gorev"></p>
+    <div class="sekmeler" id="sekmeler"></div>
   </div>
-  <p class="gorev" id="gorev"></p>
-  <p class="kunye" id="kunye"></p>
+</div>
 
-  <div class="kart cevap" id="cevapKarti" hidden><p id="cevap"></p></div>
+<div class="sarici">
+  <div class="olculer" id="olculer"></div>
+
+  <div class="kart ozet" id="ozetKarti" hidden>
+    <h2>Özet</h2>
+    <div class="kart-ic"><p id="ozet"></p></div>
+  </div>
 
   <div class="kart" id="grafikKarti" hidden>
-    <h2>Grafik</h2>
-    <div class="grafik" id="grafik"></div>
-    <div class="not" id="not"></div>
+    <h2>Dağılım</h2>
+    <div class="kart-ic">
+      <div class="grafik" id="grafik"></div>
+      <div class="not" id="not"></div>
+    </div>
   </div>
 
   <div class="kart" id="tabloKarti" hidden>
@@ -123,16 +173,17 @@
     </div>
   </div>
 
-  <div class="kart" id="bosKart" hidden><p class="bos" id="bosMetin"></p></div>
+  <div class="kart" id="bosKart" hidden>
+    <div class="bos-kart" id="bosMetin"></div>
+  </div>
 </div>
 
 <script>
 /* Tum adimlar TEK yukte tasinir; her sekme bir adimi gosterir ve ustteki
-   baglantilarla diger ajanlara gecilir. Veri URL fragmentindedir: sunucuya
+   sekmelerle diger ajanlara gecilir. Veri URL fragmentindedir: sunucuya
    gitmez ve widget baska bir alan adinda gomulu olsa bile calisir. */
 function parcala() {
-  const ham = (location.hash || "").replace(/^#/, "");
-  const p = new URLSearchParams(ham);
+  const p = new URLSearchParams((location.hash || "").replace(/^#/, ""));
   try {
     return {
       veri: JSON.parse(decodeURIComponent(p.get("veri") || "")),
@@ -150,8 +201,20 @@ function el(etiket, sinif, metin) {
   return d;
 }
 
+function sayi(n) {
+  return n.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
 function adres(veri, i) {
   return "#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + i;
+}
+
+function olcuEkle(kap, ad, deger, alt) {
+  const k = el("div", "olcu");
+  k.appendChild(el("div", "ad", ad));
+  k.appendChild(el("div", "deger", deger));
+  if (alt) k.appendChild(el("div", "alt", alt));
+  kap.appendChild(k);
 }
 
 const durum = parcala();
@@ -160,94 +223,113 @@ const i = durum.i;
 const adim = veri && veri.adimlar && veri.adimlar[i];
 
 if (!adim) {
+  document.getElementById("bant").hidden = true;
   document.getElementById("bosKart").hidden = false;
   document.getElementById("bosMetin").textContent =
     "Sonuç verisi bulunamadı. Bu sayfa asistandaki bir cevaptan açılır.";
 } else {
   document.title = adim.ajan + " — Veritabanı Asistanı";
-  document.documentElement.style.setProperty("--renk", adim.renk || "#3452d8");
+  const renk = adim.renk || "#3452d8";
+  document.documentElement.style.setProperty("--renk", renk);
+  document.getElementById("bant").style.background = renk;
 
-  if (veri.soru) {
-    const s = document.getElementById("soru");
-    s.appendChild(document.createTextNode("Soru: "));
-    s.appendChild(el("b", null, veri.soru));
-  }
-
-  const sekmeler = document.getElementById("sekmeler");
-  veri.adimlar.forEach(function (a, n) {
-    const s = el("a", "sekme" + (n === i ? " aktif" : ""), a.ajan);
-    s.href = adres(veri, n);
-    if (n === i) s.style.background = a.renk;
-    const nokta = el("span", "nokta");
-    if (n !== i) nokta.style.background = a.renk;
-    s.prepend(nokta);
-    // Yalnizca fragment degistigi icin tarayici sayfayi yeniden cizmez.
-    s.addEventListener("click", function () {
-      setTimeout(function () { location.reload(); }, 0);
-    });
-    sekmeler.appendChild(s);
-  });
-
+  if (veri.soru) document.getElementById("soru").textContent = "SORU · " + veri.soru;
   document.getElementById("baslik").textContent = adim.ajan;
   document.getElementById("gorev").textContent = adim.gorev || "";
 
-  // Ajan adinin bas harfleri kucuk bir imza olarak gosterilir (SA, FA gibi).
-  document.getElementById("imza").textContent = adim.ajan
-    .split(/\s+/).slice(0, 2).map(function (k) { return k[0]; }).join("").toLocaleUpperCase("tr");
+  // Sekmeler: birden fazla ajan varsa gecis yapilabilir
+  const sekmeler = document.getElementById("sekmeler");
+  if (veri.adimlar.length > 1) {
+    veri.adimlar.forEach(function (a, n) {
+      const s = el("a", "sekme" + (n === i ? " aktif" : ""), a.ajan);
+      s.href = adres(veri, n);
+      const nokta = el("span", "nokta");
+      if (n === i) nokta.style.background = a.renk;
+      s.prepend(nokta);
+      // Yalnizca fragment degistigi icin tarayici sayfayi yeniden cizmez.
+      s.addEventListener("click", function () {
+        setTimeout(function () { location.reload(); }, 0);
+      });
+      sekmeler.appendChild(s);
+    });
+  } else {
+    sekmeler.style.height = "14px";
+  }
 
-  const kunye = document.getElementById("kunye");
-  const satirSayisi = (adim.rows || []).length;
-  const kolonSayisi = (adim.columns || []).length;
-  if (satirSayisi) {
-    kunye.appendChild(el("span", null, satirSayisi + " satır"));
-    kunye.appendChild(el("span", null, kolonSayisi + " kolon"));
+  // Olcu kutulari: satir/kolon ve varsa en yuksek deger + toplam
+  const olculer = document.getElementById("olculer");
+  const satirlar = adim.rows || [];
+  const kolonlar = adim.columns || [];
+  olcuEkle(olculer, "Satır", sayi(satirlar.length));
+  olcuEkle(olculer, "Kolon", sayi(kolonlar.length));
+
+  if (adim.veri && adim.veri.length) {
+    const degerler = adim.veri.map(function (d) { return d.deger; });
+    const enBuyukD = Math.max.apply(null, degerler);
+    const enUst = adim.veri.find(function (d) { return d.deger === enBuyukD; });
+    olcuEkle(olculer, "En yüksek", sayi(enBuyukD), enUst ? enUst.etiket : "");
+
+    // Toplam YALNIZCA tek birim varken gosterilir. Sonucta birden fazla para
+    // birimi/birim varsa hepsini toplamak yanlis rakam uretir (TRY + USD gibi).
+    const birimDeseni = /(para ?birim|birim|currency|kur)/i;
+    const karisikBirim = kolonlar.some(function (ad, n) {
+      if (!birimDeseni.test(String(ad))) return false;
+      const farkli = new Set(satirlar.map(function (s) { return s[n]; }));
+      return farkli.size > 1;
+    });
+
+    if (!karisikBirim) {
+      olcuEkle(olculer, "Toplam", sayi(degerler.reduce(function (a, b) { return a + b; }, 0)),
+               "gösterilen satırlar");
+    } else {
+      olcuEkle(olculer, "Toplam", "—", "birden fazla para birimi");
+    }
   }
   if (veri.adimlar.length > 1) {
-    kunye.appendChild(el("span", null, (i + 1) + " / " + veri.adimlar.length + ". ajan"));
+    olcuEkle(olculer, "Ajan", (i + 1) + " / " + veri.adimlar.length, "zincirde");
   }
 
   if (adim.cevap) {
-    document.getElementById("cevap").textContent = adim.cevap;
-    document.getElementById("cevapKarti").hidden = false;
+    document.getElementById("ozet").textContent = adim.cevap;
+    document.getElementById("ozetKarti").hidden = false;
   }
 
   if (adim.veri && adim.veri.length) {
     const enBuyuk = Math.max.apply(null, adim.veri.map(function (d) { return d.deger; }));
     const g = document.getElementById("grafik");
     for (const d of adim.veri) {
-      const satir = el("div", "satir");
-      satir.appendChild(el("span", "etiket", d.etiket));
+      const c = el("div", "cizgi");
+      c.appendChild(el("span", "ad", d.etiket));
       const yol = el("div", "yol");
       const cubuk = el("div", "cubuk");
       cubuk.style.width = Math.max(2, (d.deger / enBuyuk) * 100) + "%";
       yol.appendChild(cubuk);
-      satir.appendChild(yol);
-      satir.appendChild(el("span", "deger", d.deger.toLocaleString("tr-TR")));
-      g.appendChild(satir);
+      c.appendChild(yol);
+      c.appendChild(el("span", "sayi", sayi(d.deger)));
+      g.appendChild(c);
     }
     if (adim.not) document.getElementById("not").textContent = adim.not;
     document.getElementById("grafikKarti").hidden = false;
   }
 
-  if (adim.columns && adim.columns.length) {
-    // Sayisal kolonlarin basligi da saga hizalansin ki sutun okunakli kalsin.
-    const sayisalKolon = adim.columns.map(function (_, n) {
-      return (adim.rows || []).length > 0 &&
-        (adim.rows || []).every(function (s) { return typeof s[n] === "number"; });
+  if (kolonlar.length) {
+    // Sayisal kolonlarin basligi da saga hizalansin
+    const sayisalKolon = kolonlar.map(function (_, n) {
+      return satirlar.length > 0 && satirlar.every(function (s) { return typeof s[n] === "number"; });
     });
 
     const tb = document.getElementById("tbaslik");
-    adim.columns.forEach(function (k, n) {
+    kolonlar.forEach(function (k, n) {
       tb.appendChild(el("th", sayisalKolon[n] ? "sayi" : null, k));
     });
+
     const tg = document.getElementById("tgovde");
-    for (const satir of adim.rows || []) {
+    for (const satir of satirlar) {
       const tr = el("tr");
       for (const h of satir) {
-        const sayi = typeof h === "number";
-        const td = el("td", sayi ? "sayi" : null,
-          h === null || h === undefined ? "—" : (sayi ? h.toLocaleString("tr-TR") : String(h)));
-        tr.appendChild(td);
+        const s = typeof h === "number";
+        const bos = h === null || h === undefined;
+        tr.appendChild(el("td", s ? "sayi" : (bos ? "bos" : null), bos ? "—" : (s ? sayi(h) : String(h))));
       }
       tg.appendChild(tr);
     }
