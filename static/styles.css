@@ -304,3 +304,18 @@ td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .grafik-baglanti:hover { border-color: var(--vurgu); background: var(--vurgu-soluk); }
 .grafik-baglanti.uyari { border-color: #f3c2c2; background: #fdecec; color: #b45309; }
+
+/* Sirada bekleyen ajan: uzun beklemede ekran donmus gibi gorunmesin */
+.adim-bekliyor {
+  display: flex; align-items: center; gap: 9px;
+  margin: 4px 0 14px; padding: 10px 14px;
+  border: 1px dashed var(--kenar); border-radius: 12px;
+  color: var(--soluk); font-size: 13px;
+  background: var(--panel);
+}
+.adim-bekliyor::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--vurgu); animation: nabiz 1.2s ease-in-out infinite;
+}
+@keyframes nabiz { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+.ajan-rozet.bekliyor { animation: nabiz 1.6s ease-in-out infinite; }

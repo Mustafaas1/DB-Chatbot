@@ -271,6 +271,18 @@
   }
   .csv-buton:hover { border-color: var(--renk); color: var(--renk); }
   .tablo-sarici { overflow: auto; max-height: 260px; }
+  .adim-bekliyor {
+    display: flex; align-items: center; gap: 8px;
+    margin: 2px 0 10px; padding: 8px 11px;
+    border: 1px dashed var(--kenar); border-radius: 10px;
+    color: var(--soluk); font-size: 11.5px; background: var(--panel);
+  }
+  .adim-bekliyor::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--renk); animation: nabiz 1.2s ease-in-out infinite;
+  }
+  @keyframes nabiz { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+  .ajan-rozet.bekliyor { animation: nabiz 1.6s ease-in-out infinite; }
   .zincir-ozet {
     display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
     margin-bottom: 9px; font-size: 10.5px; color: var(--soluk);
@@ -813,6 +825,35 @@
     const toplanan = [];
     const yukler = [];        // acilan sayfalarin paylastigi tum adimlar
 
+    // Ikinci ajan dakikalik token limiti yuzunden 40-60 sn surebiliyor;
+    // o sure boyunca panelde hicbir sey degismezse kullanici takildi saniyor.
+    let bekleyenAdim = null;
+    let bekleyenSayac = null;
+
+    const bekleyenAdimiTemizle = () => {
+      if (bekleyenSayac) clearInterval(bekleyenSayac);
+      bekleyenSayac = null;
+      if (bekleyenAdim) bekleyenAdim.remove();
+      bekleyenAdim = null;
+    };
+
+    const bekleyenAdimiTazele = () => {
+      bekleyenAdimiTemizle();
+      if (!ozetEl || !sarici) return;
+      const kalan = ozetEl.querySelector(".ajan-rozet.bekliyor");
+      if (!kalan) return;
+      const basla = Date.now();
+      bekleyenAdim = el("div", "adim-bekliyor");
+      const yaz = () => {
+        bekleyenAdim.textContent =
+          kalan.textContent + " çalışıyor… " + Math.round((Date.now() - basla) / 1000) + " sn";
+      };
+      yaz();
+      bekleyenSayac = setInterval(yaz, 1000);
+      sarici.appendChild(bekleyenAdim);
+      asagiKaydir();
+    };
+
     const baglantilariTazele = () => {
       if (!sarici) return;
       for (const a of sarici.querySelectorAll(".grafik-baglanti[data-sira]")) {
@@ -840,6 +881,7 @@
           ozetEl = zincirOzetiOlustur(kayit.adimlar);
           sarici.appendChild(ozetEl);
         }
+        bekleyenAdimiTazele();
         asagiKaydir();
         return;
       }
@@ -848,10 +890,12 @@
           const r = ozetEl.querySelector('[data-ajan="' + kayit.ajan + '"].bekliyor');
           if (r) r.classList.remove("bekliyor");
         }
+        bekleyenAdimiTemizle();
         toplanan.push(kayit);
         yukler.push(adimYuku(kayit));
         sarici.appendChild(adimPaneliCiz(kayit, kayit.toplam_adim));
         baglantilariTazele();
+        bekleyenAdimiTazele();
 
         // Bu adimin sayfasini kendi sekmesinde ac.
         const pencere = window.open(sonucAdresi(metin, yukler, yukler.length - 1), "_blank", "noopener");
@@ -877,6 +921,7 @@
       mesajlar.push(hata);
     }
 
+    bekleyenAdimiTemizle();
     clearInterval(sayac);
     mesajlariKaydet();
     asagiKaydir();

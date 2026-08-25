@@ -528,6 +528,37 @@ async function gonder(metin) {
     }
   };
 
+  // Ikinci ajan dakikalik token limiti yuzunden 40-60 sn surebiliyor.
+  // O sure boyunca ekranda hicbir sey degismezse kullanici takildi saniyor;
+  // sirada bekleyen ajani gecen sureyle birlikte gosteriyoruz.
+  let bekleyenEl2 = null;
+  let bekleyenSayac = null;
+
+  const bekleyenAdimiTemizle = () => {
+    if (bekleyenSayac) clearInterval(bekleyenSayac);
+    bekleyenSayac = null;
+    if (bekleyenEl2) bekleyenEl2.remove();
+    bekleyenEl2 = null;
+  };
+
+  const bekleyenAdimiTazele = () => {
+    bekleyenAdimiTemizle();
+    if (!ozetEl || !sarici) return;
+    const kalan = ozetEl.querySelector(".ajan-rozet.bekliyor");
+    if (!kalan) return;
+
+    const basla = Date.now();
+    bekleyenEl2 = el("div", "adim-bekliyor");
+    const yaz = () => {
+      const sn = Math.round((Date.now() - basla) / 1000);
+      bekleyenEl2.textContent = kalan.textContent + " çalışıyor… " + sn + " sn";
+    };
+    yaz();
+    bekleyenSayac = setInterval(yaz, 1000);
+    sarici.appendChild(bekleyenEl2);
+    asagiKaydir();
+  };
+
   const kayitIsle = (kayit) => {
     if (kayit.tur === "oturum") {
       oturumId = kayit.session_id;
@@ -547,6 +578,7 @@ async function gonder(metin) {
         ozetEl = zincirOzetiOlustur(kayit.adimlar);
         sarici.appendChild(ozetEl);
       }
+      bekleyenAdimiTazele();
       asagiKaydir();
       return;
     }
@@ -555,6 +587,7 @@ async function gonder(metin) {
         const r = ozetEl.querySelector('[data-ajan="' + kayit.ajan + '"].bekliyor');
         if (r) r.classList.remove("bekliyor");
       }
+      bekleyenAdimiTazele();
       yukler.push(adimYuku(kayit));
       sarici.appendChild(adimPaneliOlustur(kayit, kayit.toplam_adim));
       baglantilariTazele();
@@ -583,6 +616,7 @@ async function gonder(metin) {
       hataEkle(err.message || ("Sunucuya ulaşılamadı: " + err), sarici || bekleyenEl);
     }
   } finally {
+    bekleyenAdimiTemizle();
     clearInterval(bekleyenEl.sayac);
     bekliyor = false;
     gonderBtn.disabled = false;
