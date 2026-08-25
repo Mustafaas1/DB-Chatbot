@@ -269,3 +269,27 @@ td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
 .grafik-cubuk { height: 100%; border-radius: 5px; background: var(--vurgu-gradyan); }
 .grafik-deger { font-size: 13px; font-variant-numeric: tabular-nums; color: #1b2a6b; font-weight: 600; }
 .grafik-not { font-size: 12px; color: var(--soluk); padding: 4px 0 8px; }
+
+/* ---------- ajan zinciri ---------- */
+.zincir-ozet {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 12px; font-size: 12.5px; color: var(--soluk);
+}
+.zincir-etiket { text-transform: uppercase; letter-spacing: .05em; font-size: 11.5px; }
+.zincir-ok { color: var(--soluk); }
+
+.adim-panel {
+  border-left: 3px solid var(--vurgu);
+  background: var(--panel);
+  border-radius: 0 12px 12px 0;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+}
+.adim-ust { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.adim-sira { font-size: 11.5px; color: var(--soluk); font-variant-numeric: tabular-nums; }
+.ajan-rozet {
+  font-size: 11.5px; font-weight: 600; color: #fff;
+  padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+}
+.adim-gorev { font-size: 12.5px; color: var(--soluk); }

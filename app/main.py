@@ -11,7 +11,7 @@ import openai
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +22,7 @@ from .db import run_select, test_connection
 from .llm import sohbet_et
 from . import sqlcache
 from .ozet import ozet_getir
+from .orkestra import akis_calistir
 from .guvenlik import dogrula, koruma_durumu
 from . import oturum as oturum_deposu
 from .schema import get_schema, refresh_schema, schema_to_prompt
@@ -68,7 +69,70 @@ app.add_middleware(
 # worker calistirildiginda her worker'in kendi kopyasi oluyordu.
 
 
+
+
+@contextmanager
+def _llm_hatalarini_cevir():
+    """Saglayici hatalarini kullaniciya anlasilir HTTP yanitina cevirir.
+
+    Tek ajanli sohbet ve ajan zinciri ayni cevirileri kullanir; kopyalanirsa
+    zamanla birbirinden ayrisirlar.
+    """
+    try:
+        yield
+    except (anthropic.AuthenticationError, openai.AuthenticationError) as exc:
+        anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
+        raise HTTPException(
+            status_code=401,
+            detail=f"API anahtari gecersiz. .env dosyasindaki {anahtar_adi} degerini kontrol edin.",
+        ) from exc
+    except (anthropic.RateLimitError, openai.RateLimitError) as exc:
+        # Saglayicinin kendi mesaji ne zaman tekrar denenebilecegini ve hangi
+        # limitin (dakikalik mi gunluk mu) doldugunu soyluyor; bunu gizlemeyelim.
+        ayrinti = "API kullanim limiti asildi."
+        try:
+            ham = exc.response.json()["error"]["message"]
+        except Exception:  # noqa: BLE001
+            ham = str(exc)
+        if "per day" in ham or "TPD" in ham:
+            ayrinti = (
+                "Gunluk token kotasi doldu. "
+                "Groq ucretsiz katmani gunde 200.000 token verir (~30-45 soru). "
+            )
+        elif "per minute" in ham or "TPM" in ham:
+            ayrinti = "Dakikalik token limiti doldu. "
+        sure = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", ham)
+        if sure:
+            dakika = int(sure.group(1) or 0)
+            saniye = round(float(sure.group(2)))
+            if saniye >= 60:
+                dakika, saniye = dakika + saniye // 60, saniye % 60
+            okunur = f"{dakika} dk {saniye} sn" if dakika else f"{saniye} sn"
+            ayrinti = ayrinti.rstrip() + f" Yaklasik {okunur} sonra tekrar deneyebilirsiniz."
+        raise HTTPException(status_code=429, detail=ayrinti) from exc
+    except (anthropic.APIConnectionError, openai.APIConnectionError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Yapay zeka servisine baglanilamadi. Internet baglantinizi kontrol edin.",
+        ) from exc
+    except openai.NotFoundError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Model bulunamadi: {settings.groq_model}. "
+                ".env dosyasindaki GROQ_MODEL degerini kontrol edin."
+            ),
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 class ChatIstegi(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+    session_id: str | None = None
+
+
+class AkisIstegi(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     session_id: str | None = None
 
@@ -209,57 +273,35 @@ def sohbet(istek: ChatIstegi) -> dict:
     oturum_id = istek.session_id or uuid.uuid4().hex
     gecmis = oturum_deposu.getir(oturum_id)
 
-    try:
+    with _llm_hatalarini_cevir():
         cevap = sohbet_et(istek.message, gecmis)
-    except (anthropic.AuthenticationError, openai.AuthenticationError) as exc:
-        anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
-        raise HTTPException(
-            status_code=401,
-            detail=f"API anahtari gecersiz. .env dosyasindaki {anahtar_adi} degerini kontrol edin.",
-        ) from exc
-    except (anthropic.RateLimitError, openai.RateLimitError) as exc:
-        # Saglayicinin kendi mesaji ne zaman tekrar denenebilecegini ve hangi
-        # limitin (dakikalik mi gunluk mu) doldugunu soyluyor; bunu gizlemeyelim.
-        ayrinti = "API kullanim limiti asildi."
-        try:
-            ham = exc.response.json()["error"]["message"]
-        except Exception:  # noqa: BLE001
-            ham = str(exc)
-        if "per day" in ham or "TPD" in ham:
-            ayrinti = (
-                "Gunluk token kotasi doldu. "
-                "Groq ucretsiz katmani gunde 200.000 token verir (~30-45 soru). "
-            )
-        elif "per minute" in ham or "TPM" in ham:
-            ayrinti = "Dakikalik token limiti doldu. "
-        sure = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", ham)
-        if sure:
-            dakika = int(sure.group(1) or 0)
-            saniye = round(float(sure.group(2)))
-            if saniye >= 60:
-                dakika, saniye = dakika + saniye // 60, saniye % 60
-            okunur = f"{dakika} dk {saniye} sn" if dakika else f"{saniye} sn"
-            ayrinti = ayrinti.rstrip() + f" Yaklasik {okunur} sonra tekrar deneyebilirsiniz."
-        raise HTTPException(status_code=429, detail=ayrinti) from exc
-    except (anthropic.APIConnectionError, openai.APIConnectionError) as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Yapay zeka servisine baglanilamadi. Internet baglantinizi kontrol edin.",
-        ) from exc
-    except openai.NotFoundError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Model bulunamadi: {settings.groq_model}. "
-                ".env dosyasindaki GROQ_MODEL degerini kontrol edin."
-            ),
-        ) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     oturum_deposu.kaydet(oturum_id, cevap.gecmis)
 
     return {"session_id": oturum_id, **cevap.to_dict()}
+
+
+@app.post("/api/akis", dependencies=[Depends(dogrula)])
+def akis(istek: AkisIstegi) -> dict:
+    """Soruyu bolum ajanlarindan olusan bir zincire dagitir.
+
+    Tek bolumu ilgilendiren sorularda tek adim doner; iki bolumu
+    ilgilendirenlerde ikinci ajan birincinin bulgusu uzerine calisir.
+    Konusma sureklidir: gecmis ilk adima verilir, son adimin gecmisi saklanir.
+    """
+    if not settings.llm_key_var:
+        anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
+        raise HTTPException(
+            status_code=400,
+            detail=f"{anahtar_adi} tanimli degil. .env dosyasina API anahtarinizi ekleyin.",
+        )
+
+    oturum_id = istek.session_id or uuid.uuid4().hex
+    with _llm_hatalarini_cevir():
+        sonuc = akis_calistir(istek.message, oturum_deposu.getir(oturum_id))
+
+    oturum_deposu.kaydet(oturum_id, sonuc.pop("gecmis", []))
+    return {"session_id": oturum_id, **sonuc}
 
 
 @app.post("/api/oturum/sifirla", dependencies=[Depends(dogrula)])

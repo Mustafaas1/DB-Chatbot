@@ -154,20 +154,31 @@ function csvIndir(sonuc) {
 /* ---------- grafik ----------
    Sonuc iki kolonluysa ve biri sayisal, digeri etiketse cubuk grafik
    cizilebilir. Karar istemcide verilir; yapay zekaya sorulmaz, token harcamaz. */
-function grafikVerisi(sonuc) {
-  if (!sonuc || !sonuc.columns || sonuc.columns.length !== 2) return null;
+function grafikVerisi(sonuc, esnek) {
+  if (!sonuc || !sonuc.columns || sonuc.columns.length < 2) return null;
   if (!sonuc.rows || sonuc.rows.length < 2) return null;
 
-  const gecerli = (v) => sayiMi(v) && isFinite(v);
-  const solSayi = sonuc.rows.every((s) => gecerli(s[0]));
-  const sagSayi = sonuc.rows.every((s) => gecerli(s[1]));
+  const gecerli = (v) => typeof v === "number" && isFinite(v);
+  // "ID", "No", "Kod" gibi kolonlar sayisaldir ama olculecek bir deger degildir.
+  const kimlikMi = (ad) => /(^|[ _])(id|no|kod|numara)([ _]|$)/i.test(String(ad || ""));
 
-  // Tam olarak bir kolon sayisal olmali; ikisi de sayi ya da ikisi de metinse
-  // cubuk grafik anlam tasimaz.
-  let etiketIdx, degerIdx;
-  if (sagSayi && !solSayi) { etiketIdx = 0; degerIdx = 1; }
-  else if (solSayi && !sagSayi) { etiketIdx = 1; degerIdx = 0; }
-  else return null;
+  const sayisal = [];
+  const metinsel = [];
+  sonuc.columns.forEach((ad, i) => {
+    if (sonuc.rows.every((s) => gecerli(s[i]))) {
+      if (!kimlikMi(ad)) sayisal.push(i);
+    } else {
+      metinsel.push(i);
+    }
+  });
+
+  // Normalde tam olarak bir olcu kolonu isteriz; birden fazlaysa hangisinin
+  // cizilecegi belirsizdir. Planlayici bu adimi grafige uygun isaretlediyse
+  // (esnek) son olcu kolonunu aliyoruz: toplam/tutar genelde sonda gelir.
+  if (!metinsel.length) return null;
+  if (sayisal.length !== 1 && !(esnek && sayisal.length > 1)) return null;
+  const degerIdx = sayisal[sayisal.length - 1];
+  const etiketIdx = metinsel[0];
 
   const SINIR = 12;
   const veri = sonuc.rows.slice(0, SINIR).map((s) => ({
@@ -203,12 +214,12 @@ function grafikOlustur(g) {
   return kutu;
 }
 
-function sonucTablosuOlustur(sonuc) {
+function sonucTablosuOlustur(sonuc, esnek) {
   const kutu = el("div", "sonuc-kutu");
 
   const ust = el("div", "sonuc-ust");
   ust.appendChild(el("span", null, `${sonuc.row_count} satır · ${sonuc.columns.length} kolon`));
-  const g = grafikVerisi(sonuc);
+  const g = grafikVerisi(sonuc, esnek);
   if (g) {
     const gBtn = el("button", "mini-buton", "Grafik");
     gBtn.addEventListener("click", () => {
@@ -264,6 +275,66 @@ function sonucTablosuOlustur(sonuc) {
 
 /* ---------- asistan cevabı ---------- */
 
+/* ---------- ajan zinciri ----------
+   Her adim kendi panelinde gosterilir: hangi ajanin ne yaptigi gorunur olsun.
+   grafik=true olan adimlarda tablo yerine grafik acik baslar (ek token yok). */
+function ajanRozeti(adim) {
+  const r = el("span", "ajan-rozet", adim.ajan_adi);
+  r.style.background = adim.renk;
+  return r;
+}
+
+function adimPaneliOlustur(adim, toplamAdim) {
+  const panel = el("div", "adim-panel");
+  panel.style.borderLeftColor = adim.renk;
+
+  const ust = el("div", "adim-ust");
+  if (toplamAdim > 1) ust.appendChild(el("span", "adim-sira", adim.sira + "/" + toplamAdim));
+  ust.appendChild(ajanRozeti(adim));
+  ust.appendChild(el("span", "adim-gorev", adim.gorev));
+  panel.appendChild(ust);
+
+  const adimlar = adim.steps || [];
+  const sonBasarili = [...adimlar].reverse().find((a) => a.ok);
+  for (const s of adimlar) panel.appendChild(sqlKutusuOlustur(s, false));
+
+  if (adim.result && adim.result.columns && adim.result.columns.length) {
+    const kart = sonucTablosuOlustur(adim.result, adim.grafik);
+    // Planlayici bu adimi grafige uygun bulduysa grafikle ac.
+    if (adim.grafik && kart.querySelector(".grafik")) {
+      kart.classList.add("grafik-modu");
+      const btn = [...kart.querySelectorAll(".mini-buton")].find((b) => b.textContent === "Grafik");
+      if (btn) btn.textContent = "Tablo";
+    }
+    panel.appendChild(kart);
+  }
+
+  if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
+  return panel;
+}
+
+function zinciriEkle(veri, hedefEl) {
+  const sarici = hedefEl || el("div", "mesaj asistan");
+  sarici.className = "mesaj asistan";
+  sarici.innerHTML = "";
+
+  const adimlar = veri.adimlar || [];
+  if (adimlar.length > 1) {
+    const ozet = el("div", "zincir-ozet");
+    ozet.appendChild(el("span", "zincir-etiket", "Ajan zinciri"));
+    adimlar.forEach((a, i) => {
+      if (i) ozet.appendChild(el("span", "zincir-ok", "→"));
+      ozet.appendChild(ajanRozeti(a));
+    });
+    sarici.appendChild(ozet);
+  }
+
+  for (const adim of adimlar) sarici.appendChild(adimPaneliOlustur(adim, adimlar.length));
+
+  if (!hedefEl) sohbetEl.appendChild(sarici);
+  asagiKaydir();
+}
+
 function asistanCevabiEkle(veri, hedefEl) {
   const sarici = hedefEl || el("div", "mesaj asistan");
   sarici.className = "mesaj asistan";
@@ -311,7 +382,7 @@ async function gonder(metin) {
   const bekleyenEl = bekleyenEkle();
 
   try {
-    const yanit = await fetch("/api/sohbet", {
+    const yanit = await fetch("/api/akis", {
       method: "POST",
       headers: basliklar(true),
       body: JSON.stringify({ message: metin, session_id: oturumId }),
@@ -322,7 +393,7 @@ async function gonder(metin) {
       hataEkle(veri.detail || "Beklenmeyen bir hata oluştu.", bekleyenEl);
     } else {
       oturumId = veri.session_id;
-      asistanCevabiEkle(veri, bekleyenEl);
+      zinciriEkle(veri, bekleyenEl);
     }
   } catch (err) {
     hataEkle("Sunucuya ulaşılamadı: " + err.message, bekleyenEl);

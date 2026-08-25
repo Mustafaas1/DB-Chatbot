@@ -411,20 +411,31 @@
      Sonuc iki kolonluysa ve biri sayisal, digeri etiketse cubuk grafik
      cizilebilir. Karar tamamen istemcide verilir; yapay zekaya sorulmaz,
      yani ek token harcamaz. */
-  function grafikVerisi(sonuc) {
-    if (!sonuc || !sonuc.columns || sonuc.columns.length !== 2) return null;
+  function grafikVerisi(sonuc, esnek) {
+    if (!sonuc || !sonuc.columns || sonuc.columns.length < 2) return null;
     if (!sonuc.rows || sonuc.rows.length < 2) return null;
 
-    const sayi = (v) => typeof v === "number" && isFinite(v);
-    const solSayi = sonuc.rows.every((s) => sayi(s[0]));
-    const sagSayi = sonuc.rows.every((s) => sayi(s[1]));
+    const gecerli = (v) => typeof v === "number" && isFinite(v);
+    // "ID", "No", "Kod" gibi kolonlar sayisaldir ama olculecek bir deger degildir.
+    const kimlikMi = (ad) => /(^|[ _])(id|no|kod|numara)([ _]|$)/i.test(String(ad || ""));
 
-    // Tam olarak bir kolon sayisal olmali; ikisi de sayi ya da ikisi de
-    // metinse cubuk grafik anlam tasimaz.
-    let etiketIdx, degerIdx;
-    if (sagSayi && !solSayi) { etiketIdx = 0; degerIdx = 1; }
-    else if (solSayi && !sagSayi) { etiketIdx = 1; degerIdx = 0; }
-    else return null;
+    const sayisal = [];
+    const metinsel = [];
+    sonuc.columns.forEach((ad, i) => {
+      if (sonuc.rows.every((s) => gecerli(s[i]))) {
+        if (!kimlikMi(ad)) sayisal.push(i);
+      } else {
+        metinsel.push(i);
+      }
+    });
+
+    // Normalde tam olarak bir olcu kolonu isteriz; birden fazlaysa hangisinin
+    // cizilecegi belirsizdir. Planlayici bu adimi grafige uygun isaretlediyse
+    // (esnek) son olcu kolonunu aliyoruz: toplam/tutar genelde sonda gelir.
+    if (!metinsel.length) return null;
+    if (sayisal.length !== 1 && !(esnek && sayisal.length > 1)) return null;
+    const degerIdx = sayisal[sayisal.length - 1];
+    const etiketIdx = metinsel[0];
 
     const SINIR = 12;
     const veri = sonuc.rows.slice(0, SINIR).map((s) => ({
@@ -437,12 +448,7 @@
     const enBuyuk = Math.max.apply(null, veri.map((d) => d.deger));
     if (!(enBuyuk > 0)) return null;
 
-    return {
-      veri: veri,
-      enBuyuk: enBuyuk,
-      kirpildi: sonuc.rows.length > SINIR,
-      toplamSatir: sonuc.rows.length,
-    };
+    return { veri, enBuyuk, kirpildi: sonuc.rows.length > SINIR, toplamSatir: sonuc.rows.length };
   }
 
   function grafikCiz(g) {

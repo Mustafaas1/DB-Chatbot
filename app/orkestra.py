@@ -52,16 +52,25 @@ def _gorev_metni(adim: Adim, devir: str) -> str:
     )
 
 
-def akis_calistir(soru: str) -> dict[str, Any]:
+def akis_calistir(soru: str, gecmis: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Soruyu ajan zinciri olarak calistirir ve adim adim sonuc dondurur."""
     plan = plan_yap(soru)
 
     adim_sonuclari: list[dict[str, Any]] = []
     toplam = {"input_tokens": 0, "output_tokens": 0}
     devir = ""
+    # Konusma surekliligi: gecmis YALNIZCA ilk adima verilir. Sonraki adimlar
+    # zaten oncekinin bulgusunu devir metniyle aliyor; gecmisi de eklemek
+    # token'i ikiye katlardi.
+    son_gecmis = list(gecmis or [])
 
     for sira, adim in enumerate(plan, start=1):
-        cevap = sohbet_et(_gorev_metni(adim, devir), ajan=adim.ajan)
+        cevap = sohbet_et(
+            _gorev_metni(adim, devir),
+            gecmis if sira == 1 else None,
+            ajan=adim.ajan,
+        )
+        son_gecmis = cevap.gecmis
 
         toplam["input_tokens"] += cevap.kullanim.get("input_tokens", 0)
         toplam["output_tokens"] += cevap.kullanim.get("output_tokens", 0)
@@ -80,6 +89,7 @@ def akis_calistir(soru: str) -> dict[str, Any]:
 
     return {
         "soru": soru,
+        "gecmis": son_gecmis,
         "adimlar": adim_sonuclari,
         "ajanlar": [
             {"kod": a.kod, "ad": a.ad, "renk": a.renk, "ornekler": a.ornekler}
