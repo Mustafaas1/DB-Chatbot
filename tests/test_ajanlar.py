@@ -364,3 +364,23 @@ def test_tek_satirda_dokunulmaz():
 
     g = {"columns": ["Durum", "Etiket"], "rows": [["A", "X"]], "row_count": 1}
     assert _sonucu_temizle(g)["columns"] == ["Durum", "Etiket"]
+
+
+def test_ayni_ajana_iki_adim_verilmez():
+    """Tek sorguda donebilecek is icin iki tur token yakmak anlamsiz."""
+    ham = json.dumps({"adimlar": [
+        {"ajan": "ik", "gorev": "talep sayisi"},
+        {"ajan": "ik", "gorev": "toplam gun"},
+    ]})
+    plan = plan_yap("bir soru", client=SahtePlanlayici(ham))
+    assert len(plan) == 1
+    assert plan[0].ajan.kod == "ik"
+
+
+def test_farkli_ajanlar_korunur():
+    ham = json.dumps({"adimlar": [
+        {"ajan": "satis", "gorev": "teklif sayisi"},
+        {"ajan": "finans", "gorev": "teklif tutari"},
+    ]})
+    plan = plan_yap("bir soru", client=SahtePlanlayici(ham))
+    assert [a.ajan.kod for a in plan] == ["satis", "finans"]

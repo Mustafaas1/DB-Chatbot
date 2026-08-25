@@ -68,6 +68,8 @@ def _talimat(ajanlar: list[Ajan]) -> str:
         "  ornegin teklif SAYISI sorulunca finans ajani ayni kirilimda TUTARI getirir.",
         "  Katki gercekten anlamli degilse ekleme; her soruyu bolme.",
         "- Tek bolumun konusuysa TEK adim birak; bosuna bolme.",
+        "- AYNI ajana iki adim verme. Bir ajanin tek sorguda dondurebilecegi",
+        "  seyleri (ornegin adet ve toplam) bolme; tek adimda iste.",
         "- Her adimin 'gorev' alani, o ajana sorulacak tam bir Turkce soru olmalidir.",
         "- Listeleme gorevlerine ACIK bir sinir koy (ornegin 'ilk 10'); sinirsiz",
         "  listeler gereksiz token yakar.",
@@ -236,6 +238,17 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
             continue
         adimlar.append(Adim(ajan_bul(kod), gorev, bool(ham.get("grafik"))))
 
-    if adimlar:
-        _plani_sakla(soru, adimlar)
-    return adimlar or _tek_adim(soru)
+    # Guvence: planlayici yine de ayni ajana iki adim verirse ikincisini
+    # dusuruyoruz. Tek sorguda donebilecek is icin iki tur token yakmak
+    # anlamsiz; olculen fark soru basina yaklasik iki kat.
+    tekil: list[Adim] = []
+    gorulen: set[str] = set()
+    for a in adimlar:
+        if a.ajan.kod in gorulen:
+            continue
+        gorulen.add(a.ajan.kod)
+        tekil.append(a)
+
+    if tekil:
+        _plani_sakla(soru, tekil)
+    return tekil or _tek_adim(soru)
