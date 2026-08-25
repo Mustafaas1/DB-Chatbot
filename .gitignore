@@ -8,3 +8,5 @@ schema_cache.json
 sql_cache.json
 oturumlar.db
 oturumlar.db-*
+.env.*
+!.env.example

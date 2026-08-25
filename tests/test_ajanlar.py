@@ -13,6 +13,25 @@ from app.schema import schema_to_prompt
 
 
 @pytest.fixture(autouse=True)
+def sakila_ajanlari(monkeypatch):
+    """Testler, gelistiricinin bagli oldugu veritabanina gore degismemeli.
+
+    ajanlari_getir() aktif veritabanina bakiyor; burada Sakila ajan kumesini
+    sabitliyoruz ki .env degisince testler kirilmasin.
+    """
+    import dataclasses
+    from app import ajanlar as ajan_modulu
+    from app import schema as sema_modulu
+
+    sabit = dataclasses.replace(
+        ajan_modulu.settings, db_type="mysql", mysql_database="sakila"
+    )
+    monkeypatch.setattr(ajan_modulu, "settings", sabit)
+    monkeypatch.setattr(sema_modulu, "settings", sabit)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def izole_onbellek(tmp_path, monkeypatch):
     """Testler gercek sql_cache.json dosyasina dokunmasin.
 
@@ -42,8 +61,23 @@ def test_bilinmeyen_kod_ilk_ajana_duser():
     assert ajan_bul(None).kod == ajanlari_getir()[0].kod
 
 
-def test_ajan_sozlugu_isteme_giriyor():
-    """Bolum sozlugu ortak sozlugun ustune binmeli."""
+def test_ajan_sozlugu_isteme_giriyor(monkeypatch):
+    """Bolum sozlugu ortak sozlugun ustune binmeli.
+
+    Sema sahte: test hangi veritabanina bagli oldugumuzdan bagimsiz olmali.
+    """
+    from app import schema as sema_modulu
+
+    sahte = {
+        "database": "sakila",
+        "db_type": "mysql",
+        "tables": [{"name": "film", "schema": "", "row_count": 1000,
+                    "columns": [{"name": "film_id", "type": "int", "nullable": False}],
+                    "primary_key": ["film_id"], "foreign_keys": []}],
+        "views": [],
+    }
+    monkeypatch.setattr(sema_modulu, "get_schema", lambda *a, **k: sahte)
+
     temel = schema_to_prompt()
     finans = schema_to_prompt(ek_sozluk=ajan_bul("finans").sozluk())
 
