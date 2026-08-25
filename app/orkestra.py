@@ -32,6 +32,42 @@ DEVIR_SATIRI = 5
 DEVIR_METNI = 300
 
 
+#: Modelin bazen ekledigi, her satirda ayni degeri tasiyan sozde etiket kolonu.
+#: Talimatla engellenemedi (uc kez denendi), bu yuzden kodda ayikliyoruz.
+SOZDE_ETIKET_ADLARI = {"etiket", "label", "grup", "kategori etiketi"}
+
+
+def _sonucu_temizle(sonuc: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Bilgi tasimayan sozde etiket kolonlarini sonuctan cikarir.
+
+    Yalnizca adi 'Etiket' benzeri OLAN ve her satirda ayni degeri tasiyan
+    kolonlar atilir. Gercekten sabit cikan anlamli kolonlar (orn. tek para
+    birimi donen bir sorguda 'Para Birimi') adlari farkli oldugu icin korunur.
+    """
+    if not sonuc or not sonuc.get("columns") or not sonuc.get("rows"):
+        return sonuc
+
+    kolonlar = sonuc["columns"]
+    satirlar = sonuc["rows"]
+    if len(satirlar) < 2:
+        return sonuc
+
+    atilacak = [
+        i for i, ad in enumerate(kolonlar)
+        if str(ad).strip().lower() in SOZDE_ETIKET_ADLARI
+        and len({s[i] for s in satirlar}) == 1
+    ]
+    if not atilacak or len(atilacak) == len(kolonlar):
+        return sonuc
+
+    tut = [i for i in range(len(kolonlar)) if i not in atilacak]
+    return {
+        **sonuc,
+        "columns": [kolonlar[i] for i in tut],
+        "rows": [[s[i] for i in tut] for s in satirlar],
+    }
+
+
 def _devir_metni(cevap: ChatCevabi) -> str:
     """Bir adimin bulgusunu sonraki adima anlatan kompakt metin."""
     parcalar = [cevap.cevap[:DEVIR_METNI].strip()]
@@ -49,12 +85,12 @@ def _devir_metni(cevap: ChatCevabi) -> str:
 #: Bu olmadan ajan "customer_id, toplam, adet" gibi tamami sayisal bir sonuc
 #: dondurebiliyor; o zaman cizilecek bir etiket kolonu kalmiyor.
 GRAFIK_YONERGESI = (
-    "Bu adimin sonucu grafikle de gosterilebilir. Sonucta bir metin kolonu "
-    "(isim, kategori, donem gibi) BULUNSUN; boyle bir kolon zaten varsa "
-    "ayrica 'Etiket' adinda sabit degerli bir kolon EKLEME. Kolonlara "
-    "Turkce takma ad ver. Birden fazla sayisal olcu gerekiyorsa HEPSINI dondur; grafik "
-    "sonuncusunu kullanir. Bu bicim tercihi yuzunden sorguyu calistirmadan "
-    "birakma veya kullaniciya soru sorma -- once sorguyu calistir."
+    "Sonuc grafikle de gosterilebilir; kolonlara Turkce takma ad ver. "
+    "Sorulan kirilimin DISINDA ek kirilim (donem, ay, bolge gibi) EKLEME -- "
+    "yalnizca sorulan sey gruplansin. Sonuca 'Etiket' adinda sabit degerli "
+    "bir kolon EKLEME. Birden fazla sayisal olcu gerekiyorsa hepsini dondur; "
+    "grafik sonuncusunu kullanir. Bu bicim tercihi yuzunden sorguyu "
+    "calistirmadan birakma veya kullaniciya soru sorma -- once sorguyu calistir."
 )
 
 
@@ -126,7 +162,9 @@ def akis_uret(
             # Adim yarida kaldiysa elde kalan sonuc basarisiz bir denemeye ait
             # olabilir; arayuze gecerli sonuc gibi gondermiyoruz.
             "tamamlandi": cevap.tamamlandi,
-            "result": cevap.son_sonuc.to_dict() if (cevap.son_sonuc and cevap.tamamlandi) else None,
+            "result": _sonucu_temizle(
+                cevap.son_sonuc.to_dict() if (cevap.son_sonuc and cevap.tamamlandi) else None
+            ),
             "usage": cevap.kullanim,
         }
         # Yarida kalan adimin bulgusu guvenilir degil; sonrakine devretme.

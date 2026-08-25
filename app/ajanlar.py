@@ -94,6 +94,11 @@ CRM_AJANLARI = [
             "Invoices", "InvoiceKalemleri",
             "ContractRecords", "ContractActivities",
             "Products",
+            # Teklif ve firsat TUTARLARI da finansin isi. Bunlar kapsamda
+            # olmadan "su tekliflerin tutarini getir" gibi tamamlayici
+            # adimlar calisamiyordu: ajan tabloyu goremeyip baska tabloya
+            # tahminle gidiyordu.
+            "Teklifler", "TeklifKalemleri", "OpportunityRecords",
         ],
         ornekler=[
             "Durumlarına göre fatura tutarları",

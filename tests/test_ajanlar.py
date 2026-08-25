@@ -318,3 +318,49 @@ def test_grafik_adimina_bicim_yonergesi_eklenir():
     assert "grafikle de gosterilebilir" not in duz
     # Yonerge bir TAVSIYE olmali: sorguyu engellememeli.
     assert "sorguyu calistirmadan" in grafikli
+
+
+# ------------------------------------------------- sozde etiket kolonu
+
+def test_sabit_etiket_kolonu_atilir():
+    """Model talimata ragmen her satirda ayni degeri tasiyan 'Etiket' kolonu
+    ekliyordu; uc kez talimatla denendi, kodda ayikliyoruz."""
+    from app.orkestra import _sonucu_temizle
+
+    c = _sonucu_temizle({
+        "columns": ["Durum", "Sayi", "Etiket"],
+        "rows": [["A", 1, "X"], ["B", 2, "X"]],
+        "row_count": 2,
+    })
+    assert c["columns"] == ["Durum", "Sayi"]
+    assert c["rows"] == [["A", 1], ["B", 2]]
+
+
+def test_degisen_etiket_kolonu_korunur():
+    from app.orkestra import _sonucu_temizle
+
+    c = _sonucu_temizle({
+        "columns": ["Durum", "Etiket"],
+        "rows": [["A", "X"], ["B", "Y"]],
+        "row_count": 2,
+    })
+    assert c["columns"] == ["Durum", "Etiket"]
+
+
+def test_anlamli_sabit_kolon_korunur():
+    """Tek para birimi donen bir sorguda 'Para Birimi' sabittir ama anlamlidir."""
+    from app.orkestra import _sonucu_temizle
+
+    c = _sonucu_temizle({
+        "columns": ["Durum", "Para Birimi", "Tutar"],
+        "rows": [["A", "TRY", 1], ["B", "TRY", 2]],
+        "row_count": 2,
+    })
+    assert c["columns"] == ["Durum", "Para Birimi", "Tutar"]
+
+
+def test_tek_satirda_dokunulmaz():
+    from app.orkestra import _sonucu_temizle
+
+    g = {"columns": ["Durum", "Etiket"], "rows": [["A", "X"]], "row_count": 1}
+    assert _sonucu_temizle(g)["columns"] == ["Durum", "Etiket"]

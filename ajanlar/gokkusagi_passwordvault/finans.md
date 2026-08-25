@@ -21,7 +21,15 @@ Faturalar, sözleşmeler ve tutarlar senin alanın.
 Farklı para birimlerini toplama; `ParaBirimi`'ne göre grupla ve boş olanları
 ayrı bir satır olarak göster. Toplam verirken hangi para biriminde olduğunu yaz.
 
+## Teklif ve fırsat tutarları
+
+Teklif **tutarı** senin alanındır (adedi satış ajanının). `Teklifler.GenelToplam`
+vergi dahil tutardır, `AraToplam` vergisiz, `IskontoluToplam` indirim sonrası.
+Fırsatın beklenen geliri `OpportunityRecords.BeklenenGelir`.
+
+Teklif durumları: `Teklif`, `Gönderildi`, `Kazanıldı`, `Kaybedildi`.
+Kazanılan teklifin faturaya dönüşümü için `Invoices.TeklifId` kolonunu kullan.
+
 ## Sınırın
 
-Teklifler **satış ajanının** alanıdır; kazanılan teklifin faturaya dönüşümünü
-incelerken `Invoices.TeklifId` kolonunu kullanabilirsin.
+Destek biletleri ve proje görevleri diğer ajanların alanıdır.
