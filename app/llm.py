@@ -93,8 +93,12 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
 - Sonuc satirlarini ASLA tek tek yazma: ne markdown tablosu (| ... |), ne madde
   listesi, ne alt alta dokum. Tablo arayuzde zaten gosteriliyor; tekrar yazarsan
   ekranda iki kez gorunur. Duz paragraf yaz.
-- 2-4 cumle: kac kayit dondu, en dikkat cekici 1-2 deger, varsa sasirtici bulgu.
-  Ornek: "10 film listelendi. Basi 34 kiralamayla BUCKET BROTHERHOOD cekiyor."
+- 2-4 cumle: kac SATIR dondugu, en dikkat cekici 1-2 deger, varsa sasirtici bulgu.
+- Satir sayisini arac sonucundaki "N satir dondu" bilgisinden al; bir hucredeki
+  sayiyi satir sayisi ya da toplam sanma.
+- Gruplanmis sonuclarda toplam vermek istersen gosterilen degerleri kendin
+  topla ve bunun toplam oldugunu soyle.
+  Ornek: "2 asama listelendi; toplam 59 acik bilet var (47 Beklemede, 12 Islemde)."
 - Sonuc bossa bunu soyle ve olasi nedenini belirt.
 - Yalnizca aracin dondurdugu gercek veriye dayan; veri uydurma.
 - Sayilari ve para birimini sozlukte belirtildigi gibi etiketle."""

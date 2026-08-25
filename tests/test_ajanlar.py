@@ -167,6 +167,27 @@ def test_plan_adim_sayisi_sinirli():
     assert len(plan) == AZAMI_VERI_ADIMI, "token limiti icin adim sayisi sinirli olmali"
 
 
+def test_kota_hatasi_gizlenmez():
+    """Kota dolunca sessizce ilk ajana dusmek yaniltici olur: kullanici
+    yanlis yonlendirme sanir, oysa sorun API kotasinda."""
+    import httpx
+    import openai
+
+    class KotaDolu:
+        def __init__(self):
+            self.chat = self
+            self.completions = self
+
+        def create(self, **kwargs):
+            raise openai.RateLimitError(
+                "limit", response=httpx.Response(429, request=httpx.Request("POST", "http://x")),
+                body=None,
+            )
+
+    with pytest.raises(openai.RateLimitError):
+        plan_yap("bir soru", client=KotaDolu())
+
+
 def test_plan_istemci_patlarsa_tek_adim():
     class Patlayan:
         def __init__(self):
@@ -293,5 +314,7 @@ def test_grafik_adimina_bicim_yonergesi_eklenir():
     grafikli = _gorev_metni(Adim(ajan_bul("finans"), "gorev", True), "")
     duz = _gorev_metni(Adim(ajan_bul("finans"), "gorev", False), "")
 
-    assert "ETIKET kolonu" in grafikli
-    assert "ETIKET kolonu" not in duz
+    assert "grafikle de gosterilebilir" in grafikli
+    assert "grafikle de gosterilebilir" not in duz
+    # Yonerge bir TAVSIYE olmali: sorguyu engellememeli.
+    assert "sorguyu calistirmadan" in grafikli

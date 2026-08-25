@@ -587,6 +587,7 @@
       ajan: adim.ajan_adi,
       renk: adim.renk,
       gorev: adim.gorev,
+      cevap: adim.answer,
       veri: g.veri,
       columns: adim.result.columns,
       rows: (adim.result.rows || []).slice(0, 50),
@@ -625,19 +626,23 @@
 
     for (const s of adim.steps || []) panel.appendChild(sqlKutusuCiz(s));
 
-    if (adim.result && adim.result.columns && adim.result.columns.length) {
-      const g = adim.grafik ? grafikVerisi(adim.result, true) : null;
-      // Grafik adimlarinda panel icinde dugme YOK: grafik ayri sekmede acilir.
-      panel.appendChild(sonucCiz(adim.result, false, Boolean(g)));
+    const g =
+      adim.grafik && adim.result && adim.result.columns && adim.result.columns.length
+        ? grafikVerisi(adim.result, true)
+        : null;
 
-      if (g) {
-        const adres = grafikAdresi(adim, g);
-        const pencere = window.open(adres, "_blank", "noopener");
-        panel.appendChild(grafikBaglantisi(adres, !pencere));
+    if (g) {
+      // Grafik adiminda sonuc BURADA gosterilmez; tablo, grafik ve cevap
+      // metni ayri sekmedeki sayfada. Panelde yalnizca yonlendirme kalir.
+      const adres = grafikAdresi(adim, g);
+      const pencere = window.open(adres, "_blank", "noopener");
+      panel.appendChild(grafikBaglantisi(adres, !pencere));
+    } else {
+      if (adim.result && adim.result.columns && adim.result.columns.length) {
+        panel.appendChild(sonucCiz(adim.result));
       }
+      if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
     }
-
-    if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
     // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
     if (adim.tamamlandi === false) {
       panel.appendChild(el("div", "uyari", "Bu adım tamamlanamadı; sonuç güvenilir değil."));

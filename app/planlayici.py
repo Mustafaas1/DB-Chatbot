@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import openai
+
 from .ajanlar import Ajan, ajan_bul, ajanlari_getir
 
 __all__ = ["Adim", "plan_yap", "AZAMI_VERI_ADIMI"]
@@ -78,26 +80,25 @@ def _talimat(ajanlar: list[Ajan]) -> str:
 # yalnizca metin talimatiyla soruyu tek adima sikistirma egilimindeydi.
 ORNEKLER = [
     (
-        "En cok kiralama yapan musterileri getir ve ne kadar harcadiklarini goster",
+        "Asamalarina gore acik destek biletleri",
+        {"adimlar": [{"ajan": "destek", "gorev": "Acik destek biletlerini asamalarina gore say", "grafik": True}]},
+    ),
+    (
+        "En cok teklif veren satis temsilcileri ve bu tekliflerin toplam tutari",
         {
             "adimlar": [
-                {"ajan": "satis", "gorev": "En cok kiralama yapan ILK 10 musteriyi listele", "grafik": False},
-                {"ajan": "finans", "gorev": "Bu 10 musterinin toplam harcamasini getir", "grafik": True},
+                {"ajan": "satis", "gorev": "En cok teklif veren ILK 10 satis temsilcisini listele", "grafik": False},
+                {"ajan": "finans", "gorev": "Bu temsilcilerin tekliflerinin toplam tutarini para birimine gore getir", "grafik": True},
             ]
         },
     ),
     (
-        "En cok kiralanan 10 film hangileri?",
-        {"adimlar": [{"ajan": "satis", "gorev": "En cok kiralanan 10 filmi listele", "grafik": True}]},
+        "Bu yil bitecek sozlesmeler hangileri?",
+        {"adimlar": [{"ajan": "finans", "gorev": "Bu yil bitis tarihi olan sozlesmeleri listele", "grafik": False}]},
     ),
     (
-        "Kategorilere gore film sayisi ve toplam ciro",
-        {
-            "adimlar": [
-                {"ajan": "envanter", "gorev": "Kategorilere gore film sayisini getir (16 kategori)", "grafik": True},
-                {"ajan": "finans", "gorev": "Kategorilere gore toplam ciroyu getir", "grafik": True},
-            ]
-        },
+        "Izin turlerine gore talep sayisi",
+        {"adimlar": [{"ajan": "ik", "gorev": "Izin taleplerini turlerine gore say", "grafik": True}]},
     ),
 ]
 
@@ -200,7 +201,12 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
                 {"role": "user", "content": soru},
             ],
         )
-    except Exception:  # noqa: BLE001 - planlama basarisizsa akis surmeli
+    except (openai.RateLimitError, openai.AuthenticationError, openai.APIConnectionError):
+        # Kota/anahtar/baglanti hatasi: SESSIZCE tek adima dusmek yaniltici olur.
+        # Kullanici yanlis ajana yonlendirilmis gibi gorur; oysa sorun API'de.
+        # Hatayi yukari birakiyoruz, uc nokta anlasilir mesaja ceviriyor.
+        raise
+    except Exception:  # noqa: BLE001 - model kotu cevap verdiyse akis surmeli
         return _tek_adim(soru)
 
     veri = _json_ayikla(yanit.choices[0].message.content or "")
