@@ -39,11 +39,24 @@ def _devir_metni(cevap: ChatCevabi) -> str:
     return chr(10).join(parcalar)
 
 
+#: Grafik cizilebilmesi icin sonucun bicimi hakkinda ajana verilen yonerge.
+#: Bu olmadan ajan "customer_id, toplam, adet" gibi tamami sayisal bir sonuc
+#: dondurebiliyor; o zaman cizilecek bir etiket kolonu kalmiyor.
+GRAFIK_YONERGESI = (
+    "Bu adimin sonucu GRAFIKLE gosterilecek. Sonucu buna gore bicimlendir: "
+    "bir ETIKET kolonu (isim, kategori, donem gibi metin) ve TEK bir sayisal "
+    "olcu kolonu dondur. Kimlik (ID) kolonu EKLEME. Kolonlara Turkce takma ad ver."
+)
+
+
 def _gorev_metni(adim: Adim, devir: str) -> str:
+    gorev = adim.gorev
+    if adim.grafik:
+        gorev = gorev + chr(10) * 2 + GRAFIK_YONERGESI
     if not devir:
-        return adim.gorev
+        return gorev
     return (
-        f"{adim.gorev}"
+        gorev
         + chr(10) * 2
         + "--- ONCEKI ADIMIN BULGUSU ---"
         + chr(10)

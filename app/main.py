@@ -164,6 +164,16 @@ def demo() -> FileResponse:
     return FileResponse(STATIC_DIR / "demo.html")
 
 
+@app.get("/grafik")
+def grafik_sayfasi() -> FileResponse:
+    """Ajan sonucunun grafigini ayri bir sekmede gosteren sayfa.
+
+    Veri URL fragmentinde tasinir; sunucuya gitmez ve widget baska bir alan
+    adinda gomulu olsa bile calisir.
+    """
+    return FileResponse(STATIC_DIR / "grafik.html")
+
+
 @app.get("/tam")
 def tam_ekran() -> FileResponse:
     """Widget'teki 'tam ekranda ac' butonunun hedefi: tum sayfayi kaplayan arayuz."""

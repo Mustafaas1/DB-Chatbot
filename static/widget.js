@@ -245,6 +245,13 @@
     font-size: 10.5px; font-weight: 600; color: #fff;
     padding: 1px 7px; border-radius: 999px; white-space: nowrap;
   }
+  .grafik-baglanti {
+    display: inline-block; margin-top: 8px; font-size: 11.5px;
+    color: var(--renk); text-decoration: none;
+    border: 1px solid var(--kenar); border-radius: 7px; padding: 5px 10px;
+  }
+  .grafik-baglanti:hover { border-color: var(--renk); }
+  .grafik-baglanti.uyari { border-color: #f3c2c2; background: #fdecec; color: #b45309; }
   .adim-gorev { font-size: 11px; color: var(--soluk); line-height: 1.35; }
   .ajan-rozet { transition: opacity .3s ease; }
   .ajan-rozet.bekliyor { opacity: .35; }
@@ -490,12 +497,12 @@
     return kutu;
   }
 
-  function sonucCiz(sonuc, esnek) {
+  function sonucCiz(sonuc, esnek, dugmesiz) {
     const kutu = el("div", "sonuc");
 
     const ust = el("div", "sonuc-ust");
     ust.appendChild(el("span", null, sonuc.row_count + " satır · " + sonuc.columns.length + " kolon"));
-    const g = grafikVerisi(sonuc, esnek);
+    const g = dugmesiz ? null : grafikVerisi(sonuc, esnek);
     if (g) {
       const gBtn = el("button", "csv-buton", "Grafik");
       gBtn.addEventListener("click", () => {
@@ -548,6 +555,36 @@
     return kutu;
   }
 
+  /* Grafik ayri bir tarayici sekmesinde acilir. Veri URL fragmentinde tasinir:
+     sunucuya gitmez ve widget baska bir alan adinda gomulu olsa bile calisir.
+     Yanit asenkron geldigi icin tarayici otomatik acmayi engelleyebilir;
+     o durumda panelde duran baglanti devreye girer. */
+  function grafikAdresi(adim, g) {
+    const yuk = {
+      baslik: adim.ajan_adi,
+      ajan: adim.ajan_adi,
+      renk: adim.renk,
+      gorev: adim.gorev,
+      veri: g.veri,
+      columns: adim.result.columns,
+      rows: (adim.result.rows || []).slice(0, 50),
+      not: g.kirpildi ? g.toplamSatir + " satirin ilk " + g.veri.length + "'i cizildi" : "",
+    };
+    return (API || "") + "/grafik#veri=" + encodeURIComponent(JSON.stringify(yuk));
+  }
+
+  function grafikBaglantisi(adres, engellendi) {
+    const a = document.createElement("a");
+    a.className = "grafik-baglanti" + (engellendi ? " uyari" : "");
+    a.href = adres;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = engellendi
+      ? "Grafiği yeni sekmede aç (tarayıcı engelledi)"
+      : "Grafiği yeni sekmede aç";
+    return a;
+  }
+
   function ajanRozeti(adim) {
     const r = el("span", "ajan-rozet", adim.ajan_adi);
     r.style.background = adim.renk;
@@ -567,14 +604,15 @@
     for (const s of adim.steps || []) panel.appendChild(sqlKutusuCiz(s));
 
     if (adim.result && adim.result.columns && adim.result.columns.length) {
-      const kart = sonucCiz(adim.result, adim.grafik);
-      // Planlayici bu adimi grafige uygun bulduysa grafikle ac.
-      if (adim.grafik && kart.querySelector(".grafik-cubuk")) {
-        kart.classList.add("grafik-modu");
-        const btn = [...kart.querySelectorAll(".csv-buton")].find((b) => b.textContent === "Grafik");
-        if (btn) btn.textContent = "Tablo";
+      const g = adim.grafik ? grafikVerisi(adim.result, true) : null;
+      // Grafik adimlarinda panel icinde dugme YOK: grafik ayri sekmede acilir.
+      panel.appendChild(sonucCiz(adim.result, false, Boolean(g)));
+
+      if (g) {
+        const adres = grafikAdresi(adim, g);
+        const pencere = window.open(adres, "_blank", "noopener");
+        panel.appendChild(grafikBaglantisi(adres, !pencere));
       }
-      panel.appendChild(kart);
     }
 
     if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));

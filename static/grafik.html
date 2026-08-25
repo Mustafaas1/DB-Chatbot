@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grafik — Veritabanı Asistanı</title>
+<style>
+  :root {
+    --zemin: #f4f6fa; --panel: #fff; --kenar: #e2e5ec;
+    --soluk: #64748b; --renk: #3452d8; --koyu: #1b2a6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--zemin); color: #1b1f24;
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+    padding: 28px 22px 60px;
+  }
+  .sarici { max-width: 900px; margin: 0 auto; }
+  .ust { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+  .rozet {
+    font-size: 12px; font-weight: 600; color: #fff;
+    padding: 3px 11px; border-radius: 999px; background: var(--renk);
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  .gorev { color: var(--soluk); font-size: 13.5px; margin: 0 0 20px; }
+
+  .kart {
+    background: var(--panel); border: 1px solid var(--kenar);
+    border-radius: 14px; padding: 22px 24px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  }
+  .grafik { display: grid; gap: 11px; }
+  .satir { display: grid; grid-template-columns: minmax(0, 220px) 1fr auto; align-items: center; gap: 14px; }
+  .etiket { font-size: 13.5px; color: var(--soluk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .yol { background: var(--zemin); border-radius: 6px; height: 26px; overflow: hidden; }
+  .cubuk { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--koyu), var(--renk)); }
+  .deger { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--koyu); }
+  .not { font-size: 12.5px; color: var(--soluk); margin-top: 16px; }
+  .bos { color: var(--soluk); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin-top: 26px; }
+  th { text-align: left; font-weight: 600; color: var(--soluk); font-size: 12.5px;
+       padding: 9px 12px; background: var(--zemin); border-bottom: 1px solid var(--kenar); }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; }
+  td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
+  h2 { font-size: 14px; margin: 26px 0 0; font-weight: 620; }
+
+  @media (prefers-color-scheme: dark) {
+    :root { --zemin: #12151c; --panel: #1a1f29; --kenar: #2b313d; --soluk: #94a3b8; }
+    body { color: #e6e9ef; }
+    h1, .deger { color: #cdd7ff; }
+  }
+</style>
+</head>
+<body>
+<div class="sarici">
+  <div class="ust">
+    <span class="rozet" id="rozet">Grafik</span>
+    <h1 id="baslik">Grafik</h1>
+  </div>
+  <p class="gorev" id="gorev"></p>
+
+  <div class="kart">
+    <div class="grafik" id="grafik"></div>
+    <div class="not" id="not"></div>
+  </div>
+
+  <h2>Veri</h2>
+  <div class="kart" style="padding: 0; overflow: auto;">
+    <table><thead><tr id="tbaslik"></tr></thead><tbody id="tgovde"></tbody></table>
+  </div>
+</div>
+
+<script>
+/* Veri URL fragmentinde tasinir: widget baska bir alan adinda gomulu olabilir
+   ve o durumda localStorage paylasilmaz. Fragment sunucuya hic gitmez. */
+function veriyiOku() {
+  try {
+    const ham = decodeURIComponent((location.hash || "").replace(/^#veri=/, ""));
+    return ham ? JSON.parse(ham) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function metin(etiket, deger) {
+  const d = document.createElement("div");
+  if (etiket) d.className = etiket;
+  if (deger !== undefined) d.textContent = deger;
+  return d;
+}
+
+const v = veriyiOku();
+if (!v) {
+  document.getElementById("grafik").appendChild(
+    metin("bos", "Grafik verisi bulunamadı. Bu sayfa asistandaki bir sonuçtan açılır.")
+  );
+} else {
+  document.title = (v.baslik || "Grafik") + " — Veritabanı Asistanı";
+  document.getElementById("baslik").textContent = v.baslik || "Grafik";
+  document.getElementById("gorev").textContent = v.gorev || "";
+  const rozet = document.getElementById("rozet");
+  rozet.textContent = v.ajan || "Grafik";
+  if (v.renk) {
+    rozet.style.background = v.renk;
+    document.documentElement.style.setProperty("--renk", v.renk);
+  }
+
+  const enBuyuk = Math.max.apply(null, v.veri.map((d) => d.deger));
+  const g = document.getElementById("grafik");
+  for (const d of v.veri) {
+    const satir = metin("satir");
+    satir.appendChild(metin("etiket", d.etiket));
+    const yol = metin("yol");
+    const cubuk = metin("cubuk");
+    cubuk.style.width = Math.max(2, (d.deger / enBuyuk) * 100) + "%";
+    yol.appendChild(cubuk);
+    satir.appendChild(yol);
+    satir.appendChild(metin("deger", d.deger.toLocaleString("tr-TR")));
+    g.appendChild(satir);
+  }
+  if (v.not) document.getElementById("not").textContent = v.not;
+
+  const tb = document.getElementById("tbaslik");
+  for (const k of v.columns || []) {
+    const th = document.createElement("th");
+    th.textContent = k;
+    tb.appendChild(th);
+  }
+  const tg = document.getElementById("tgovde");
+  for (const satir of v.rows || []) {
+    const tr = document.createElement("tr");
+    for (const h of satir) {
+      const td = document.createElement("td");
+      const sayi = typeof h === "number";
+      td.textContent = h === null || h === undefined ? "—" : (sayi ? h.toLocaleString("tr-TR") : String(h));
+      if (sayi) td.className = "sayi";
+      tr.appendChild(td);
+    }
+    tg.appendChild(tr);
+  }
+}
+</script>
+</body>
+</html>

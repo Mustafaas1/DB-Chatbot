@@ -214,12 +214,12 @@ function grafikOlustur(g) {
   return kutu;
 }
 
-function sonucTablosuOlustur(sonuc, esnek) {
+function sonucTablosuOlustur(sonuc, esnek, dugmesiz) {
   const kutu = el("div", "sonuc-kutu");
 
   const ust = el("div", "sonuc-ust");
   ust.appendChild(el("span", null, `${sonuc.row_count} satır · ${sonuc.columns.length} kolon`));
-  const g = grafikVerisi(sonuc, esnek);
+  const g = dugmesiz ? null : grafikVerisi(sonuc, esnek);
   if (g) {
     const gBtn = el("button", "mini-buton", "Grafik");
     gBtn.addEventListener("click", () => {
@@ -278,6 +278,37 @@ function sonucTablosuOlustur(sonuc, esnek) {
 /* ---------- ajan zinciri ----------
    Her adim kendi panelinde gosterilir: hangi ajanin ne yaptigi gorunur olsun.
    grafik=true olan adimlarda tablo yerine grafik acik baslar (ek token yok). */
+/* Grafik ayri bir tarayici sekmesinde acilir. Veri URL fragmentinde tasinir:
+   sunucuya gitmez ve widget baska bir alan adinda gomulu olsa bile calisir.
+   NOT: Yanit asenkron geldigi icin acilis aninda kullanici tiklamasi yoktur;
+   tarayicilar bu durumda window.open'i engelleyebilir. Engellenirse panelde
+   duran baglanti devreye girer. */
+function grafikAdresi(adim, g, apiKoku) {
+  const yuk = {
+    baslik: adim.ajan_adi,
+    ajan: adim.ajan_adi,
+    renk: adim.renk,
+    gorev: adim.gorev,
+    veri: g.veri,
+    columns: adim.result.columns,
+    rows: (adim.result.rows || []).slice(0, 50),
+    not: g.kirpildi ? g.toplamSatir + " satirin ilk " + g.veri.length + "'i cizildi" : "",
+  };
+  return (apiKoku || "") + "/grafik#veri=" + encodeURIComponent(JSON.stringify(yuk));
+}
+
+function grafikBaglantisi(adres, engellendi) {
+  const a = document.createElement("a");
+  a.className = "grafik-baglanti" + (engellendi ? " uyari" : "");
+  a.href = adres;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.textContent = engellendi
+    ? "Grafiği yeni sekmede aç (tarayıcı otomatik açmayı engelledi)"
+    : "Grafiği yeni sekmede aç";
+  return a;
+}
+
 function ajanRozeti(adim) {
   const r = el("span", "ajan-rozet", adim.ajan_adi);
   r.style.background = adim.renk;
@@ -299,14 +330,16 @@ function adimPaneliOlustur(adim, toplamAdim) {
   for (const s of adimlar) panel.appendChild(sqlKutusuOlustur(s, false));
 
   if (adim.result && adim.result.columns && adim.result.columns.length) {
-    const kart = sonucTablosuOlustur(adim.result, adim.grafik);
-    // Planlayici bu adimi grafige uygun bulduysa grafikle ac.
-    if (adim.grafik && kart.querySelector(".grafik")) {
-      kart.classList.add("grafik-modu");
-      const btn = [...kart.querySelectorAll(".mini-buton")].find((b) => b.textContent === "Grafik");
-      if (btn) btn.textContent = "Tablo";
-    }
+    const g = adim.grafik ? grafikVerisi(adim.result, true) : null;
+    // Grafik adimlarinda panel icinde dugme YOK: grafik ayri sekmede acilir.
+    const kart = sonucTablosuOlustur(adim.result, false, Boolean(g));
     panel.appendChild(kart);
+
+    if (g) {
+      const adres = grafikAdresi(adim, g, "");
+      const pencere = window.open(adres, "_blank", "noopener");
+      panel.appendChild(grafikBaglantisi(adres, !pencere));
+    }
   }
 
   if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
