@@ -186,7 +186,7 @@ class ChatCevabi:
         }
 
 
-def _sistem_bloklari() -> list[dict[str, Any]]:
+def _sistem_bloklari(ajan=None) -> list[dict[str, Any]]:
     """Sistem mesajini olusturur.
 
     Sema blogu cache_control ile onbellege alinir: her istekte yeniden
@@ -304,7 +304,7 @@ def _claude_gecmisi_kirp(mesajlar: list[dict[str, Any]]) -> list[dict[str, Any]]
     return kirpilmis
 
 
-def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> ChatCevabi:
+def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
     """Anthropic Claude ile arac dongusu."""
     client = get_client()
     mesajlar: list[dict[str, Any]] = _claude_gecmisi_kirp(list(gecmis or []))
@@ -322,7 +322,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Ch
     ilk_soru = not (gecmis or [])
     onbellek_kullanildi = False
     if ilk_soru:
-        onbellek_sqli = sqlcache.getir(mesaj)
+        onbellek_sqli = sqlcache.getir(mesaj, ajan.kod if ajan else "")
         if onbellek_sqli:
             icerik, hata, sonuc = _sql_araci_calistir(
                 onbellek_sqli, "Daha once ayni soru icin uretilen sorgu", adimlar
@@ -364,7 +364,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Ch
         yanit = client.messages.create(
             model=settings.claude_model,
             max_tokens=8000,
-            system=_sistem_bloklari(),
+            system=_sistem_bloklari(ajan),
             output_config={"effort": settings.claude_effort},
             tools=[SQL_ARACI],
             messages=mesajlar,
@@ -401,7 +401,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Ch
                 and len(adimlar) == 1
                 and adimlar[0].get("ok")
             ):
-                sqlcache.yaz(mesaj, adimlar[0]["sql"])
+                sqlcache.yaz(mesaj, adimlar[0]["sql"], ajan.kod if ajan else "")
             return ChatCevabi(
                 metin or "Cevap uretilemedi.", adimlar, son_sonuc, mesajlar, kullanim
             )
@@ -603,7 +603,7 @@ def _groq_istek(client, mesajlar: list[dict[str, Any]], butce: int | None = None
             )
 
 
-def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> ChatCevabi:
+def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
     """Groq (OpenAI uyumlu API) ile arac dongusu.
 
     Anthropic'ten farklari:
@@ -620,7 +620,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     sistem = (
         _sistem_talimati()
         + "\n\n--- VERITABANI SEMASI ---\n"
-        + schema_to_prompt()
+        + schema_to_prompt(ek_sozluk=ajan.sozluk() if ajan else "")
         + "\n\nBugunun tarihi: "
         + datetime.date.today().isoformat()
     )
@@ -641,10 +641,14 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     # Guvenlik agi: bir sorgu hata verirse model sorguyu duzeltmek icin tablo
     # listesine ihtiyac duyar, o turdan itibaren tam surume geri donuyoruz.
     notlar = load_notes()
+    # Ozetleme cagrisinda da bolum sozlugu kalir: sonucu dogru yorumlamak
+    # icin gerekli (finans ajaninin tutari USD etiketlemesi gibi).
+    bolum = ajan.sozluk() if ajan else ""
     kisa_sistem = {
         "role": "system",
         "content": _sistem_talimati()
         + (f"\n\n--- IS KURALLARI VE TERIM SOZLUGU ---\n{notlar}" if notlar else "")
+        + (f"\n\n--- BOLUM SOZLUGU ---\n{bolum}" if bolum else "")
         + "\n\nBugunun tarihi: "
         + datetime.date.today().isoformat(),
     }
@@ -660,7 +664,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     ilk_soru = not (gecmis or [])
     onbellek_kullanildi = False
     if ilk_soru:
-        onbellek_sqli = sqlcache.getir(mesaj)
+        onbellek_sqli = sqlcache.getir(mesaj, ajan.kod if ajan else "")
         if onbellek_sqli:
             icerik, hata, sonuc = _sql_araci_calistir(
                 onbellek_sqli, "Daha once ayni soru icin uretilen sorgu", adimlar
@@ -749,7 +753,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
             # veya konusma baglamina bagli sorular tek basina tekrarlanamaz.
             # sqlcache.yaz(), sabit tarih iceren sorgulari kendisi reddeder.
             if ilk_soru and not onbellek_kullanildi and len(adimlar) == 1 and adimlar[0].get("ok"):
-                sqlcache.yaz(mesaj, adimlar[0]["sql"])
+                sqlcache.yaz(mesaj, adimlar[0]["sql"], ajan.kod if ajan else "")
             return ChatCevabi(
                 metin or "Cevap uretilemedi.", adimlar, son_sonuc, mesajlar, kullanim
             )
@@ -792,8 +796,8 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> Chat
     )
 
 
-def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None) -> ChatCevabi:
+def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
     """Aktif saglayiciya gore sohbeti yurutur (LLM_PROVIDER ayari)."""
     if settings.is_groq:
-        return _groq_sohbet(mesaj, gecmis)
-    return _claude_sohbet(mesaj, gecmis)
+        return _groq_sohbet(mesaj, gecmis, ajan)
+    return _claude_sohbet(mesaj, gecmis, ajan)

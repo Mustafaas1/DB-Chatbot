@@ -72,12 +72,13 @@ def _parmak_izi() -> str:
     return hashlib.sha256(ham.encode("utf-8")).hexdigest()[:16]
 
 
-def _normalize(soru: str) -> str:
+def _normalize(soru: str, ajan: str = "") -> str:
     """Sorulari eslestirmek icin sadelestirir: bosluk ve noktalama farklari
     ayni soruyu farkli gostermesin."""
     s = " ".join(soru.split()).lower()   # her turlu bosluk tek bosluga iner
-    s = re.sub("[?!.,;:]+$", "", s)
-    return s.strip()
+    s = re.sub("[?!.,;:]+$", "", s).strip()
+    # Ayni soru farkli bolum ajanlarina farkli SQL urettirebilir; anahtar ayrissin.
+    return f"{ajan.strip().lower()}|{s}" if ajan else s
 
 
 def _yukle() -> dict[str, Any]:
@@ -96,7 +97,7 @@ def _kaydet(veri: dict[str, Any]) -> None:
         pass  # onbellek yazilamazsa sistem calismaya devam etmeli
 
 
-def getir(soru: str) -> str | None:
+def getir(soru: str, ajan: str = "") -> str | None:
     """Soruya karsilik gelen SQL'i dondurur; yoksa None.
 
     Donen SQL cagiran tarafindan yine validate_sql'den gecirilir.
@@ -106,7 +107,7 @@ def getir(soru: str) -> str | None:
     veri = _yukle()
     if veri.get("parmak_izi") != _parmak_izi():
         return None  # sema degismis, tum kayitlar gecersiz
-    kayit = (veri.get("kayitlar") or {}).get(_normalize(soru))
+    kayit = (veri.get("kayitlar") or {}).get(_normalize(soru, ajan))
     if not kayit:
         return None
     if time.time() - kayit.get("zaman", 0) > _ttl():
@@ -114,7 +115,7 @@ def getir(soru: str) -> str | None:
     return kayit.get("sql")
 
 
-def yaz(soru: str, sql: str) -> bool:
+def yaz(soru: str, sql: str, ajan: str = "") -> bool:
     """Soru -> SQL eslemesini saklar. Saklandiysa True doner."""
     if not _acik() or not soru.strip() or not sql.strip():
         return False
@@ -125,7 +126,7 @@ def yaz(soru: str, sql: str) -> bool:
     veri = _yukle()
     if veri.get("parmak_izi") != parmak:
         veri = {"parmak_izi": parmak, "kayitlar": {}}
-    veri.setdefault("kayitlar", {})[_normalize(soru)] = {
+    veri.setdefault("kayitlar", {})[_normalize(soru, ajan)] = {
         "sql": sql,
         "zaman": time.time(),
     }

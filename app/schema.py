@@ -397,7 +397,7 @@ def _kompakt_tablo(tablo: dict[str, Any]) -> str:
     return satir
 
 
-def schema_to_prompt(sema: dict[str, Any] | None = None) -> str:
+def schema_to_prompt(sema: dict[str, Any] | None = None, ek_sozluk: str = "") -> str:
     """Semayi, sistem mesajina gomulecek kompakt metne cevirir."""
     sema = sema or get_schema()
     lehce = "MySQL 8" if sema.get("db_type") == "mysql" else "MS SQL Server"
@@ -418,6 +418,10 @@ def schema_to_prompt(sema: dict[str, Any] | None = None) -> str:
         if notlar:
             satirlar.append("--- IS KURALLARI VE TERIM SOZLUGU ---")
             satirlar.append(notlar)
+        # Bolum sozlugu ortak sozlugun USTUNE biner.
+        if ek_sozluk:
+            satirlar.append("--- BOLUM SOZLUGU ---")
+            satirlar.append(ek_sozluk)
         return SATIR_SONU.join(satirlar).strip()
 
     for tablo in tablolar:
@@ -449,6 +453,13 @@ def schema_to_prompt(sema: dict[str, Any] | None = None) -> str:
     if notlar:
         satirlar.append("--- IS KURALLARI VE TERIM SOZLUGU ---")
         satirlar.append(notlar)
+        satirlar.append("")
+
+    # Bolum ajaninin kendi sozlugu ortak sozlugun USTUNE biner: ortak kurallar
+    # (para birimi, tarihsel veri uyarisi) her ajanda gecerli kalir.
+    if ek_sozluk:
+        satirlar.append("--- BOLUM SOZLUGU ---")
+        satirlar.append(ek_sozluk)
         satirlar.append("")
 
     return "\n".join(satirlar).strip()
