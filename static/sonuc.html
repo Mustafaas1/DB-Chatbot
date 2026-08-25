@@ -6,18 +6,23 @@
 <title>Sonuç — Veritabanı Asistanı</title>
 <style>
   :root {
-    --zemin: #f4f6fa; --panel: #fff; --kenar: #e2e5ec;
-    --soluk: #64748b; --renk: #3452d8; --metin: #1b1f24;
+    --zemin: #f1f4f9; --panel: #fff; --kenar: #e4e8ef;
+    --soluk: #6b7686; --renk: #3452d8; --metin: #16191f;
+    --golge: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.14);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--zemin); color: var(--metin);
-    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
-    padding: 26px 22px 60px;
+    font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+    padding: 34px 22px 72px;
+    -webkit-font-smoothing: antialiased;
   }
-  .sarici { max-width: 940px; margin: 0 auto; }
+  .sarici { max-width: 960px; margin: 0 auto; }
 
-  .soru { font-size: 13px; color: var(--soluk); margin: 0 0 14px; }
+  .soru {
+    font-size: 13px; color: var(--soluk); margin: 0 0 16px;
+    padding-left: 11px; border-left: 2px solid var(--kenar);
+  }
   .soru b { color: var(--metin); font-weight: 600; }
 
   /* Diger ajanlarin sekmeleri: sayfalari birbirine baglayan kisim */
@@ -33,38 +38,56 @@
   .sekme.aktif { color: #fff; border-color: transparent; font-weight: 600; }
   .sekme.aktif .nokta { background: #fff; }
 
-  .ust { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
-  h1 { font-size: 20px; margin: 0; font-weight: 650; }
-  .gorev { color: var(--soluk); font-size: 13.5px; margin: 0 0 18px; }
+  .ust { display: flex; align-items: center; gap: 11px; margin-bottom: 5px; }
+  .ust .imza {
+    width: 32px; height: 32px; border-radius: 9px; flex: none;
+    display: grid; place-items: center; color: #fff;
+    font-size: 13px; font-weight: 700; background: var(--renk);
+  }
+  h1 { font-size: 21px; margin: 0; font-weight: 660; letter-spacing: -.01em; }
+  .gorev { color: var(--soluk); font-size: 13.5px; margin: 0 0 8px; padding-left: 43px; }
+  .kunye {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 43px;
+    margin: 0 0 22px; font-size: 12.5px; color: var(--soluk);
+  }
+  .kunye span { display: inline-flex; align-items: center; gap: 5px; }
 
   .kart {
     background: var(--panel); border: 1px solid var(--kenar);
-    border-radius: 14px; padding: 20px 22px; margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+    border-radius: 16px; padding: 22px 24px; margin-bottom: 18px;
+    box-shadow: var(--golge);
   }
   .kart h2 {
-    font-size: 13px; margin: 0 0 14px; font-weight: 620; color: var(--soluk);
-    text-transform: uppercase; letter-spacing: .05em;
+    font-size: 11.5px; margin: 0 0 16px; font-weight: 660; color: var(--soluk);
+    text-transform: uppercase; letter-spacing: .07em;
   }
   .cevap { border-left: 3px solid var(--renk); }
-  .cevap p { margin: 0; font-size: 14.5px; line-height: 1.65; }
+  .cevap p { margin: 0; font-size: 15px; line-height: 1.7; }
 
-  .grafik { display: grid; gap: 10px; }
-  .satir { display: grid; grid-template-columns: minmax(0, 210px) 1fr auto; align-items: center; gap: 13px; }
-  .etiket { font-size: 13.5px; color: var(--soluk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .yol { background: var(--zemin); border-radius: 6px; height: 24px; overflow: hidden; }
-  .cubuk { height: 100%; border-radius: 6px; background: var(--renk); }
-  .deger { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 650; }
-  .not { font-size: 12.5px; color: var(--soluk); margin-top: 14px; }
+  .grafik { display: grid; gap: 4px; }
+  .satir {
+    display: grid; grid-template-columns: minmax(0, 240px) 1fr minmax(90px, auto);
+    align-items: center; gap: 14px; padding: 5px 8px; border-radius: 8px;
+  }
+  .satir:hover { background: var(--zemin); }
+  .etiket { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .yol { background: var(--zemin); border-radius: 5px; height: 22px; overflow: hidden; }
+  .cubuk { height: 100%; border-radius: 5px; background: var(--renk); opacity: .9; transition: width .4s ease; }
+  .deger { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 660; text-align: right; }
+  .not { font-size: 12.5px; color: var(--soluk); margin-top: 16px; }
 
-  .tablo-sarici { overflow-x: auto; }
+  .tablo-sarici { overflow-x: auto; margin: -4px -6px; padding: 4px 6px; }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   th {
-    text-align: left; font-weight: 600; color: var(--soluk); font-size: 12.5px;
-    padding: 9px 12px; background: var(--zemin); border-bottom: 1px solid var(--kenar); white-space: nowrap;
+    text-align: left; font-weight: 620; color: var(--soluk); font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: 10px 14px; border-bottom: 1.5px solid var(--kenar); white-space: nowrap;
   }
-  td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; }
+  th.sayi { text-align: right; }
+  td { padding: 11px 14px; border-bottom: 1px solid #f2f4f8; }
   td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--zemin); }
   .bos { color: var(--soluk); }
 
   @media (prefers-color-scheme: dark) {
@@ -78,8 +101,12 @@
   <p class="soru" id="soru"></p>
   <div class="sekmeler" id="sekmeler"></div>
 
-  <div class="ust"><h1 id="baslik">Sonuç</h1></div>
+  <div class="ust">
+    <span class="imza" id="imza"></span>
+    <h1 id="baslik">Sonuç</h1>
+  </div>
   <p class="gorev" id="gorev"></p>
+  <p class="kunye" id="kunye"></p>
 
   <div class="kart cevap" id="cevapKarti" hidden><p id="cevap"></p></div>
 
@@ -164,6 +191,21 @@ if (!adim) {
   document.getElementById("baslik").textContent = adim.ajan;
   document.getElementById("gorev").textContent = adim.gorev || "";
 
+  // Ajan adinin bas harfleri kucuk bir imza olarak gosterilir (SA, FA gibi).
+  document.getElementById("imza").textContent = adim.ajan
+    .split(/\s+/).slice(0, 2).map(function (k) { return k[0]; }).join("").toLocaleUpperCase("tr");
+
+  const kunye = document.getElementById("kunye");
+  const satirSayisi = (adim.rows || []).length;
+  const kolonSayisi = (adim.columns || []).length;
+  if (satirSayisi) {
+    kunye.appendChild(el("span", null, satirSayisi + " satır"));
+    kunye.appendChild(el("span", null, kolonSayisi + " kolon"));
+  }
+  if (veri.adimlar.length > 1) {
+    kunye.appendChild(el("span", null, (i + 1) + " / " + veri.adimlar.length + ". ajan"));
+  }
+
   if (adim.cevap) {
     document.getElementById("cevap").textContent = adim.cevap;
     document.getElementById("cevapKarti").hidden = false;
@@ -188,8 +230,16 @@ if (!adim) {
   }
 
   if (adim.columns && adim.columns.length) {
+    // Sayisal kolonlarin basligi da saga hizalansin ki sutun okunakli kalsin.
+    const sayisalKolon = adim.columns.map(function (_, n) {
+      return (adim.rows || []).length > 0 &&
+        (adim.rows || []).every(function (s) { return typeof s[n] === "number"; });
+    });
+
     const tb = document.getElementById("tbaslik");
-    for (const k of adim.columns) tb.appendChild(el("th", null, k));
+    adim.columns.forEach(function (k, n) {
+      tb.appendChild(el("th", sayisalKolon[n] ? "sayi" : null, k));
+    });
     const tg = document.getElementById("tgovde");
     for (const satir of adim.rows || []) {
       const tr = el("tr");

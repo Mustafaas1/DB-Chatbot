@@ -216,11 +216,19 @@ function grafikVerisi(sonuc, esnek) {
   if (!metinsel.length) return null;
   if (sayisal.length !== 1 && !(esnek && sayisal.length > 1)) return null;
   const degerIdx = sayisal[sayisal.length - 1];
-  const etiketIdx = metinsel[0];
+  // Etiket TUM metin kolonlarindan olusturulur. Tek kolon alininca
+  // "Gonderildi" gibi degerler tekrar edip grafigi okunmaz yapiyordu;
+  // birlestirince "Gonderildi · TRY" seklinde ayirt edilebilir oluyor.
+  const etiketle = function (s) {
+    return metinsel
+      .map(function (i) { return s[i] === null || s[i] === undefined ? "—" : String(s[i]); })
+      .filter(function (v) { return v !== ""; })
+      .join(" · ");
+  };
 
   const SINIR = 12;
   const veri = sonuc.rows.slice(0, SINIR).map((s) => ({
-    etiket: s[etiketIdx] === null || s[etiketIdx] === undefined ? "—" : String(s[etiketIdx]),
+    etiket: etiketle(s),
     deger: s[degerIdx],
   }));
 
