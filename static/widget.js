@@ -41,17 +41,36 @@
     return h;
   }
 
-  function tokenIste() {
-    const girilen = window.prompt(
-      "Bu sunucu API anahtari istiyor." + String.fromCharCode(10) +
-      "Anahtari girin (.env dosyasindaki API_TOKEN):"
-    );
-    if (girilen && girilen.trim()) {
-      try { localStorage.setItem(TOKEN_ANAHTARI, girilen.trim()); } catch (e) {}
+  function anahtarFormuGoster(mesaj) {
+    // window.prompt tarayiciyi kilitliyor ve iptal edilince panel bos
+    // kaliyordu; bunun yerine govdede kucuk bir form gosteriyoruz.
+    if (!govdeEl || govdeEl.querySelector("#anahtarKutusu")) return;
+    govdeEl.innerHTML = "";
+
+    const kutu = el("div", "hata-kutu");
+    kutu.id = "anahtarKutusu";
+    kutu.appendChild(el("div", null, mesaj || "Bu sunucu API anahtari istiyor (.env: API_TOKEN)."));
+
+    const girdi = document.createElement("input");
+    girdi.type = "password";
+    girdi.placeholder = "API anahtari";
+    girdi.style.cssText =
+      "width:100%;margin-top:8px;padding:7px 9px;border:1px solid var(--kenar);border-radius:7px;font:inherit;";
+
+    const btn = el("button", "csv-buton", "Kaydet");
+    btn.style.marginTop = "8px";
+    const kaydet = function () {
+      const v = girdi.value.trim();
+      if (!v) return;
+      try { localStorage.setItem(TOKEN_ANAHTARI, v); } catch (e) {}
       location.reload();
-      return true;
-    }
-    return false;
+    };
+    btn.addEventListener("click", kaydet);
+    girdi.addEventListener("keydown", function (e) { if (e.key === "Enter") kaydet(); });
+
+    kutu.appendChild(girdi);
+    kutu.appendChild(btn);
+    govdeEl.appendChild(kutu);
   }
   let ORNEKLER = (ds.ornekler ||
     "1 ay içinde sözleşmeleri bitecek müşteriler|Vadesi geçmiş faturaların toplamı|Şehirlere göre aktif müşteri sayısı"
@@ -661,7 +680,9 @@
     if (!yanit.ok) {
       let ayrinti = "Beklenmeyen bir hata oluştu.";
       try { ayrinti = (await yanit.json()).detail || ayrinti; } catch (e) {}
-      throw new Error(ayrinti);
+      const hata = new Error(ayrinti);
+      hata.durum = yanit.status;      // 401'de anahtar formu gosterilir
+      throw hata;
     }
     const okuyucu = yanit.body.getReader();
     const cozucu = new TextDecoder();
@@ -841,6 +862,7 @@
       await akisiTuket({ message: metin, session_id: oturumId }, kayitIsle);
       mesajlar.push({ rol: "asistan", adimlar: toplanan });
     } catch (err) {
+      if (err && err.durum === 401) { anahtarFormuGoster(err.message); return; }
       const hata = { rol: "asistan", hata: err.message || ("Sunucuya ulaşılamadı: " + err) };
       if (sarici) { sarici.innerHTML = ""; sarici.appendChild(el("div", "hata-kutu", hata.hata)); }
       else { bekleyen.innerHTML = ""; bekleyen.appendChild(el("div", "hata-kutu", hata.hata)); }
@@ -914,7 +936,7 @@
   async function durumYukle() {
     try {
       const durumYaniti = await fetch(API + "/api/durum", { headers: basliklar(false) });
-      if (durumYaniti.status === 401) { tokenIste(); return; }
+      if (durumYaniti.status === 401) { anahtarFormuGoster(); return; }
       const veri = await durumYaniti.json();
       const ok = veri.database && veri.database.ok;
       noktaEl.className = "nokta " + (ok ? "acik" : "kapali");

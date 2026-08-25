@@ -30,15 +30,53 @@ function basliklar(ekJson) {
   return h;
 }
 
-async function tokenIste() {
-  const girilen = window.prompt(
-    "Bu sunucu API anahtari istiyor." + String.fromCharCode(10) +
-    "Anahtari girin (.env dosyasindaki API_TOKEN):"
-  );
-  if (girilen && girilen.trim()) {
-    try { localStorage.setItem(TOKEN_ANAHTARI, girilen.trim()); } catch (e) {}
+function anahtarFormuGoster(mesaj) {
+  // window.prompt kullanmiyoruz: tarayiciyi kilitliyor ve iptal edilirse
+  // sayfa sessizce bos kaliyordu. Bunun yerine sohbet alaninda form.
+  if (document.getElementById("anahtarKutusu")) return;
+
+  const kutu = document.createElement("div");
+  kutu.className = "hata-kutu";
+  kutu.id = "anahtarKutusu";
+
+  const p = document.createElement("p");
+  p.style.margin = "0 0 10px";
+  p.textContent = mesaj || "Bu sunucu API anahtarı istiyor (.env dosyasındaki API_TOKEN).";
+  kutu.appendChild(p);
+
+  const satir = document.createElement("div");
+  satir.style.display = "flex";
+  satir.style.gap = "8px";
+
+  const girdi = document.createElement("input");
+  girdi.type = "password";
+  girdi.placeholder = "API anahtarını yapıştırın";
+  girdi.style.flex = "1";
+  girdi.style.padding = "8px 10px";
+  girdi.style.border = "1px solid var(--kenar)";
+  girdi.style.borderRadius = "8px";
+  girdi.style.font = "inherit";
+
+  const btn = document.createElement("button");
+  btn.className = "mini-buton";
+  btn.textContent = "Kaydet";
+
+  const kaydet = () => {
+    const v = girdi.value.trim();
+    if (!v) return;
+    try { localStorage.setItem(TOKEN_ANAHTARI, v); } catch (e) {}
     location.reload();
-  }
+  };
+  btn.addEventListener("click", kaydet);
+  girdi.addEventListener("keydown", (e) => { if (e.key === "Enter") kaydet(); });
+
+  satir.append(girdi, btn);
+  kutu.appendChild(satir);
+
+  karsilamayiKaldir();
+  sohbetEl.appendChild(kutu);
+  asagiKaydir();
+  girdi.focus();
 }
 
 function el(etiket, sinif, metin) {
@@ -367,7 +405,9 @@ async function akisiTuket(govde, kayitIsle) {
   if (!yanit.ok) {
     let ayrinti = "Beklenmeyen bir hata oluştu.";
     try { ayrinti = (await yanit.json()).detail || ayrinti; } catch (e) {}
-    throw new Error(ayrinti);
+    const hata = new Error(ayrinti);
+    hata.durum = yanit.status;      // 401'de anahtar formu gosterilecek
+    throw hata;
   }
 
   const okuyucu = yanit.body.getReader();
@@ -528,7 +568,12 @@ async function gonder(metin) {
   try {
     await akisiTuket({ message: metin, session_id: oturumId }, kayitIsle);
   } catch (err) {
-    hataEkle(err.message || ("Sunucuya ulaşılamadı: " + err), sarici || bekleyenEl);
+    if (err && err.durum === 401) {
+      (sarici || bekleyenEl).remove();
+      anahtarFormuGoster(err.message);
+    } else {
+      hataEkle(err.message || ("Sunucuya ulaşılamadı: " + err), sarici || bekleyenEl);
+    }
   } finally {
     clearInterval(bekleyenEl.sayac);
     bekliyor = false;
@@ -573,7 +618,7 @@ document.getElementById("sifirlaBtn").addEventListener("click", async () => {
 async function durumYukle() {
   try {
     const yanitDurum = await fetch("/api/durum", { headers: basliklar(false) });
-    if (yanitDurum.status === 401) { await tokenIste(); return; }
+    if (yanitDurum.status === 401) { anahtarFormuGoster(); return; }
     const veri = await yanitDurum.json();
     const db = veri.database;
     durumNokta.className = "nokta " + (db.ok ? "acik" : "kapali");
