@@ -88,6 +88,28 @@ LEHCE: MYSQL 8
 ONBELLEK_ARAC_ID = "onbellek_0"
 
 
+OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloyu sade Turkce ozetlemek.
+
+- Sonuc satirlarini ASLA tek tek yazma: ne markdown tablosu (| ... |), ne madde
+  listesi, ne alt alta dokum. Tablo arayuzde zaten gosteriliyor; tekrar yazarsan
+  ekranda iki kez gorunur. Duz paragraf yaz.
+- 2-4 cumle: kac kayit dondu, en dikkat cekici 1-2 deger, varsa sasirtici bulgu.
+  Ornek: "10 film listelendi. Basi 34 kiralamayla BUCKET BROTHERHOOD cekiyor."
+- Sonuc bossa bunu soyle ve olasi nedenini belirt.
+- Yalnizca aracin dondurdugu gercek veriye dayan; veri uydurma.
+- Sayilari ve para birimini sozlukte belirtildigi gibi etiketle."""
+
+
+def _ozet_talimati() -> str:
+    """Ozetleme cagrisi icin yalin talimat.
+
+    Tam sistem talimatinin buyuk kismi SQL YAZMA kurallari (lehce, guvenlik,
+    takma ad) ve ozetleme cagrisinda islevsiz. Zincirde dort cagri oldugu icin
+    bu fark dogrudan dakikalik token limitine yansiyor.
+    """
+    return OZET_TALIMATI
+
+
 def _sistem_talimati() -> str:
     """Aktif veritabani lehcesine gore sistem talimatini olusturur."""
     lehce = MYSQL_TALIMATI if settings.is_mysql else MSSQL_TALIMATI
@@ -646,7 +668,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
     bolum = ajan.sozluk() if ajan else ""
     kisa_sistem = {
         "role": "system",
-        "content": _sistem_talimati()
+        "content": _ozet_talimati()
         + (f"\n\n--- IS KURALLARI VE TERIM SOZLUGU ---\n{notlar}" if notlar else "")
         + (f"\n\n--- BOLUM SOZLUGU ---\n{bolum}" if bolum else "")
         + "\n\nBugunun tarihi: "

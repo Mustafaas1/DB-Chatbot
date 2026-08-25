@@ -20,9 +20,9 @@ from .planlayici import Adim, plan_yap
 __all__ = ["akis_calistir"]
 
 #: Sonraki adima aktarilacak ornek satir sayisi. Buyutmek token yakar.
-DEVIR_SATIRI = 10
+DEVIR_SATIRI = 5
 #: Onceki cevabin aktarilacak kismi.
-DEVIR_METNI = 400
+DEVIR_METNI = 300
 
 
 def _devir_metni(cevap: ChatCevabi) -> str:

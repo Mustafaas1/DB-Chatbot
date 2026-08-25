@@ -12,6 +12,17 @@ from app.planlayici import AZAMI_VERI_ADIMI, _json_ayikla, _tek_adim, plan_yap
 from app.schema import schema_to_prompt
 
 
+@pytest.fixture(autouse=True)
+def izole_onbellek(tmp_path, monkeypatch):
+    """Testler gercek sql_cache.json dosyasina dokunmasin.
+
+    Plan onbellegi eklendikten sonra testler birbirinin planini okuyordu.
+    """
+    monkeypatch.setattr(sqlcache, "DOSYA", tmp_path / "sql_cache.json")
+    monkeypatch.setattr(sqlcache, "_parmak_izi", lambda: "TEST")
+    yield
+
+
 # ------------------------------------------------- ajan profilleri
 
 def test_ajanlar_tanimli():

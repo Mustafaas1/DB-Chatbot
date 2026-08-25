@@ -63,6 +63,8 @@ def _talimat(ajanlar: list[Ajan]) -> str:
         "- Soru iki farkli bolumun konusunu iceriyorsa IKI adima BOL.",
         "- Tek bolumun konusuysa TEK adim birak; bosuna bolme.",
         "- Her adimin 'gorev' alani, o ajana sorulacak tam bir Turkce soru olmalidir.",
+        "- Listeleme gorevlerine ACIK bir sinir koy (ornegin 'ilk 10'); sinirsiz",
+        "  listeler gereksiz token yakar.",
         "- Ikinci adim birinciye dayaniyorsa gorevinde bunu belirt.",
         "- Sonucu grafikle gosterilmesi anlamli olan adimda grafik=true yaz",
         "  (kategori/donem kirilimi gibi). Tek satirlik sonuclarda grafik=false.",
@@ -79,8 +81,8 @@ ORNEKLER = [
         "En cok kiralama yapan musterileri getir ve ne kadar harcadiklarini goster",
         {
             "adimlar": [
-                {"ajan": "satis", "gorev": "En cok kiralama yapan musterileri listele", "grafik": False},
-                {"ajan": "finans", "gorev": "Bu musterilerin toplam harcamasini getir", "grafik": True},
+                {"ajan": "satis", "gorev": "En cok kiralama yapan ILK 10 musteriyi listele", "grafik": False},
+                {"ajan": "finans", "gorev": "Bu 10 musterinin toplam harcamasini getir", "grafik": True},
             ]
         },
     ),
@@ -92,7 +94,7 @@ ORNEKLER = [
         "Kategorilere gore film sayisi ve toplam ciro",
         {
             "adimlar": [
-                {"ajan": "envanter", "gorev": "Kategorilere gore film sayisini getir", "grafik": True},
+                {"ajan": "envanter", "gorev": "Kategorilere gore film sayisini getir (16 kategori)", "grafik": True},
                 {"ajan": "finans", "gorev": "Kategorilere gore toplam ciroyu getir", "grafik": True},
             ]
         },
@@ -133,6 +135,32 @@ def _tek_adim(soru: str, kod: str | None = None) -> list[Adim]:
     return [Adim(ajan_bul(kod), soru)]
 
 
+#: Plan onbellegi, SQL onbellegiyle ayni dosyayi bu ozel anahtar altinda kullanir.
+PLAN_ANAHTARI = "__plan__"
+
+
+def _plani_coz(ham: str, kodlar: set[str]) -> list[Adim]:
+    """Saklanmis plan JSON'unu Adim listesine cevirir."""
+    veri = _json_ayikla(ham) or {}
+    adimlar: list[Adim] = []
+    for h in (veri.get("adimlar") or [])[:AZAMI_VERI_ADIMI]:
+        kod = str(h.get("ajan", "")).strip().lower()
+        gorev = str(h.get("gorev", "")).strip()
+        if kod in kodlar and gorev:
+            adimlar.append(Adim(ajan_bul(kod), gorev, bool(h.get("grafik"))))
+    return adimlar
+
+
+def _plani_sakla(soru: str, adimlar: list[Adim]) -> None:
+    from . import sqlcache
+
+    ham = json.dumps(
+        {"adimlar": [{"ajan": a.ajan.kod, "gorev": a.gorev, "grafik": a.grafik} for a in adimlar]},
+        ensure_ascii=False,
+    )
+    sqlcache.yaz(soru, ham, PLAN_ANAHTARI)
+
+
 def plan_yap(soru: str, client=None) -> list[Adim]:
     """Soruyu adimlara ayirir.
 
@@ -142,6 +170,17 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
     ajanlar = ajanlari_getir()
     if len(ajanlar) < 2:
         return _tek_adim(soru, ajanlar[0].kod)
+
+    kodlar = {a.kod for a in ajanlar}
+
+    # Ayni soru daha once planlandiysa planlayici cagrisini atla (~450 token).
+    from . import sqlcache
+
+    saklanan = sqlcache.getir(soru, PLAN_ANAHTARI)
+    if saklanan:
+        onbellekten = _plani_coz(saklanan, kodlar)
+        if onbellekten:
+            return onbellekten
 
     if client is None:
         from .llm import get_groq_client
@@ -168,7 +207,6 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
     if not veri or not isinstance(veri.get("adimlar"), list):
         return _tek_adim(soru)
 
-    kodlar = {a.kod for a in ajanlar}
     adimlar: list[Adim] = []
     for ham in veri["adimlar"][:AZAMI_VERI_ADIMI]:
         if not isinstance(ham, dict):
@@ -179,4 +217,6 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
             continue
         adimlar.append(Adim(ajan_bul(kod), gorev, bool(ham.get("grafik"))))
 
+    if adimlar:
+        _plani_sakla(soru, adimlar)
     return adimlar or _tek_adim(soru)
