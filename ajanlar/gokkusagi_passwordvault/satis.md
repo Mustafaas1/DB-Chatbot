@@ -12,6 +12,12 @@ Teklifler, satış fırsatları ve müşteri kontakları senin alanın.
 - **Kayıp nedeni**: `Teklifler.KayipNedeni`.
 - Satış temsilcisi `SatisTemsilcisi`, ekip `SatisEkibi` kolonlarında **metin** olarak tutulur.
 
+## Para birimi
+
+`Teklifler` tablosunda **144 teklif `TRY`, 7 teklif `USD`**; `OpportunityRecords`
+tamamen `TRY`. Teklif tutarlarını toplarken **`GROUP BY ParaBirimi` kullan** ve
+sonucu "TL" diye etiketleme — karışık para birimlerini toplamak yanlış rakam üretir.
+
 ## Sınırın
 
 Fatura ve sözleşme **finans ajanının**, destek biletleri **destek ajanının** alanıdır.

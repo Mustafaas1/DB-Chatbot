@@ -112,7 +112,19 @@
 <script>
   // Pano rakamlari veritabanindan CANLI gelir; sayfada sabit deger yoktur.
   // Veritabani degisince kendiliginden guncellenir.
-  fetch('/api/ozet').then(r => r.json()).then(o => {
+  // Sunucu API_TOKEN ile korunuyorsa anahtar tarayicida saklanir (widget ile ayni yer).
+  function apiBasliklari() {
+    try {
+      const t = localStorage.getItem('vtasistan.token');
+      return t ? { 'Authorization': 'Bearer ' + t } : {};
+    } catch (e) { return {}; }
+  }
+
+  fetch('/api/ozet', { headers: apiBasliklari() }).then(r => {
+    if (r.status === 401) return null;      // widget anahtari soracak
+    return r.json();
+  }).then(o => {
+    if (!o) return;
     const kartlar = document.getElementById('kartlar');
     if (!o.tanimli) {
       const yok = document.getElementById('ozetYok');
@@ -148,7 +160,8 @@
   }).catch(() => {});
 
   // Örnek soruyu sunucudan al: aktif veritabanı değişince buton da değişir.
-  fetch('/api/durum').then(r => r.json()).then(d => {
+  fetch('/api/durum', { headers: apiBasliklari() }).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d) return;
     const soru = (d.ornekler || [])[0];
     const btn = document.getElementById('ornekSor');
     if (soru && btn) {

@@ -49,9 +49,11 @@ def _devir_metni(cevap: ChatCevabi) -> str:
 #: Bu olmadan ajan "customer_id, toplam, adet" gibi tamami sayisal bir sonuc
 #: dondurebiliyor; o zaman cizilecek bir etiket kolonu kalmiyor.
 GRAFIK_YONERGESI = (
-    "Bu adimin sonucu GRAFIKLE gosterilecek. Sonucu buna gore bicimlendir: "
-    "bir ETIKET kolonu (isim, kategori, donem gibi metin) ve TEK bir sayisal "
-    "olcu kolonu dondur. Kimlik (ID) kolonu EKLEME. Kolonlara Turkce takma ad ver."
+    "Bu adimin sonucu grafikle de gosterilebilir. Mumkunse sonuca bir ETIKET "
+    "kolonu (isim, kategori, donem gibi metin) koy ve kolonlara Turkce takma "
+    "ad ver. Birden fazla sayisal olcu gerekiyorsa HEPSINI dondur; grafik "
+    "sonuncusunu kullanir. Bu bicim tercihi yuzunden sorguyu calistirmadan "
+    "birakma veya kullaniciya soru sorma -- once sorguyu calistir."
 )
 
 

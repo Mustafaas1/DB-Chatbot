@@ -17,14 +17,25 @@ Kullanıcı açıkça "silinmişler dahil" demedikçe silinmiş kayıtları saym
 Arşivlenmiş (`IsArchived = 1`) kayıtlar geçerlidir; yalnızca kullanıcı
 "arşiv hariç" derse dışla.
 
-## Para birimi
+## Para birimi — en sık yapılan hata
 
-Tutar kolonlarının yanında **`ParaBirimi`** kolonu bulunur ve **her kayıtta
-dolu değildir** — örneğin `Invoices` tablosunda 390 kaydın para birimi boş,
-69'u `TRY`. Bu yüzden:
+Tutar kolonlarının yanında **`ParaBirimi`** kolonu bulunur. Bu kolon hem
+**tablodan tabloya değişir** hem de **her kayıtta dolu değildir**:
 
-- Farklı para birimlerindeki tutarları **toplama**; para birimine göre grupla.
-- Para birimi boş olan kayıtlar varsa bunu cevabında belirt.
+| Tablo | Dağılım |
+|---|---|
+| `Teklifler` | 144 kayıt `TRY`, 7 kayıt `USD` |
+| `Invoices` | 390 kayıt **boş**, 69 kayıt `TRY` |
+| `ContractRecords` | 387 kayıt **boş**, 31 kayıt `TRY` |
+| `OpportunityRecords` | 51 kayıt `TRY` |
+
+Bu yüzden:
+
+- **Farklı para birimlerindeki tutarları ASLA tek bir toplamda birleştirme.**
+  `SUM(Tutar)` yazacaksan mutlaka `GROUP BY ParaBirimi` ekle.
+- Toplamı **"TL" diye etiketleme**; hangi para biriminde olduğunu veriden al.
+- Para birimi boş olan kayıtlar varsa bunları ayrı bir grup olarak göster ve
+  cevabında "bir kısmının para birimi tanımsız" diye belirt.
 
 ## Ortak kolonlar
 

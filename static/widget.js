@@ -24,12 +24,34 @@
   const ACIK_BASLANGIC = ds.acik === "1" || ds.acik === "true";
   // Sunucuda API_TOKEN tanimliysa data-token ile gonderilmelidir.
   // NOT: Tarayiciya inen anahtar gizli degildir; sayfayi goren okuyabilir.
-  const TOKEN = (ds.token || "").trim();
+  const TOKEN_ANAHTARI = "vtasistan.token";
+  const TOKEN_ONTANIM = (ds.token || "").trim();
+
+  function tokenAl() {
+    // data-token oncelikli; yoksa tarayicida saklanan anahtar kullanilir.
+    // Boylece gercek anahtar sayfa kaynagina gomulmek zorunda kalmaz.
+    if (TOKEN_ONTANIM) return TOKEN_ONTANIM;
+    try { return localStorage.getItem(TOKEN_ANAHTARI) || ""; } catch (e) { return ""; }
+  }
 
   function basliklar(ekJson) {
     const h = ekJson ? { "Content-Type": "application/json" } : {};
-    if (TOKEN) h["Authorization"] = "Bearer " + TOKEN;
+    const t = tokenAl();
+    if (t) h["Authorization"] = "Bearer " + t;
     return h;
+  }
+
+  function tokenIste() {
+    const girilen = window.prompt(
+      "Bu sunucu API anahtari istiyor." + String.fromCharCode(10) +
+      "Anahtari girin (.env dosyasindaki API_TOKEN):"
+    );
+    if (girilen && girilen.trim()) {
+      try { localStorage.setItem(TOKEN_ANAHTARI, girilen.trim()); } catch (e) {}
+      location.reload();
+      return true;
+    }
+    return false;
   }
   let ORNEKLER = (ds.ornekler ||
     "1 ay içinde sözleşmeleri bitecek müşteriler|Vadesi geçmiş faturaların toplamı|Şehirlere göre aktif müşteri sayısı"
@@ -869,7 +891,9 @@
 
   async function durumYukle() {
     try {
-      const veri = await (await fetch(API + "/api/durum", { headers: basliklar(false) })).json();
+      const durumYaniti = await fetch(API + "/api/durum", { headers: basliklar(false) });
+      if (durumYaniti.status === 401) { tokenIste(); return; }
+      const veri = await durumYaniti.json();
       const ok = veri.database && veri.database.ok;
       noktaEl.className = "nokta " + (ok ? "acik" : "kapali");
       // Sunucu, aktif veritabanina uygun ornek sorulari bildirir.

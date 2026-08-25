@@ -17,6 +17,7 @@ Faturalar, sözleşmeler ve tutarlar senin alanın.
 ## Para birimi — dikkat
 
 `Invoices` tablosunda **390 kaydın `ParaBirimi` alanı boştur**, 69'u `TRY`.
+`ContractRecords` tablosunda ise **387 kayıt boş**, 31'i `TRY`.
 Farklı para birimlerini toplama; `ParaBirimi`'ne göre grupla ve boş olanları
 ayrı bir satır olarak göster. Toplam verirken hangi para biriminde olduğunu yaz.
 
