@@ -11,13 +11,14 @@ sinirlar; grafik adimlari istemcide cizildigi icin bedavadir.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from .ajanlar import ajanlari_getir
 from .llm import ChatCevabi, sohbet_et
 from .planlayici import Adim, plan_yap
 
-__all__ = ["akis_calistir"]
+__all__ = ["akis_calistir", "akis_uret"]
 
 #: Sonraki adima aktarilacak ornek satir sayisi. Buyutmek token yakar.
 DEVIR_SATIRI = 5
@@ -52,16 +53,33 @@ def _gorev_metni(adim: Adim, devir: str) -> str:
     )
 
 
-def akis_calistir(soru: str, gecmis: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Soruyu ajan zinciri olarak calistirir ve adim adim sonuc dondurur."""
+def akis_uret(
+    soru: str, gecmis: list[dict[str, Any]] | None = None
+) -> Iterator[dict[str, Any]]:
+    """Zinciri adim adim uretir.
+
+    Once plani, sonra her adimi tamamlandikca yayinlar. Boylece arayuz ilk
+    ajanin sonucunu, ikincisi calisirken gosterebilir -- zincirli sorular
+    30 saniyeyi bulabildigi icin bu bekleme hissini belirgin sekilde kisaltir.
+
+    Son olarak "bitti" kaydi gelir; icinde toplam kullanim ve saklanacak
+    oturum gecmisi bulunur.
+    """
     plan = plan_yap(soru)
 
-    adim_sonuclari: list[dict[str, Any]] = []
+    yield {
+        "tur": "plan",
+        "adimlar": [a.to_dict() for a in plan],
+        "ajanlar": [
+            {"kod": a.kod, "ad": a.ad, "renk": a.renk, "ornekler": a.ornekler}
+            for a in ajanlari_getir()
+        ],
+    }
+
     toplam = {"input_tokens": 0, "output_tokens": 0}
     devir = ""
     # Konusma surekliligi: gecmis YALNIZCA ilk adima verilir. Sonraki adimlar
-    # zaten oncekinin bulgusunu devir metniyle aliyor; gecmisi de eklemek
-    # token'i ikiye katlardi.
+    # zaten oncekinin bulgusunu devir metniyle aliyor.
     son_gecmis = list(gecmis or [])
 
     for sira, adim in enumerate(plan, start=1):
@@ -75,25 +93,44 @@ def akis_calistir(soru: str, gecmis: list[dict[str, Any]] | None = None) -> dict
         toplam["input_tokens"] += cevap.kullanim.get("input_tokens", 0)
         toplam["output_tokens"] += cevap.kullanim.get("output_tokens", 0)
 
-        adim_sonuclari.append(
-            {
-                "sira": sira,
-                **adim.to_dict(),
-                "answer": cevap.cevap,
-                "steps": cevap.adimlar,
-                "result": cevap.son_sonuc.to_dict() if cevap.son_sonuc else None,
-                "usage": cevap.kullanim,
-            }
-        )
+        yield {
+            "tur": "adim",
+            "sira": sira,
+            "toplam_adim": len(plan),
+            **adim.to_dict(),
+            "answer": cevap.cevap,
+            "steps": cevap.adimlar,
+            "result": cevap.son_sonuc.to_dict() if cevap.son_sonuc else None,
+            "usage": cevap.kullanim,
+        }
         devir = _devir_metni(cevap)
+
+    yield {"tur": "bitti", "usage": toplam, "gecmis": son_gecmis}
+
+
+def akis_calistir(soru: str, gecmis: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Zinciri bastan sona calistirip tek parca sonuc dondurur.
+
+    Akisi desteklemeyen istemciler icin akis_uret() uzerine ince bir sarmalayici.
+    """
+    adimlar: list[dict[str, Any]] = []
+    ajanlar: list[dict[str, Any]] = []
+    toplam: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
+    son_gecmis: list[dict[str, Any]] = []
+
+    for kayit in akis_uret(soru, gecmis):
+        if kayit["tur"] == "plan":
+            ajanlar = kayit["ajanlar"]
+        elif kayit["tur"] == "adim":
+            adimlar.append({k: v for k, v in kayit.items() if k != "tur"})
+        else:
+            toplam = kayit["usage"]
+            son_gecmis = kayit["gecmis"]
 
     return {
         "soru": soru,
         "gecmis": son_gecmis,
-        "adimlar": adim_sonuclari,
-        "ajanlar": [
-            {"kod": a.kod, "ad": a.ad, "renk": a.renk, "ornekler": a.ornekler}
-            for a in ajanlari_getir()
-        ],
+        "adimlar": adimlar,
+        "ajanlar": ajanlar,
         "usage": toplam,
     }

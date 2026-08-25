@@ -246,6 +246,8 @@
     padding: 1px 7px; border-radius: 999px; white-space: nowrap;
   }
   .adim-gorev { font-size: 11px; color: var(--soluk); line-height: 1.35; }
+  .ajan-rozet { transition: opacity .3s ease; }
+  .ajan-rozet.bekliyor { opacity: .35; }
   .grafik { padding: 10px 12px 4px; display: none; gap: 7px; }
   .sonuc.grafik-modu .grafik { display: grid; }
   .sonuc.grafik-modu .tablo-sarici { display: none; }
@@ -579,6 +581,51 @@
     return panel;
   }
 
+  var SATIR_SONU = String.fromCharCode(10);
+  var AYIRAC = SATIR_SONU + SATIR_SONU;
+
+  /* Sunucu adimlari tamamlandikca yayinliyor (SSE); her adimi geldigi anda
+     ciziyoruz. Zincirli sorular 30 saniyeyi bulabiliyor. */
+  async function akisiTuket(govde, kayitIsle) {
+    const yanit = await fetch(API + "/api/akis/canli", {
+      method: "POST",
+      headers: basliklar(true),
+      body: JSON.stringify(govde),
+    });
+    if (!yanit.ok) {
+      let ayrinti = "Beklenmeyen bir hata oluştu.";
+      try { ayrinti = (await yanit.json()).detail || ayrinti; } catch (e) {}
+      throw new Error(ayrinti);
+    }
+    const okuyucu = yanit.body.getReader();
+    const cozucu = new TextDecoder();
+    let tampon = "";
+    for (;;) {
+      const { done, value } = await okuyucu.read();
+      if (done) break;
+      tampon += cozucu.decode(value, { stream: true });
+      const kareler = tampon.split(AYIRAC);
+      tampon = kareler.pop();
+      for (const kare of kareler) {
+        const satir = kare.split(SATIR_SONU).find((l) => l.startsWith("data: "));
+        if (satir) kayitIsle(JSON.parse(satir.slice(6)));
+      }
+    }
+  }
+
+  function zincirOzetiOlustur(adimlar) {
+    const ozet = el("div", "zincir-ozet");
+    ozet.appendChild(el("span", "zincir-etiket", "Ajan zinciri"));
+    adimlar.forEach((a, i) => {
+      if (i) ozet.appendChild(el("span", null, "→"));
+      const r = ajanRozeti(a);
+      r.classList.add("bekliyor");
+      r.dataset.ajan = a.ajan;
+      ozet.appendChild(r);
+    });
+    return ozet;
+  }
+
   function zinciriCiz(mesaj, sarici) {
     const adimlar = mesaj.adimlar || [];
     if (adimlar.length > 1) {
@@ -666,29 +713,55 @@
       yaziEl.textContent = yazi;
     }, 1000);
 
-    let cevap;
-    try {
-      const yanit = await fetch(API + "/api/akis", {
-        method: "POST",
-        headers: basliklar(true),
-        body: JSON.stringify({ message: metin, session_id: oturumId }),
-      });
-      const veri = await yanit.json();
-      if (!yanit.ok) {
-        cevap = { rol: "asistan", hata: veri.detail || "Beklenmeyen bir hata oluştu." };
-      } else {
-        oturumId = veri.session_id;
+    let sarici = null;
+    let ozetEl = null;
+    const toplanan = [];
+
+    const kayitIsle = (kayit) => {
+      if (kayit.tur === "oturum") {
+        oturumId = kayit.session_id;
         sessionStorage.setItem(ANAHTAR_OTURUM, oturumId);
-        cevap = { rol: "asistan", adimlar: veri.adimlar };
+        return;
       }
+      if (kayit.tur === "hata") {
+        (sarici || bekleyen).innerHTML = "";
+        (sarici || bekleyen).appendChild(el("div", "hata-kutu", kayit.mesaj));
+        return;
+      }
+      if (kayit.tur === "plan") {
+        clearInterval(sayac);
+        sarici = bekleyen;
+        sarici.className = "mesaj asistan";
+        sarici.innerHTML = "";
+        if ((kayit.adimlar || []).length > 1) {
+          ozetEl = zincirOzetiOlustur(kayit.adimlar);
+          sarici.appendChild(ozetEl);
+        }
+        asagiKaydir();
+        return;
+      }
+      if (kayit.tur === "adim") {
+        if (ozetEl) {
+          const r = ozetEl.querySelector('[data-ajan="' + kayit.ajan + '"].bekliyor');
+          if (r) r.classList.remove("bekliyor");
+        }
+        toplanan.push(kayit);
+        sarici.appendChild(adimPaneliCiz(kayit, kayit.toplam_adim));
+        asagiKaydir();
+      }
+    };
+
+    try {
+      await akisiTuket({ message: metin, session_id: oturumId }, kayitIsle);
+      mesajlar.push({ rol: "asistan", adimlar: toplanan });
     } catch (err) {
-      cevap = { rol: "asistan", hata: "Sunucuya ulaşılamadı: " + err.message };
+      const hata = { rol: "asistan", hata: err.message || ("Sunucuya ulaşılamadı: " + err) };
+      if (sarici) { sarici.innerHTML = ""; sarici.appendChild(el("div", "hata-kutu", hata.hata)); }
+      else { bekleyen.innerHTML = ""; bekleyen.appendChild(el("div", "hata-kutu", hata.hata)); }
+      mesajlar.push(hata);
     }
 
     clearInterval(sayac);
-    bekleyen.remove();
-    mesajlar.push(cevap);
-    mesajCiz(cevap);
     mesajlariKaydet();
     asagiKaydir();
 

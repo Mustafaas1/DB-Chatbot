@@ -10,10 +10,11 @@ import anthropic
 import openai
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+import json
 import time
 from contextlib import asynccontextmanager, contextmanager
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -22,7 +23,7 @@ from .db import run_select, test_connection
 from .llm import sohbet_et
 from . import sqlcache
 from .ozet import ozet_getir
-from .orkestra import akis_calistir
+from .orkestra import akis_calistir, akis_uret
 from .guvenlik import dogrula, koruma_durumu
 from . import oturum as oturum_deposu
 from .schema import get_schema, refresh_schema, schema_to_prompt
@@ -71,22 +72,16 @@ app.add_middleware(
 
 
 
-@contextmanager
-def _llm_hatalarini_cevir():
-    """Saglayici hatalarini kullaniciya anlasilir HTTP yanitina cevirir.
+def _hata_kodu_ve_metni(exc: Exception) -> tuple[int, str]:
+    """Saglayici hatasini (HTTP kodu, kullaniciya gosterilecek metin) ciftine cevirir.
 
-    Tek ajanli sohbet ve ajan zinciri ayni cevirileri kullanir; kopyalanirsa
-    zamanla birbirinden ayrisirlar.
+    Tek kaynak: hem HTTP yaniti ureten yol hem de akis (SSE) yolu bunu kullanir.
     """
-    try:
-        yield
-    except (anthropic.AuthenticationError, openai.AuthenticationError) as exc:
+    if isinstance(exc, (anthropic.AuthenticationError, openai.AuthenticationError)):
         anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
-        raise HTTPException(
-            status_code=401,
-            detail=f"API anahtari gecersiz. .env dosyasindaki {anahtar_adi} degerini kontrol edin.",
-        ) from exc
-    except (anthropic.RateLimitError, openai.RateLimitError) as exc:
+        return 401, f"API anahtari gecersiz. .env dosyasindaki {anahtar_adi} degerini kontrol edin."
+
+    if isinstance(exc, (anthropic.RateLimitError, openai.RateLimitError)):
         # Saglayicinin kendi mesaji ne zaman tekrar denenebilecegini ve hangi
         # limitin (dakikalik mi gunluk mu) doldugunu soyluyor; bunu gizlemeyelim.
         ayrinti = "API kullanim limiti asildi."
@@ -109,22 +104,34 @@ def _llm_hatalarini_cevir():
                 dakika, saniye = dakika + saniye // 60, saniye % 60
             okunur = f"{dakika} dk {saniye} sn" if dakika else f"{saniye} sn"
             ayrinti = ayrinti.rstrip() + f" Yaklasik {okunur} sonra tekrar deneyebilirsiniz."
-        raise HTTPException(status_code=429, detail=ayrinti) from exc
-    except (anthropic.APIConnectionError, openai.APIConnectionError) as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Yapay zeka servisine baglanilamadi. Internet baglantinizi kontrol edin.",
-        ) from exc
-    except openai.NotFoundError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Model bulunamadi: {settings.groq_model}. "
-                ".env dosyasindaki GROQ_MODEL degerini kontrol edin."
-            ),
-        ) from exc
+        return 429, ayrinti
+
+    if isinstance(exc, (anthropic.APIConnectionError, openai.APIConnectionError)):
+        return 503, "Yapay zeka servisine baglanilamadi. Internet baglantinizi kontrol edin."
+
+    if isinstance(exc, openai.NotFoundError):
+        return 400, (
+            f"Model bulunamadi: {settings.groq_model}. "
+            ".env dosyasindaki GROQ_MODEL degerini kontrol edin."
+        )
+
+    return 500, str(exc)
+
+
+def _hata_metni(exc: Exception) -> str:
+    return _hata_kodu_ve_metni(exc)[1]
+
+
+@contextmanager
+def _llm_hatalarini_cevir():
+    """Saglayici hatalarini HTTP yanitina cevirir."""
+    try:
+        yield
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        kod, metin = _hata_kodu_ve_metni(exc)
+        raise HTTPException(status_code=kod, detail=metin) from exc
 
 
 class ChatIstegi(BaseModel):
@@ -302,6 +309,43 @@ def akis(istek: AkisIstegi) -> dict:
 
     oturum_deposu.kaydet(oturum_id, sonuc.pop("gecmis", []))
     return {"session_id": oturum_id, **sonuc}
+
+
+@app.post("/api/akis/canli", dependencies=[Depends(dogrula)])
+def akis_canli(istek: AkisIstegi):
+    """Zinciri adim adim yayinlar (Server-Sent Events).
+
+    Zincirli sorular 30 saniyeyi bulabiliyor. Bu uc, ilk ajanin sonucunu
+    ikincisi calisirken gonderir; kullanici bos ekrana bakmaz.
+    """
+    if not settings.llm_key_var:
+        anahtar_adi = "GROQ_API_KEY" if settings.is_groq else "ANTHROPIC_API_KEY"
+        raise HTTPException(
+            status_code=400,
+            detail=f"{anahtar_adi} tanimli degil. .env dosyasina API anahtarinizi ekleyin.",
+        )
+
+    oturum_id = istek.session_id or uuid.uuid4().hex
+
+    def uret():
+        def kare(veri: dict) -> str:
+            return "data: " + json.dumps(veri, ensure_ascii=False, default=str) + chr(10) * 2
+
+        yield kare({"tur": "oturum", "session_id": oturum_id})
+        try:
+            for kayit in akis_uret(istek.message, oturum_deposu.getir(oturum_id)):
+                if kayit["tur"] == "bitti":
+                    oturum_deposu.kaydet(oturum_id, kayit.pop("gecmis", []))
+                yield kare(kayit)
+        except Exception as exc:  # noqa: BLE001 - akis basladi, HTTP kodu degistiremeyiz
+            # Baglanti acildiktan sonra hata olursa istemciye kayit olarak bildiriyoruz.
+            yield kare({"tur": "hata", "mesaj": _hata_metni(exc)})
+
+    return StreamingResponse(
+        uret(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/oturum/sifirla", dependencies=[Depends(dogrula)])

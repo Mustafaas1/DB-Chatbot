@@ -313,6 +313,52 @@ function adimPaneliOlustur(adim, toplamAdim) {
   return panel;
 }
 
+/* Sunucu adimlari tamamlandikca yayinliyor (SSE). Tek parca beklemek yerine
+   her adimi geldigi anda cizeriz; zincirli sorular 30 sn surebiliyor. */
+const SATIR_SONU = String.fromCharCode(10);
+const AYIRAC = SATIR_SONU + SATIR_SONU;
+
+async function akisiTuket(govde, kayitIsle) {
+  const yanit = await fetch("/api/akis/canli", {
+    method: "POST",
+    headers: basliklar(true),
+    body: JSON.stringify(govde),
+  });
+  if (!yanit.ok) {
+    let ayrinti = "Beklenmeyen bir hata oluştu.";
+    try { ayrinti = (await yanit.json()).detail || ayrinti; } catch (e) {}
+    throw new Error(ayrinti);
+  }
+
+  const okuyucu = yanit.body.getReader();
+  const cozucu = new TextDecoder();
+  let tampon = "";
+  for (;;) {
+    const { done, value } = await okuyucu.read();
+    if (done) break;
+    tampon += cozucu.decode(value, { stream: true });
+    const kareler = tampon.split(AYIRAC);
+    tampon = kareler.pop();          // yarim kalan kare tamponda bekler
+    for (const kare of kareler) {
+      const satir = kare.split(SATIR_SONU).find((l) => l.startsWith("data: "));
+      if (satir) kayitIsle(JSON.parse(satir.slice(6)));
+    }
+  }
+}
+
+function zincirOzetiOlustur(adimlar) {
+  const ozet = el("div", "zincir-ozet");
+  ozet.appendChild(el("span", "zincir-etiket", "Ajan zinciri"));
+  adimlar.forEach((a, i) => {
+    if (i) ozet.appendChild(el("span", "zincir-ok", "→"));
+    const r = ajanRozeti(a);
+    r.classList.add("bekliyor");     // adim gelince parlaklastirilir
+    r.dataset.ajan = a.ajan;
+    ozet.appendChild(r);
+  });
+  return ozet;
+}
+
 function zinciriEkle(veri, hedefEl) {
   const sarici = hedefEl || el("div", "mesaj asistan");
   sarici.className = "mesaj asistan";
@@ -381,22 +427,45 @@ async function gonder(metin) {
   mesajEl.style.height = "auto";
   const bekleyenEl = bekleyenEkle();
 
-  try {
-    const yanit = await fetch("/api/akis", {
-      method: "POST",
-      headers: basliklar(true),
-      body: JSON.stringify({ message: metin, session_id: oturumId }),
-    });
-    const veri = await yanit.json();
+  let sarici = null;
+  let ozetEl = null;
 
-    if (!yanit.ok) {
-      hataEkle(veri.detail || "Beklenmeyen bir hata oluştu.", bekleyenEl);
-    } else {
-      oturumId = veri.session_id;
-      zinciriEkle(veri, bekleyenEl);
+  const kayitIsle = (kayit) => {
+    if (kayit.tur === "oturum") {
+      oturumId = kayit.session_id;
+      return;
     }
+    if (kayit.tur === "hata") {
+      hataEkle(kayit.mesaj, sarici || bekleyenEl);
+      return;
+    }
+    if (kayit.tur === "plan") {
+      // Ilk kayit geldi: bekleme gostergesini kalici sariciya cevir.
+      clearInterval(bekleyenEl.sayac);
+      sarici = bekleyenEl;
+      sarici.className = "mesaj asistan";
+      sarici.innerHTML = "";
+      if ((kayit.adimlar || []).length > 1) {
+        ozetEl = zincirOzetiOlustur(kayit.adimlar);
+        sarici.appendChild(ozetEl);
+      }
+      asagiKaydir();
+      return;
+    }
+    if (kayit.tur === "adim") {
+      if (ozetEl) {
+        const r = ozetEl.querySelector('[data-ajan="' + kayit.ajan + '"].bekliyor');
+        if (r) r.classList.remove("bekliyor");
+      }
+      sarici.appendChild(adimPaneliOlustur(kayit, kayit.toplam_adim));
+      asagiKaydir();
+    }
+  };
+
+  try {
+    await akisiTuket({ message: metin, session_id: oturumId }, kayitIsle);
   } catch (err) {
-    hataEkle("Sunucuya ulaşılamadı: " + err.message, bekleyenEl);
+    hataEkle(err.message || ("Sunucuya ulaşılamadı: " + err), sarici || bekleyenEl);
   } finally {
     clearInterval(bekleyenEl.sayac);
     bekliyor = false;
