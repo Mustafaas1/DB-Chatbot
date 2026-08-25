@@ -616,6 +616,10 @@
     }
 
     if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
+    // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
+    if (adim.tamamlandi === false) {
+      panel.appendChild(el("div", "uyari", "Bu adım tamamlanamadı; sonuç güvenilir değil."));
+    }
     return panel;
   }
 

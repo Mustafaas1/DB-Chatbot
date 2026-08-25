@@ -190,8 +190,13 @@ class ChatCevabi:
         son_sonuc: QueryResult | None,
         gecmis: list[dict[str, Any]],
         kullanim: dict[str, int],
+        tamamlandi: bool = True,
     ) -> None:
         self.cevap = cevap
+        # Model sorgu turlerini tuketip pes ettiyse False olur. Bu durumda
+        # elde kalan son_sonuc yarim kalmis bir denemeye ait olabilir; arayuz
+        # bunu basarili sonuc gibi gostermemeli.
+        self.tamamlandi = tamamlandi
         self.adimlar = adimlar
         self.son_sonuc = son_sonuc
         # Tam konusma gecmisi (tool_use bloklari dahil). Sunucu tarafinda
@@ -326,7 +331,8 @@ def _claude_gecmisi_kirp(mesajlar: list[dict[str, Any]]) -> list[dict[str, Any]]
     return kirpilmis
 
 
-def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
+def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
+                   azami_tur: int | None = None) -> ChatCevabi:
     """Anthropic Claude ile arac dongusu."""
     client = get_client()
     mesajlar: list[dict[str, Any]] = _claude_gecmisi_kirp(list(gecmis or []))
@@ -382,7 +388,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=
                     }
                 )
 
-    for _ in range(settings.max_tool_turns):
+    for _ in range(azami_tur or settings.max_tool_turns):
         yanit = client.messages.create(
             model=settings.claude_model,
             max_tokens=8000,
@@ -455,6 +461,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=
         son_sonuc,
         mesajlar,
         kullanim,
+        tamamlandi=False,
     )
 
 
@@ -625,7 +632,8 @@ def _groq_istek(client, mesajlar: list[dict[str, Any]], butce: int | None = None
             )
 
 
-def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
+def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
+                 azami_tur: int | None = None) -> ChatCevabi:
     """Groq (OpenAI uyumlu API) ile arac dongusu.
 
     Anthropic'ten farklari:
@@ -727,7 +735,7 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
                     }
                 )
 
-    for _ in range(settings.max_tool_turns):
+    for _ in range(azami_tur or settings.max_tool_turns):
         mesajlar = _groq_gecmisi_kirp(mesajlar)
         if sema_gerekli or mesajlar[0].get("role") != "system":
             istek_mesajlari = mesajlar
@@ -815,11 +823,13 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
         son_sonuc,
         mesajlar,
         kullanim,
+        tamamlandi=False,
     )
 
 
-def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None) -> ChatCevabi:
+def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
+              azami_tur: int | None = None) -> ChatCevabi:
     """Aktif saglayiciya gore sohbeti yurutur (LLM_PROVIDER ayari)."""
     if settings.is_groq:
-        return _groq_sohbet(mesaj, gecmis, ajan)
-    return _claude_sohbet(mesaj, gecmis, ajan)
+        return _groq_sohbet(mesaj, gecmis, ajan, azami_tur)
+    return _claude_sohbet(mesaj, gecmis, ajan, azami_tur)

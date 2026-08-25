@@ -20,6 +20,12 @@ from .planlayici import Adim, plan_yap
 
 __all__ = ["akis_calistir", "akis_uret"]
 
+#: Zincirdeki bir adimin deneyebilecegi azami sorgu turu.
+#: Genel sohbette 6 makul, ama zincirde basarisiz bir adim iki katina cikan
+#: bir maliyet demek: olculen bir basarisizlik 6 turda 24.700 token yakti.
+#: Planlayici isi zaten bolduğu icin adim basina 3 tur yetiyor.
+ZINCIR_TUR_SINIRI = 3
+
 #: Sonraki adima aktarilacak ornek satir sayisi. Buyutmek token yakar.
 DEVIR_SATIRI = 5
 #: Onceki cevabin aktarilacak kismi.
@@ -100,6 +106,7 @@ def akis_uret(
             _gorev_metni(adim, devir),
             gecmis if sira == 1 else None,
             ajan=adim.ajan,
+            azami_tur=ZINCIR_TUR_SINIRI,
         )
         son_gecmis = cevap.gecmis
 
@@ -113,10 +120,14 @@ def akis_uret(
             **adim.to_dict(),
             "answer": cevap.cevap,
             "steps": cevap.adimlar,
-            "result": cevap.son_sonuc.to_dict() if cevap.son_sonuc else None,
+            # Adim yarida kaldiysa elde kalan sonuc basarisiz bir denemeye ait
+            # olabilir; arayuze gecerli sonuc gibi gondermiyoruz.
+            "tamamlandi": cevap.tamamlandi,
+            "result": cevap.son_sonuc.to_dict() if (cevap.son_sonuc and cevap.tamamlandi) else None,
             "usage": cevap.kullanim,
         }
-        devir = _devir_metni(cevap)
+        # Yarida kalan adimin bulgusu guvenilir degil; sonrakine devretme.
+        devir = _devir_metni(cevap) if cevap.tamamlandi else ""
 
     yield {"tur": "bitti", "usage": toplam, "gecmis": son_gecmis}
 

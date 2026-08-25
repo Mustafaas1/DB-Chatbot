@@ -154,3 +154,110 @@ def test_tek_adim_varsayilani():
 def test_adim_to_dict():
     d = _tek_adim("soru")[0].to_dict()
     assert {"ajan", "ajan_adi", "renk", "gorev", "grafik"} <= set(d)
+
+
+# ------------------------------------------------- yarida kalan adim
+
+class SahteCevap:
+    """sohbet_et() yerine gecen minimal cevap nesnesi."""
+
+    def __init__(self, tamamlandi, sonuc=None):
+        self.cevap = "cevap metni"
+        self.adimlar = [{"sql": "SELECT 1", "ok": True}]
+        self.son_sonuc = sonuc
+        self.gecmis = []
+        self.kullanim = {"input_tokens": 10, "output_tokens": 2}
+        self.tamamlandi = tamamlandi
+
+
+class SahteSonuc:
+    columns = ["A"]
+    rows = [[1], [2]]
+    row_count = 2
+
+    def to_dict(self):
+        return {"columns": self.columns, "rows": self.rows, "row_count": self.row_count}
+
+
+def test_varsayilan_cevap_tamamlanmis_sayilir():
+    from app.llm import ChatCevabi
+
+    assert ChatCevabi("x", [], None, [], {}).tamamlandi is True
+
+
+def test_yarida_kalan_adimin_sonucu_gonderilmez(monkeypatch):
+    """Sorgu turleri tukenince elde kalan sonuc yarim bir denemeye ait
+    olabilir; arayuze gecerli sonuc gibi gitmemeli."""
+    from app import orkestra
+    from app.planlayici import Adim
+
+    monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
+    monkeypatch.setattr(orkestra, "sohbet_et",
+                        lambda *a, **k: SahteCevap(False, SahteSonuc()))
+
+    v = orkestra.akis_calistir("soru")
+    adim = v["adimlar"][0]
+    assert adim["tamamlandi"] is False
+    assert adim["result"] is None, "yarim adimin sonucu gonderilmemeli"
+
+
+def test_tamamlanan_adimin_sonucu_gonderilir(monkeypatch):
+    from app import orkestra
+    from app.planlayici import Adim
+
+    monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
+    monkeypatch.setattr(orkestra, "sohbet_et",
+                        lambda *a, **k: SahteCevap(True, SahteSonuc()))
+
+    adim = orkestra.akis_calistir("soru")["adimlar"][0]
+    assert adim["tamamlandi"] is True
+    assert adim["result"]["row_count"] == 2
+
+
+def test_yarida_kalan_adim_sonrakine_devredilmez(monkeypatch):
+    """Guvenilmez bulgu ikinci ajani yanlis yonlendirmemeli."""
+    from app import orkestra
+    from app.planlayici import Adim
+
+    gorevler = []
+    monkeypatch.setattr(orkestra, "plan_yap", lambda s: [
+        Adim(ajan_bul("satis"), "birinci"),
+        Adim(ajan_bul("finans"), "ikinci"),
+    ])
+
+    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None):
+        gorevler.append(gorev)
+        return SahteCevap(False, SahteSonuc())
+
+    monkeypatch.setattr(orkestra, "sohbet_et", sahte)
+    orkestra.akis_calistir("soru")
+
+    assert "ONCEKI ADIMIN BULGUSU" not in gorevler[1]
+
+
+def test_zincir_tur_siniri_uygulanir(monkeypatch):
+    """Zincirde basarisiz bir adim 6 tur donerse cok pahaliya mal oluyor."""
+    from app import orkestra
+    from app.planlayici import Adim
+
+    verilen = {}
+    monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
+
+    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None):
+        verilen["tur"] = azami_tur
+        return SahteCevap(True)
+
+    monkeypatch.setattr(orkestra, "sohbet_et", sahte)
+    orkestra.akis_calistir("soru")
+    assert verilen["tur"] == orkestra.ZINCIR_TUR_SINIRI
+
+
+def test_grafik_adimina_bicim_yonergesi_eklenir():
+    from app.orkestra import _gorev_metni
+    from app.planlayici import Adim
+
+    grafikli = _gorev_metni(Adim(ajan_bul("finans"), "gorev", True), "")
+    duz = _gorev_metni(Adim(ajan_bul("finans"), "gorev", False), "")
+
+    assert "ETIKET kolonu" in grafikli
+    assert "ETIKET kolonu" not in duz
