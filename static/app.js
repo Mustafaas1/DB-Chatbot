@@ -539,7 +539,10 @@ function devirAl() {
       kullaniciMesajiEkle(mesaj.metin);
     } else if (mesaj.hata) {
       hataEkle(mesaj.hata);
+    } else if (mesaj.adimlar) {
+      zinciriEkle({ adimlar: mesaj.adimlar });
     } else {
+      // Widget'in eski (tek ajanli) mesaj bicimi.
       asistanCevabiEkle({ answer: mesaj.metin, steps: mesaj.steps, result: mesaj.result });
     }
   }

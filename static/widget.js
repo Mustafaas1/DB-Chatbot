@@ -230,6 +230,22 @@
   }
   .csv-buton:hover { border-color: var(--renk); color: var(--renk); }
   .tablo-sarici { overflow: auto; max-height: 260px; }
+  .zincir-ozet {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+    margin-bottom: 9px; font-size: 10.5px; color: var(--soluk);
+  }
+  .zincir-etiket { text-transform: uppercase; letter-spacing: .04em; }
+  .adim-panel {
+    border-left: 3px solid var(--renk); background: var(--panel);
+    border-radius: 0 10px 10px 0; padding: 9px 10px; margin-bottom: 9px;
+  }
+  .adim-ust { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+  .adim-sira { font-size: 10.5px; color: var(--soluk); font-variant-numeric: tabular-nums; }
+  .ajan-rozet {
+    font-size: 10.5px; font-weight: 600; color: #fff;
+    padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  }
+  .adim-gorev { font-size: 11px; color: var(--soluk); line-height: 1.35; }
   .grafik { padding: 10px 12px 4px; display: none; gap: 7px; }
   .sonuc.grafik-modu .grafik { display: grid; }
   .sonuc.grafik-modu .tablo-sarici { display: none; }
@@ -472,12 +488,12 @@
     return kutu;
   }
 
-  function sonucCiz(sonuc) {
+  function sonucCiz(sonuc, esnek) {
     const kutu = el("div", "sonuc");
 
     const ust = el("div", "sonuc-ust");
     ust.appendChild(el("span", null, sonuc.row_count + " satır · " + sonuc.columns.length + " kolon"));
-    const g = grafikVerisi(sonuc);
+    const g = grafikVerisi(sonuc, esnek);
     if (g) {
       const gBtn = el("button", "csv-buton", "Grafik");
       gBtn.addEventListener("click", () => {
@@ -530,6 +546,53 @@
     return kutu;
   }
 
+  function ajanRozeti(adim) {
+    const r = el("span", "ajan-rozet", adim.ajan_adi);
+    r.style.background = adim.renk;
+    return r;
+  }
+
+  function adimPaneliCiz(adim, toplam) {
+    const panel = el("div", "adim-panel");
+    panel.style.borderLeftColor = adim.renk;
+
+    const ust = el("div", "adim-ust");
+    if (toplam > 1) ust.appendChild(el("span", "adim-sira", adim.sira + "/" + toplam));
+    ust.appendChild(ajanRozeti(adim));
+    panel.appendChild(ust);
+    if (toplam > 1) panel.appendChild(el("div", "adim-gorev", adim.gorev));
+
+    for (const s of adim.steps || []) panel.appendChild(sqlKutusuCiz(s));
+
+    if (adim.result && adim.result.columns && adim.result.columns.length) {
+      const kart = sonucCiz(adim.result, adim.grafik);
+      // Planlayici bu adimi grafige uygun bulduysa grafikle ac.
+      if (adim.grafik && kart.querySelector(".grafik-cubuk")) {
+        kart.classList.add("grafik-modu");
+        const btn = [...kart.querySelectorAll(".csv-buton")].find((b) => b.textContent === "Grafik");
+        if (btn) btn.textContent = "Tablo";
+      }
+      panel.appendChild(kart);
+    }
+
+    if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
+    return panel;
+  }
+
+  function zinciriCiz(mesaj, sarici) {
+    const adimlar = mesaj.adimlar || [];
+    if (adimlar.length > 1) {
+      const ozet = el("div", "zincir-ozet");
+      ozet.appendChild(el("span", "zincir-etiket", "Ajan zinciri"));
+      adimlar.forEach((a, i) => {
+        if (i) ozet.appendChild(el("span", null, "→"));
+        ozet.appendChild(ajanRozeti(a));
+      });
+      sarici.appendChild(ozet);
+    }
+    for (const adim of adimlar) sarici.appendChild(adimPaneliCiz(adim, adimlar.length));
+  }
+
   function mesajCiz(mesaj) {
     const sarici = el("div", "mesaj " + mesaj.rol);
 
@@ -544,11 +607,16 @@
       return sarici;
     }
 
-    for (const adim of mesaj.steps || []) sarici.appendChild(sqlKutusuCiz(adim));
-    if (mesaj.result && mesaj.result.columns && mesaj.result.columns.length) {
-      sarici.appendChild(sonucCiz(mesaj.result));
+    if (mesaj.adimlar) {
+      zinciriCiz(mesaj, sarici);
+    } else {
+      // Oturumda saklanmis eski (tek ajanli) mesajlar bu yoldan cizilir.
+      for (const adim of mesaj.steps || []) sarici.appendChild(sqlKutusuCiz(adim));
+      if (mesaj.result && mesaj.result.columns && mesaj.result.columns.length) {
+        sarici.appendChild(sonucCiz(mesaj.result));
+      }
+      if (mesaj.metin) sarici.appendChild(el("div", "balon", mesaj.metin));
     }
-    if (mesaj.metin) sarici.appendChild(el("div", "balon", mesaj.metin));
 
     govdeEl.appendChild(sarici);
     return sarici;
@@ -600,7 +668,7 @@
 
     let cevap;
     try {
-      const yanit = await fetch(API + "/api/sohbet", {
+      const yanit = await fetch(API + "/api/akis", {
         method: "POST",
         headers: basliklar(true),
         body: JSON.stringify({ message: metin, session_id: oturumId }),
@@ -611,7 +679,7 @@
       } else {
         oturumId = veri.session_id;
         sessionStorage.setItem(ANAHTAR_OTURUM, oturumId);
-        cevap = { rol: "asistan", metin: veri.answer, steps: veri.steps, result: veri.result };
+        cevap = { rol: "asistan", adimlar: veri.adimlar };
       }
     } catch (err) {
       cevap = { rol: "asistan", hata: "Sunucuya ulaşılamadı: " + err.message };
