@@ -63,6 +63,10 @@ def _talimat(ajanlar: list[Ajan]) -> str:
         "Kurallar:",
         f"- En fazla {AZAMI_VERI_ADIMI} adim uret. Soru tek bolumu ilgilendiriyorsa TEK adim yeter.",
         "- Soru iki farkli bolumun konusunu iceriyorsa IKI adima BOL.",
+        "- Soru tek bolumun olsa bile, BASKA bir bolum ayni konuya anlamli bir",
+        "  katki yapabiliyorsa onu TAMAMLAYICI ikinci adim olarak ekle:",
+        "  ornegin teklif SAYISI sorulunca finans ajani ayni kirilimda TUTARI getirir.",
+        "  Katki gercekten anlamli degilse ekleme; her soruyu bolme.",
         "- Tek bolumun konusuysa TEK adim birak; bosuna bolme.",
         "- Her adimin 'gorev' alani, o ajana sorulacak tam bir Turkce soru olmalidir.",
         "- Listeleme gorevlerine ACIK bir sinir koy (ornegin 'ilk 10'); sinirsiz",
@@ -89,6 +93,15 @@ ORNEKLER = [
             "adimlar": [
                 {"ajan": "satis", "gorev": "En cok teklif veren ILK 10 satis temsilcisini listele", "grafik": False},
                 {"ajan": "finans", "gorev": "Bu temsilcilerin tekliflerinin toplam tutarini para birimine gore getir", "grafik": True},
+            ]
+        },
+    ),
+    (
+        "Durumlarina gore teklif sayisi",
+        {
+            "adimlar": [
+                {"ajan": "satis", "gorev": "Teklifleri durumlarina gore say", "grafik": True},
+                {"ajan": "finans", "gorev": "Ayni durum kiriliminda teklif tutarlarini para birimine gore getir", "grafik": True},
             ]
         },
     ),

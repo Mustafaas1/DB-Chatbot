@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sonuç — Veritabanı Asistanı</title>
+<style>
+  :root {
+    --zemin: #f4f6fa; --panel: #fff; --kenar: #e2e5ec;
+    --soluk: #64748b; --renk: #3452d8; --metin: #1b1f24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--zemin); color: var(--metin);
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+    padding: 26px 22px 60px;
+  }
+  .sarici { max-width: 940px; margin: 0 auto; }
+
+  .soru { font-size: 13px; color: var(--soluk); margin: 0 0 14px; }
+  .soru b { color: var(--metin); font-weight: 600; }
+
+  /* Diger ajanlarin sekmeleri: sayfalari birbirine baglayan kisim */
+  .sekmeler { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .sekme {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 14px; border-radius: 999px; text-decoration: none;
+    border: 1px solid var(--kenar); background: var(--panel);
+    color: var(--soluk); font-size: 13px; transition: all .15s;
+  }
+  .sekme:hover { border-color: var(--renk); color: var(--metin); }
+  .sekme .nokta { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .sekme.aktif { color: #fff; border-color: transparent; font-weight: 600; }
+  .sekme.aktif .nokta { background: #fff; }
+
+  .ust { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  .gorev { color: var(--soluk); font-size: 13.5px; margin: 0 0 18px; }
+
+  .kart {
+    background: var(--panel); border: 1px solid var(--kenar);
+    border-radius: 14px; padding: 20px 22px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  }
+  .kart h2 {
+    font-size: 13px; margin: 0 0 14px; font-weight: 620; color: var(--soluk);
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  .cevap { border-left: 3px solid var(--renk); }
+  .cevap p { margin: 0; font-size: 14.5px; line-height: 1.65; }
+
+  .grafik { display: grid; gap: 10px; }
+  .satir { display: grid; grid-template-columns: minmax(0, 210px) 1fr auto; align-items: center; gap: 13px; }
+  .etiket { font-size: 13.5px; color: var(--soluk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .yol { background: var(--zemin); border-radius: 6px; height: 24px; overflow: hidden; }
+  .cubuk { height: 100%; border-radius: 6px; background: var(--renk); }
+  .deger { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 650; }
+  .not { font-size: 12.5px; color: var(--soluk); margin-top: 14px; }
+
+  .tablo-sarici { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th {
+    text-align: left; font-weight: 600; color: var(--soluk); font-size: 12.5px;
+    padding: 9px 12px; background: var(--zemin); border-bottom: 1px solid var(--kenar); white-space: nowrap;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; }
+  td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
+  .bos { color: var(--soluk); }
+
+  @media (prefers-color-scheme: dark) {
+    :root { --zemin: #12151c; --panel: #1a1f29; --kenar: #2b313d; --soluk: #94a3b8; --metin: #e6e9ef; }
+    td { border-bottom-color: #232935; }
+  }
+</style>
+</head>
+<body>
+<div class="sarici">
+  <p class="soru" id="soru"></p>
+  <div class="sekmeler" id="sekmeler"></div>
+
+  <div class="ust"><h1 id="baslik">Sonuç</h1></div>
+  <p class="gorev" id="gorev"></p>
+
+  <div class="kart cevap" id="cevapKarti" hidden><p id="cevap"></p></div>
+
+  <div class="kart" id="grafikKarti" hidden>
+    <h2>Grafik</h2>
+    <div class="grafik" id="grafik"></div>
+    <div class="not" id="not"></div>
+  </div>
+
+  <div class="kart" id="tabloKarti" hidden>
+    <h2>Veri</h2>
+    <div class="tablo-sarici">
+      <table><thead><tr id="tbaslik"></tr></thead><tbody id="tgovde"></tbody></table>
+    </div>
+  </div>
+
+  <div class="kart" id="bosKart" hidden><p class="bos" id="bosMetin"></p></div>
+</div>
+
+<script>
+/* Tum adimlar TEK yukte tasinir; her sekme bir adimi gosterir ve ustteki
+   baglantilarla diger ajanlara gecilir. Veri URL fragmentindedir: sunucuya
+   gitmez ve widget baska bir alan adinda gomulu olsa bile calisir. */
+function parcala() {
+  const ham = (location.hash || "").replace(/^#/, "");
+  const p = new URLSearchParams(ham);
+  try {
+    return {
+      veri: JSON.parse(decodeURIComponent(p.get("veri") || "")),
+      i: parseInt(p.get("i") || "0", 10),
+    };
+  } catch (e) {
+    return { veri: null, i: 0 };
+  }
+}
+
+function el(etiket, sinif, metin) {
+  const d = document.createElement(etiket);
+  if (sinif) d.className = sinif;
+  if (metin !== undefined) d.textContent = metin;
+  return d;
+}
+
+function adres(veri, i) {
+  return "#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + i;
+}
+
+const durum = parcala();
+const veri = durum.veri;
+const i = durum.i;
+const adim = veri && veri.adimlar && veri.adimlar[i];
+
+if (!adim) {
+  document.getElementById("bosKart").hidden = false;
+  document.getElementById("bosMetin").textContent =
+    "Sonuç verisi bulunamadı. Bu sayfa asistandaki bir cevaptan açılır.";
+} else {
+  document.title = adim.ajan + " — Veritabanı Asistanı";
+  document.documentElement.style.setProperty("--renk", adim.renk || "#3452d8");
+
+  if (veri.soru) {
+    const s = document.getElementById("soru");
+    s.appendChild(document.createTextNode("Soru: "));
+    s.appendChild(el("b", null, veri.soru));
+  }
+
+  const sekmeler = document.getElementById("sekmeler");
+  veri.adimlar.forEach(function (a, n) {
+    const s = el("a", "sekme" + (n === i ? " aktif" : ""), a.ajan);
+    s.href = adres(veri, n);
+    if (n === i) s.style.background = a.renk;
+    const nokta = el("span", "nokta");
+    if (n !== i) nokta.style.background = a.renk;
+    s.prepend(nokta);
+    // Yalnizca fragment degistigi icin tarayici sayfayi yeniden cizmez.
+    s.addEventListener("click", function () {
+      setTimeout(function () { location.reload(); }, 0);
+    });
+    sekmeler.appendChild(s);
+  });
+
+  document.getElementById("baslik").textContent = adim.ajan;
+  document.getElementById("gorev").textContent = adim.gorev || "";
+
+  if (adim.cevap) {
+    document.getElementById("cevap").textContent = adim.cevap;
+    document.getElementById("cevapKarti").hidden = false;
+  }
+
+  if (adim.veri && adim.veri.length) {
+    const enBuyuk = Math.max.apply(null, adim.veri.map(function (d) { return d.deger; }));
+    const g = document.getElementById("grafik");
+    for (const d of adim.veri) {
+      const satir = el("div", "satir");
+      satir.appendChild(el("span", "etiket", d.etiket));
+      const yol = el("div", "yol");
+      const cubuk = el("div", "cubuk");
+      cubuk.style.width = Math.max(2, (d.deger / enBuyuk) * 100) + "%";
+      yol.appendChild(cubuk);
+      satir.appendChild(yol);
+      satir.appendChild(el("span", "deger", d.deger.toLocaleString("tr-TR")));
+      g.appendChild(satir);
+    }
+    if (adim.not) document.getElementById("not").textContent = adim.not;
+    document.getElementById("grafikKarti").hidden = false;
+  }
+
+  if (adim.columns && adim.columns.length) {
+    const tb = document.getElementById("tbaslik");
+    for (const k of adim.columns) tb.appendChild(el("th", null, k));
+    const tg = document.getElementById("tgovde");
+    for (const satir of adim.rows || []) {
+      const tr = el("tr");
+      for (const h of satir) {
+        const sayi = typeof h === "number";
+        const td = el("td", sayi ? "sayi" : null,
+          h === null || h === undefined ? "—" : (sayi ? h.toLocaleString("tr-TR") : String(h)));
+        tr.appendChild(td);
+      }
+      tg.appendChild(tr);
+    }
+    document.getElementById("tabloKarti").hidden = false;
+  }
+}
+</script>
+</body>
+</html>

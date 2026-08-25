@@ -164,6 +164,16 @@ def demo() -> FileResponse:
     return FileResponse(STATIC_DIR / "demo.html")
 
 
+@app.get("/sonuc")
+def sonuc_sayfasi() -> FileResponse:
+    """Bir ajan adiminin sonucunu ayri sekmede gosteren sayfa.
+
+    Tum adimlar tek yukte tasinir; ustteki sekmelerle ajanlar arasi gecis
+    yapilir. Veri URL fragmentinde oldugu icin sunucuya gitmez.
+    """
+    return FileResponse(STATIC_DIR / "sonuc.html")
+
+
 @app.get("/grafik")
 def grafik_sayfasi() -> FileResponse:
     """Ajan sonucunun grafigini ayri bir sekmede gosteren sayfa.

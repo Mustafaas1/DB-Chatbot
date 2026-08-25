@@ -581,30 +581,39 @@
      sunucuya gitmez ve widget baska bir alan adinda gomulu olsa bile calisir.
      Yanit asenkron geldigi icin tarayici otomatik acmayi engelleyebilir;
      o durumda panelde duran baglanti devreye girer. */
-  function grafikAdresi(adim, g) {
-    const yuk = {
-      baslik: adim.ajan_adi,
+  /* Her ajan adimi KENDI sayfasinda acilir; tum adimlar tek yukte tasindigi
+     icin acilan sayfalarin ustunde diger ajanlara gecis sekmeleri olur.
+     Veri URL fragmentinde: sunucuya gitmez, widget baska alan adinda da calisir. */
+  function adimYuku(adim) {
+    const g = adim.result && adim.result.columns && adim.result.columns.length
+      ? grafikVerisi(adim.result, true)
+      : null;
+    return {
       ajan: adim.ajan_adi,
       renk: adim.renk,
       gorev: adim.gorev,
       cevap: adim.answer,
-      veri: g.veri,
-      columns: adim.result.columns,
-      rows: (adim.result.rows || []).slice(0, 50),
-      not: g.kirpildi ? g.toplamSatir + " satirin ilk " + g.veri.length + "'i cizildi" : "",
+      veri: g ? g.veri : null,
+      not: g && g.kirpildi ? g.toplamSatir + " satirin ilk " + g.veri.length + "'i cizildi" : "",
+      columns: adim.result ? adim.result.columns : null,
+      rows: adim.result ? (adim.result.rows || []).slice(0, 50) : null,
     };
-    return (API || "") + "/grafik#veri=" + encodeURIComponent(JSON.stringify(yuk));
   }
 
-  function grafikBaglantisi(adres, engellendi) {
+  function sonucAdresi(soru, yukler, sira) {
+    const veri = { soru: soru, adimlar: yukler };
+    return (API || "") + "/sonuc#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + sira;
+  }
+
+  function sonucBaglantisi(ajan, engellendi) {
     const a = document.createElement("a");
     a.className = "grafik-baglanti" + (engellendi ? " uyari" : "");
-    a.href = adres;
+    a.href = "#";
     a.target = "_blank";
     a.rel = "noopener";
     a.textContent = engellendi
-      ? "Grafiği yeni sekmede aç (tarayıcı engelledi)"
-      : "Grafiği yeni sekmede aç";
+      ? ajan + " sonucunu aç (tarayıcı engelledi)"
+      : ajan + " sonucunu yeni sekmede aç";
     return a;
   }
 
@@ -626,23 +635,11 @@
 
     for (const s of adim.steps || []) panel.appendChild(sqlKutusuCiz(s));
 
-    const g =
-      adim.grafik && adim.result && adim.result.columns && adim.result.columns.length
-        ? grafikVerisi(adim.result, true)
-        : null;
-
-    if (g) {
-      // Grafik adiminda sonuc BURADA gosterilmez; tablo, grafik ve cevap
-      // metni ayri sekmedeki sayfada. Panelde yalnizca yonlendirme kalir.
-      const adres = grafikAdresi(adim, g);
-      const pencere = window.open(adres, "_blank", "noopener");
-      panel.appendChild(grafikBaglantisi(adres, !pencere));
-    } else {
-      if (adim.result && adim.result.columns && adim.result.columns.length) {
-        panel.appendChild(sonucCiz(adim.result));
-      }
-      if (adim.answer) panel.appendChild(el("div", "balon", adim.answer));
-    }
+    // Sonuc BURADA gosterilmez; tablo, grafik ve cevap metni ayri sekmedeki
+    // sayfada. Adres, sonraki adimlar geldikce guncellenir.
+    const bag = sonucBaglantisi(adim.ajan_adi, false);
+    bag.dataset.sira = String(adim.sira - 1);
+    panel.appendChild(bag);
     // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
     if (adim.tamamlandi === false) {
       panel.appendChild(el("div", "uyari", "Bu adım tamamlanamadı; sonuç güvenilir değil."));
@@ -785,6 +782,14 @@
     let sarici = null;
     let ozetEl = null;
     const toplanan = [];
+    const yukler = [];        // acilan sayfalarin paylastigi tum adimlar
+
+    const baglantilariTazele = () => {
+      if (!sarici) return;
+      for (const a of sarici.querySelectorAll(".grafik-baglanti[data-sira]")) {
+        a.href = sonucAdresi(metin, yukler, Number(a.dataset.sira));
+      }
+    };
 
     const kayitIsle = (kayit) => {
       if (kayit.tur === "oturum") {
@@ -815,7 +820,19 @@
           if (r) r.classList.remove("bekliyor");
         }
         toplanan.push(kayit);
+        yukler.push(adimYuku(kayit));
         sarici.appendChild(adimPaneliCiz(kayit, kayit.toplam_adim));
+        baglantilariTazele();
+
+        // Bu adimin sayfasini kendi sekmesinde ac.
+        const pencere = window.open(sonucAdresi(metin, yukler, yukler.length - 1), "_blank", "noopener");
+        if (!pencere) {
+          const sonBag = [...sarici.querySelectorAll(".grafik-baglanti")].pop();
+          if (sonBag) {
+            sonBag.classList.add("uyari");
+            sonBag.textContent = kayit.ajan_adi + " sonucunu aç (tarayıcı engelledi)";
+          }
+        }
         asagiKaydir();
       }
     };
