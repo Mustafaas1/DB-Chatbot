@@ -26,7 +26,10 @@ from .ajanlar import Ajan, ajan_bul, ajanlari_getir
 __all__ = ["Adim", "plan_yap", "AZAMI_VERI_ADIMI"]
 
 AZAMI_VERI_ADIMI = 2
-PLAN_BUTCESI = 300
+#: Plan cikti butcesi. 300 iken JSON yarida kesiliyordu ve planlayici sessizce
+#: guvenli varsayilana (tek adim, ilk ajan) dusuyordu. gpt-oss modellerinde
+#: "reasoning" ciktisi da bu butceden yendigi icin genis tutuluyor.
+PLAN_BUTCESI = 800
 
 
 class Adim:
@@ -68,8 +71,8 @@ def _talimat(ajanlar: list[Ajan]) -> str:
         "  ornegin teklif SAYISI sorulunca finans ajani ayni kirilimda TUTARI getirir.",
         "  Katki gercekten anlamli degilse ekleme; her soruyu bolme.",
         "- Tek bolumun konusuysa TEK adim birak; bosuna bolme.",
-        "- AYNI ajana iki adim verme. Bir ajanin tek sorguda dondurebilecegi",
-        "  seyleri (ornegin adet ve toplam) bolme; tek adimda iste.",
+        "- AYNI ajana iki adim verme; o ajanin isini tek adimda topla.",
+        "  (Farkli bolumlere bolmek serbesttir; yasak olan ayni ajani tekrarlamak.)",
         "- Her adimin 'gorev' alani, o ajana sorulacak tam bir Turkce soru olmalidir.",
         "- Gorev TEK amacli olsun: ya SAYMA/TOPLAMA (gruplu ozet) ya da",
         "  LISTELEME. Ikisini ayni goreve koyma; sonuc karisik cikiyor.",
@@ -212,6 +215,13 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
             model=settings.groq_model,
             max_tokens=PLAN_BUTCESI,
             temperature=0,
+            # Plan uretmek akil yurutme gerektirmiyor; dusuk seviye hem hizli
+            # hem de cikti butcesini JSON'a birakiyor.
+            **(
+                {"reasoning_effort": "low"}
+                if settings.groq_model.startswith("openai/gpt-oss")
+                else {}
+            ),
             messages=[
                 {"role": "system", "content": _talimat(ajanlar)},
                 *_ornek_mesajlari(),
@@ -227,6 +237,25 @@ def plan_yap(soru: str, client=None) -> list[Adim]:
         return _tek_adim(soru)
 
     veri = _json_ayikla(yanit.choices[0].message.content or "")
+
+    # Cikti yarida kesildiyse JSON bozuk gelir ve plan sessizce tek adima
+    # duserdi. Bir kez daha genis butceyle deniyoruz.
+    if not veri and yanit.choices[0].finish_reason == "length":
+        try:
+            yanit = client.chat.completions.create(
+                model=settings.groq_model,
+                max_tokens=PLAN_BUTCESI * 2,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": _talimat(ajanlar)},
+                    *_ornek_mesajlari(),
+                    {"role": "user", "content": soru},
+                ],
+            )
+            veri = _json_ayikla(yanit.choices[0].message.content or "")
+        except Exception:  # noqa: BLE001
+            veri = None
+
     if not veri or not isinstance(veri.get("adimlar"), list):
         return _tek_adim(soru)
 
