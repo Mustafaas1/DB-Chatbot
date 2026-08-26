@@ -136,6 +136,7 @@ class SahtePlanlayici:
 
         class S:
             message = M()
+            finish_reason = "stop"   # kesilme yok
 
         class Y:
             choices = [S()]
@@ -384,3 +385,38 @@ def test_farkli_ajanlar_korunur():
     ]})
     plan = plan_yap("bir soru", client=SahtePlanlayici(ham))
     assert [a.ajan.kod for a in plan] == ["satis", "finans"]
+
+
+def test_kesilen_cikti_genis_butceyle_tekrar_denenir():
+    """PLAN_BUTCESI yetmeyince JSON yarida kesiliyor ve plan sessizce tek
+    adima dusuyordu; kesilme tespit edilip bir kez daha denenmeli."""
+    denemeler = []
+
+    class KesilenSonraTam:
+        def __init__(self):
+            self.chat = self
+            self.completions = self
+
+        def create(self, **kwargs):
+            denemeler.append(kwargs.get("max_tokens"))
+            ilk = len(denemeler) == 1
+            icerik = ('{"adimlar":[{"ajan":"satis","gorev":"Teklif'
+                      if ilk else
+                      json.dumps({"adimlar": [{"ajan": "satis", "gorev": "Teklifleri say"}]}))
+
+            class M:
+                content = icerik
+
+            class S:
+                message = M()
+                finish_reason = "length" if ilk else "stop"
+
+            class Y:
+                choices = [S()]
+
+            return Y()
+
+    plan = plan_yap("bir soru", client=KesilenSonraTam())
+    assert len(denemeler) == 2, "kesilme sonrasi tekrar denenmedi"
+    assert denemeler[1] > denemeler[0], "ikinci deneme daha genis butceyle olmali"
+    assert plan[0].gorev == "Teklifleri say"
