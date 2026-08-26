@@ -56,10 +56,9 @@
 
   /* ---------- cevap (giris paragrafi) ---------- */
   .giris {
-    margin: 30px 0 26px; font-size: 18px; line-height: 1.66;
-    max-width: 68ch; font-weight: 420; letter-spacing: -.005em;
+    margin: 30px 0 26px; font-size: 17px; line-height: 1.7;
+    max-width: 68ch; color: var(--metin);
   }
-  .giris::first-letter { font-weight: 600; }
 
   /* ---------- olcu seridi ---------- */
   .olculer {
@@ -107,8 +106,8 @@
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   thead th {
     position: sticky; top: 0; z-index: 1; background: var(--panel);
-    text-align: left; font-weight: 640; color: var(--silik); font-size: 10.5px;
-    text-transform: uppercase; letter-spacing: .07em;
+    text-align: left; font-weight: 640; color: var(--soluk); font-size: 12px;
+    letter-spacing: .01em;
     padding: 13px 18px; border-bottom: 1px solid var(--kenar); white-space: nowrap;
   }
   thead th.sayi { text-align: right; }
@@ -273,7 +272,13 @@ if (!adim) {
 
   // Olculer verinin KENDISINDEN cikarilir. Satir/kolon sayisi sorgu ustverisi;
   // is acisindan bir sey soylemedigi icin gosterilmiyor.
-  if (adim.veri && adim.veri.length) {
+  //
+  // Az kalemli sonuclarda serit HIC gosterilmez: 2-3 satirlik bir dagilimda
+  // "en yuksek / en dusuk / toplam" zaten grafikte ve tabloda goruluyor,
+  // ayni bilgiyi ucuncu kez tekrarlamak sayfayi kalabaliklastiriyordu.
+  const SERIT_ESIGI = 4;
+
+  if (adim.veri && adim.veri.length >= SERIT_ESIGI) {
     const degerler = adim.veri.map(function (d) { return d.deger; });
     const enBuyukD = Math.max.apply(null, degerler);
     const enKucukD = Math.min.apply(null, degerler);
@@ -305,14 +310,12 @@ if (!adim) {
       karisikBirim ? "—" : sayi(degerler.reduce(function (a, b) { return a + b; }, 0)),
       karisikBirim ? "birden fazla para birimi" : ""
     );
-  } else if (satirlar.length) {
-    // Sayisal olcu yoksa en azindan kac kayit donduguru soyleyelim.
+  } else if (!adim.veri && satirlar.length >= SERIT_ESIGI) {
+    // Grafiklenebilir bir olcu yoksa en azindan kac kayit donduguru soyleyelim.
     olcuEkle(olculer, "Kayıt", sayi(satirlar.length));
   }
 
-  if (veri.adimlar.length > 1) {
-    olcuEkle(olculer, "Zincir", (i + 1) + " / " + veri.adimlar.length, "ajan");
-  }
+  // Zincirdeki sira zaten ustteki sekmelerde gorunuyor; serit varsa tekrar etme.
   olculer.hidden = olculer.children.length === 0;
 
   if (adim.veri && adim.veri.length) {
