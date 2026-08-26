@@ -115,12 +115,6 @@
   td { padding: 0; border-bottom: 1px solid var(--ince); }
   td .ic { padding: 11px 18px; position: relative; z-index: 1; }
   td.sayi .ic { text-align: right; font-variant-numeric: tabular-nums; font-weight: 550; }
-  /* Sayi hucrelerinin arkasindaki veri cubugu: tabloyu grafige bagliyor */
-  td.sayi { position: relative; }
-  td.sayi .dolgu {
-    position: absolute; top: 4px; bottom: 4px; right: 0;
-    background: var(--renk-hafif); border-radius: 4px 0 0 4px;
-  }
   tbody tr:hover td { background: #fbfcfe; }
   tbody tr:last-child td { border-bottom: none; }
   td.bos .ic { color: var(--silik); }
@@ -276,33 +270,50 @@ if (!adim) {
   const satirlar = adim.rows || [];
   const kolonlar = adim.columns || [];
   const olculer = document.getElementById("olculer");
-  olcuEkle(olculer, "Satır", sayi(satirlar.length));
-  olcuEkle(olculer, "Kolon", sayi(kolonlar.length));
 
+  // Olculer verinin KENDISINDEN cikarilir. Satir/kolon sayisi sorgu ustverisi;
+  // is acisindan bir sey soylemedigi icin gosterilmiyor.
   if (adim.veri && adim.veri.length) {
     const degerler = adim.veri.map(function (d) { return d.deger; });
     const enBuyukD = Math.max.apply(null, degerler);
-    const enUst = adim.veri.find(function (d) { return d.deger === enBuyukD; });
-    olcuEkle(olculer, "En yüksek", sayi(enBuyukD), enUst ? enUst.etiket : "");
+    const enKucukD = Math.min.apply(null, degerler);
+    const bul = function (v) {
+      const k = adim.veri.find(function (d) { return d.deger === v; });
+      return k ? k.etiket : "";
+    };
 
-    // Toplam YALNIZCA tek birim varken gosterilir. Birden fazla para birimi
-    // varsa hepsini toplamak yanlis rakam uretir (TRY + USD gibi).
+    // Toplam ve ortalama YALNIZCA tek birim varken anlamlidir. Birden fazla
+    // para birimi varsa TRY ile USD'yi toplamak/ortalamak yanlis rakam uretir.
     const birimDeseni = /(para ?birim|birim|currency|kur)/i;
     const karisikBirim = kolonlar.some(function (ad, n) {
       if (!birimDeseni.test(String(ad))) return false;
       return new Set(satirlar.map(function (s) { return s[n]; })).size > 1;
     });
+
+    olcuEkle(olculer, "En yüksek", sayi(enBuyukD), bul(enBuyukD));
+    if (degerler.length > 1) {
+      olcuEkle(olculer, "En düşük", sayi(enKucukD), bul(enKucukD));
+      if (!karisikBirim) {
+        const ort = degerler.reduce(function (a, b) { return a + b; }, 0) / degerler.length;
+        olcuEkle(olculer, "Ortalama", sayi(ort), degerler.length + " kalem");
+      }
+    }
+
     olcuEkle(
       olculer,
       "Toplam",
       karisikBirim ? "—" : sayi(degerler.reduce(function (a, b) { return a + b; }, 0)),
-      karisikBirim ? "birden fazla para birimi" : "gösterilen satırlar"
+      karisikBirim ? "birden fazla para birimi" : ""
     );
+  } else if (satirlar.length) {
+    // Sayisal olcu yoksa en azindan kac kayit donduguru soyleyelim.
+    olcuEkle(olculer, "Kayıt", sayi(satirlar.length));
   }
+
   if (veri.adimlar.length > 1) {
     olcuEkle(olculer, "Zincir", (i + 1) + " / " + veri.adimlar.length, "ajan");
   }
-  olculer.hidden = false;
+  olculer.hidden = olculer.children.length === 0;
 
   if (adim.veri && adim.veri.length) {
     const degerler = adim.veri.map(function (d) { return d.deger; });
@@ -329,11 +340,6 @@ if (!adim) {
     const sayisalKolon = kolonlar.map(function (_, n) {
       return satirlar.length > 0 && satirlar.every(function (s) { return typeof s[n] === "number"; });
     });
-    // Her sayisal kolonun kendi en buyugu: hucre arkasindaki veri cubugu icin
-    const kolonEnBuyuk = kolonlar.map(function (_, n) {
-      if (!sayisalKolon[n]) return 0;
-      return Math.max.apply(null, satirlar.map(function (s) { return s[n]; }).concat([0]));
-    });
 
     const tb = document.getElementById("tbaslik");
     kolonlar.forEach(function (k, n) {
@@ -347,11 +353,6 @@ if (!adim) {
         const s = typeof h === "number";
         const bos = h === null || h === undefined;
         const td = el("td", s ? "sayi" : (bos ? "bos" : null));
-        if (s && kolonEnBuyuk[n] > 0) {
-          const dolgu = el("div", "dolgu");
-          dolgu.style.width = Math.max(2, (h / kolonEnBuyuk[n]) * 100) + "%";
-          td.appendChild(dolgu);
-        }
         td.appendChild(el("div", "ic", bos ? "—" : (s ? sayi(h) : String(h))));
         tr.appendChild(td);
       });
