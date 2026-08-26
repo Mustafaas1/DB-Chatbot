@@ -62,21 +62,6 @@
     letter-spacing: -.011em;
   }
 
-  /* ---------- olcu seridi ---------- */
-  .olculer {
-    display: flex; flex-wrap: wrap; gap: 0 34px;
-    padding: 16px 0 18px; margin-bottom: 26px;
-    border-top: 1px solid var(--kenar); border-bottom: 1px solid var(--kenar);
-  }
-  .olcu .ad {
-    font-size: 10.5px; color: var(--silik); text-transform: uppercase;
-    letter-spacing: .08em; font-weight: 640;
-  }
-  .olcu .deger {
-    font-size: 19px; font-weight: 660; margin-top: 2px;
-    font-variant-numeric: tabular-nums; letter-spacing: -.015em;
-  }
-  .olcu .alt { font-size: 12px; color: var(--soluk); }
 
   /* ---------- bolum ---------- */
   .bolum { margin-bottom: 34px; }
@@ -128,7 +113,6 @@
 
   @media (max-width: 640px) {
     .giris { font-size: 16px; }
-    .olculer { gap: 0 22px; }
     .cizgi { grid-template-columns: minmax(0, 40%) 1fr auto; gap: 10px; }
     .cizgi .pay { display: none; }
     thead th, td .ic { padding-left: 14px; padding-right: 14px; }
@@ -154,7 +138,6 @@
 
 <div class="sarici">
   <p class="giris" id="giris" hidden></p>
-  <div class="olculer" id="olculer" hidden></div>
 
   <div class="bolum" id="grafikBolumu" hidden>
     <h2>Dağılım</h2>
@@ -223,14 +206,6 @@ function adres(veri, i) {
   return "#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + i;
 }
 
-function olcuEkle(kap, ad, deger, alt) {
-  const k = el("div", "olcu");
-  k.appendChild(el("div", "ad", ad));
-  k.appendChild(el("div", "deger", deger));
-  if (alt) k.appendChild(el("div", "alt", alt));
-  kap.appendChild(k);
-}
-
 const durum = parcala();
 const veri = durum.veri;
 const i = durum.i;
@@ -280,55 +255,7 @@ if (!adim) {
 
   const satirlar = adim.rows || [];
   const kolonlar = adim.columns || [];
-  const olculer = document.getElementById("olculer");
 
-  // Olculer verinin KENDISINDEN cikarilir. Satir/kolon sayisi sorgu ustverisi;
-  // is acisindan bir sey soylemedigi icin gosterilmiyor.
-  //
-  // Az kalemli sonuclarda serit HIC gosterilmez: 2-3 satirlik bir dagilimda
-  // "en yuksek / en dusuk / toplam" zaten grafikte ve tabloda goruluyor,
-  // ayni bilgiyi ucuncu kez tekrarlamak sayfayi kalabaliklastiriyordu.
-  const SERIT_ESIGI = 4;
-
-  if (adim.veri && adim.veri.length >= SERIT_ESIGI) {
-    const degerler = adim.veri.map(function (d) { return d.deger; });
-    const enBuyukD = Math.max.apply(null, degerler);
-    const enKucukD = Math.min.apply(null, degerler);
-    const bul = function (v) {
-      const k = adim.veri.find(function (d) { return d.deger === v; });
-      return k ? k.etiket : "";
-    };
-
-    // Toplam ve ortalama YALNIZCA tek birim varken anlamlidir. Birden fazla
-    // para birimi varsa TRY ile USD'yi toplamak/ortalamak yanlis rakam uretir.
-    const birimDeseni = /(para ?birim|birim|currency|kur)/i;
-    const karisikBirim = kolonlar.some(function (ad, n) {
-      if (!birimDeseni.test(String(ad))) return false;
-      return new Set(satirlar.map(function (s) { return s[n]; })).size > 1;
-    });
-
-    olcuEkle(olculer, "En yüksek", sayi(enBuyukD), bul(enBuyukD));
-    if (degerler.length > 1) {
-      olcuEkle(olculer, "En düşük", sayi(enKucukD), bul(enKucukD));
-      if (!karisikBirim) {
-        const ort = degerler.reduce(function (a, b) { return a + b; }, 0) / degerler.length;
-        olcuEkle(olculer, "Ortalama", sayi(ort), degerler.length + " kalem");
-      }
-    }
-
-    olcuEkle(
-      olculer,
-      "Toplam",
-      karisikBirim ? "—" : sayi(degerler.reduce(function (a, b) { return a + b; }, 0)),
-      karisikBirim ? "birden fazla para birimi" : ""
-    );
-  } else if (!adim.veri && satirlar.length >= SERIT_ESIGI) {
-    // Grafiklenebilir bir olcu yoksa en azindan kac kayit donduguru soyleyelim.
-    olcuEkle(olculer, "Kayıt", sayi(satirlar.length));
-  }
-
-  // Zincirdeki sira zaten ustteki sekmelerde gorunuyor; serit varsa tekrar etme.
-  olculer.hidden = olculer.children.length === 0;
 
   if (adim.veri && adim.veri.length) {
     const degerler = adim.veri.map(function (d) { return d.deger; });

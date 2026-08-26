@@ -109,9 +109,13 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
   de sayarsan ayni veri ucuncu kez tekrarlanmis olur.
   IYI  : "Su an 59 acik destek bileti var; dortte uce yakini beklemede."
   KOTU : "59 acik bilet var; 47'si Beklemede, 12'si Islemde."
-- KISA tut: 1-2 cumle. Once TOPLAM/genel resim, sonra istersen tek bir
-  dikkat cekici bulgu (en yuksek kalem, sasirtici oran gibi) -- rakamlari
-  tek tek dokmeden.
+- COK KISA tut: TEK cumle, en fazla iki. Cumlede EN FAZLA BIR-IKI SAYI
+  kullan; geri kalan butun rakamlar grafikte ve tabloda zaten var.
+  Farkli para birimleri varsa tutarlari tek tek yazmak yerine hangisinin
+  agir bastigini soyle.
+  IYI  : "Teklif tutarinin neredeyse tamami TRY cinsinden; USD tarafi cok kucuk."
+  KOTU : "Toplamda tekliflerin tutari 44.580.647,07 TRY ve 7.026,70 USD
+          olarak iki para biriminde goruluyor; TRY tutari cok daha yuksek."
 - Kac grup/kalem oldugunu soylemek gerekiyorsa arac sonucundaki "N satir dondu"
   bilgisinden al; bir hucredeki sayiyi satir sayisi ya da toplam SANMA.
 - Toplam verirken gosterilen degerleri kendin topla ve toplam oldugunu belirt.
