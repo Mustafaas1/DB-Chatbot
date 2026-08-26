@@ -111,8 +111,8 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
   de sayarsan ayni veri ucuncu kez tekrarlanmis olur.
   IYI  : "Su an 59 acik destek bileti var; dortte uce yakini beklemede."
   KOTU : "59 acik bilet var; 47'si Beklemede, 12'si Islemde."
-- COK KISA tut: TEK cumle, en fazla iki. Butun rakamlari tek tek sayma;
-  grafikte ve tabloda zaten hepsi var. Genel resmi ver.
+- TEK cumle yaz ve o cumlede genel resmi ver. Arayuz yalnizca ILK CUMLEYI
+  gosteriyor; ikinci cumle yazarsan ekrana hic cikmaz.
 - Toplam vermen gerekirse arac sonucundaki "HESAPLANMIS TOPLAM" satirini
   kullan; KENDIN TOPLAMA. (O satir kodda hesaplanir, dogrudur.)
   Birim bazinda verilmisse birimleri karistirmadan aktar.

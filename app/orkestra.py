@@ -68,6 +68,35 @@ def _sonucu_temizle(sonuc: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
+#: Ozet cumlesinin azami uzunlugu. Model talimatla kisaltilamadi (bes kez
+#: denendi; ya kisalmadi ya baska bir yeri bozdu), bu yuzden uzunluk KODDA
+#: garanti altina aliniyor.
+OZET_AZAMI_HARF = 150
+
+
+def _ilk_cumle(metin: str) -> str:
+    """Cevabin yalnizca ilk cumlesini birakir.
+
+    Model iki-uc cumle yazip tablodaki rakamlari tekrarliyordu. Ilk cumle
+    genel resmi veriyor; gerisi zaten grafikte ve tabloda.
+    """
+    if not metin:
+        return metin
+    duz = " ".join(metin.split())
+
+    # Cumle sonu: . ! ? ve ardindan bosluk ya da metin sonu.
+    for i, karakter in enumerate(duz):
+        if karakter in ".!?":
+            if i + 1 >= len(duz) or duz[i + 1] == " ":
+                duz = duz[: i + 1]
+                break
+
+    if len(duz) > OZET_AZAMI_HARF:
+        kesme = duz.rfind(" ", 0, OZET_AZAMI_HARF)
+        duz = duz[: kesme if kesme > 0 else OZET_AZAMI_HARF].rstrip(" ,;:") + "…"
+    return duz
+
+
 def _devir_metni(cevap: ChatCevabi) -> str:
     """Bir adimin bulgusunu sonraki adima anlatan kompakt metin."""
     parcalar = [cevap.cevap[:DEVIR_METNI].strip()]
@@ -157,7 +186,8 @@ def akis_uret(
             "sira": sira,
             "toplam_adim": len(plan),
             **adim.to_dict(),
-            "answer": cevap.cevap,
+            # Uzunluk kodda sinirlanir; talimata birakildiginda tutmuyordu.
+            "answer": _ilk_cumle(cevap.cevap) if cevap.tamamlandi else cevap.cevap,
             "steps": cevap.adimlar,
             # Adim yarida kaldiysa elde kalan sonuc basarisiz bir denemeye ait
             # olabilir; arayuze gecerli sonuc gibi gondermiyoruz.
