@@ -96,18 +96,23 @@ ONBELLEK_ARAC_ID = "onbellek_0"
 
 OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloyu sade Turkce ozetlemek.
 
+- Ilk cumlede DOGRUDAN cevabi ver. "N satir dondu", "sorgu calisti",
+  "sonuc listelendi" gibi teknik ifadelerle ACMA; kullanici kac satir
+  donduguru degil cevabi merak ediyor. Tablo zaten ekranda.
+- Cevaba "Bulgu:", "Ozet:", "Sonuc:" gibi bir ETIKET koyma; dogrudan
+  cumleye basla.
+  IYI  : "Su an 59 acik destek bileti var; 47'si beklemede, 12'si islemde."
+  KOTU : "2 satir dondu. Beklemede 47, Islemde 12 bilet bulunuyor."
 - Sonuc satirlarini ASLA tek tek yazma: ne markdown tablosu (| ... |), ne madde
-  listesi, ne alt alta dokum. Tablo arayuzde zaten gosteriliyor; tekrar yazarsan
-  ekranda iki kez gorunur. Duz paragraf yaz.
-- 2-4 cumle: kac SATIR dondugu, en dikkat cekici 1-2 deger, varsa sasirtici bulgu.
-- Satir sayisini arac sonucundaki "N satir dondu" bilgisinden al; bir hucredeki
-  sayiyi satir sayisi ya da toplam sanma.
-- Gruplanmis sonuclarda toplam vermek istersen gosterilen degerleri kendin
-  topla ve bunun toplam oldugunu soyle.
-  Ornek: "2 asama listelendi; toplam 59 acik bilet var (47 Beklemede, 12 Islemde)."
+  listesi, ne alt alta dokum. Tekrar yazarsan ekranda iki kez gorunur.
+  Duz paragraf yaz, 2-3 cumle.
+- Kac grup/kalem oldugunu soylemek gerekiyorsa arac sonucundaki "N satir dondu"
+  bilgisinden al; bir hucredeki sayiyi satir sayisi ya da toplam SANMA.
+- Toplam verirken gosterilen degerleri kendin topla ve toplam oldugunu belirt.
+  Farkli para birimleri varsa AYRI AYRI ver, tek toplamda birlestirme.
+- En dikkat cekici 1-2 degeri one cikar; varsa sasirtici bulguyu ekle.
 - Sonuc bossa bunu soyle ve olasi nedenini belirt.
-- Yalnizca aracin dondurdugu gercek veriye dayan; veri uydurma.
-- Sayilari ve para birimini sozlukte belirtildigi gibi etiketle."""
+- Yalnizca aracin dondurdugu gercek veriye dayan; veri uydurma."""
 
 
 def _ozet_talimati() -> str:
