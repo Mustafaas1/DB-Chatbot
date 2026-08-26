@@ -223,6 +223,7 @@
     max-width: 85%; white-space: pre-wrap; font-size: 13.5px;
     box-shadow: 0 6px 16px rgba(34, 50, 90, .2);
   }
+  .balon strong { font-weight: 650; }
   .asistan .balon {
     background: var(--panel); border: 1px solid var(--kenar);
     padding: 10px 14px; border-radius: 15px 15px 15px 5px;
@@ -656,6 +657,31 @@
     return a;
   }
 
+  /* Model cevaplarinda **kalin** isaretlemesi kullaniyor. Metni oldugu gibi
+     basmak yerine yildizlari kaldirip <strong> uretiyoruz. innerHTML KULLANMIYORUZ:
+     model ciktisi guvenilmez, DOM'u metin dugumleriyle kuruyoruz. */
+  function kalinMetin(kap, metin) {
+    const parcalar = String(metin == null ? "" : metin).split(/\*\*/);
+    parcalar.forEach(function (p, n) {
+      if (p === "") return;
+      // Tek indisli parcalar iki yildiz ARASINDA kalanlardir.
+      if (n % 2 === 1) {
+        const s = document.createElement("strong");
+        s.textContent = p;
+        kap.appendChild(s);
+      } else {
+        kap.appendChild(document.createTextNode(p));
+      }
+    });
+    return kap;
+  }
+
+  function balon(metin, sinif) {
+    const d = document.createElement("div");
+    d.className = sinif || "balon";
+    return kalinMetin(d, metin);
+  }
+
   function ajanRozeti(adim) {
     const r = el("span", "ajan-rozet", adim.ajan_adi);
     r.style.background = adim.renk;
@@ -751,7 +777,7 @@
     const sarici = el("div", "mesaj " + mesaj.rol);
 
     if (mesaj.rol === "kullanici") {
-      sarici.appendChild(el("div", "balon", mesaj.metin));
+      sarici.appendChild(balon(mesaj.metin));
       govdeEl.appendChild(sarici);
       return sarici;
     }
@@ -769,7 +795,7 @@
       if (mesaj.result && mesaj.result.columns && mesaj.result.columns.length) {
         sarici.appendChild(sonucCiz(mesaj.result));
       }
-      if (mesaj.metin) sarici.appendChild(el("div", "balon", mesaj.metin));
+      if (mesaj.metin) sarici.appendChild(balon(mesaj.metin));
     }
 
     govdeEl.appendChild(sarici);

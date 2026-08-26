@@ -55,6 +55,7 @@
   .sekme.aktif { color: var(--metin); font-weight: 640; border-bottom-color: var(--renk); }
 
   /* ---------- cevap (giris paragrafi) ---------- */
+  .giris strong { font-weight: 640; }
   .giris {
     margin: 30px 0 26px; font-size: 17px; line-height: 1.7;
     max-width: 68ch; color: var(--metin);
@@ -207,6 +208,24 @@ function sayi(n) {
   return n.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
 }
 
+/* Model cevaplarinda **kalin** isaretlemesi kullaniyor. Yildizlari kaldirip
+   <strong> uretiyoruz. innerHTML KULLANMIYORUZ: model ciktisi guvenilmez,
+   DOM'u metin dugumleriyle kuruyoruz. */
+function kalinMetin(kap, metin) {
+  String(metin == null ? "" : metin).split(/\*\*/).forEach(function (p, n) {
+    if (p === "") return;
+    // Tek indisli parcalar iki yildiz ARASINDA kalanlardir.
+    if (n % 2 === 1) {
+      const s = document.createElement("strong");
+      s.textContent = p;
+      kap.appendChild(s);
+    } else {
+      kap.appendChild(document.createTextNode(p));
+    }
+  });
+  return kap;
+}
+
 function adres(veri, i) {
   return "#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + i;
 }
@@ -262,7 +281,7 @@ if (!adim) {
   }
 
   if (adim.cevap) {
-    document.getElementById("giris").textContent = adim.cevap;
+    kalinMetin(document.getElementById("giris"), adim.cevap);
     document.getElementById("giris").hidden = false;
   }
 

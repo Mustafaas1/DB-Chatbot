@@ -79,6 +79,31 @@ function anahtarFormuGoster(mesaj) {
   girdi.focus();
 }
 
+/* Model cevaplarinda **kalin** isaretlemesi kullaniyor. Metni oldugu gibi
+   basmak yerine yildizlari kaldirip <strong> uretiyoruz. innerHTML KULLANMIYORUZ:
+   model ciktisi guvenilmez, DOM'u metin dugumleriyle kuruyoruz. */
+function kalinMetin(kap, metin) {
+  const parcalar = String(metin == null ? "" : metin).split(/\*\*/);
+  parcalar.forEach(function (p, n) {
+    if (p === "") return;
+    // Tek indisli parcalar iki yildiz ARASINDA kalanlardir.
+    if (n % 2 === 1) {
+      const s = document.createElement("strong");
+      s.textContent = p;
+      kap.appendChild(s);
+    } else {
+      kap.appendChild(document.createTextNode(p));
+    }
+  });
+  return kap;
+}
+
+function balon(metin, sinif) {
+  const d = document.createElement("div");
+  d.className = sinif || "balon";
+  return kalinMetin(d, metin);
+}
+
 function el(etiket, sinif, metin) {
   const d = document.createElement(etiket);
   if (sinif) d.className = sinif;
@@ -104,7 +129,7 @@ function sayiMi(deger) {
 function kullaniciMesajiEkle(metin) {
   karsilamayiKaldir();
   const sarici = el("div", "mesaj kullanici");
-  sarici.appendChild(el("div", "balon", metin));
+  sarici.appendChild(balon(metin));
   sohbetEl.appendChild(sarici);
   asagiKaydir();
 }
@@ -487,7 +512,7 @@ function asistanCevabiEkle(veri, hedefEl) {
   }
 
   if (veri.answer) {
-    sarici.appendChild(el("div", "balon", veri.answer));
+    sarici.appendChild(balon(veri.answer));
   }
 
   if (!hedefEl) sohbetEl.appendChild(sarici);

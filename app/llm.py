@@ -41,7 +41,11 @@ KURALLAR
 - Satiri her zaman sinirla; kullanici acikca istemedikce 200'u asma.
 - Tablo/kolon adlarini semada yazildigi gibi kullan.
 - Kismi metin aramasi LIKE '%...%'. Toplamalarda NULL icin COALESCE.
-- Gosterilecek kolonlara Turkce takma ad ver.
+- Gosterilecek HER kolona Turkce takma ad ver: bosluklu, dogru Turkce
+  harflerle ve bas harfi buyuk. Kolonun veritabanindaki adini oldugu
+  gibi birakma, ASCII'lestirme, kelimeleri bitisik yazma.
+  [Bilet Sayısı] / [Toplam Tutar] / [Müşteri Adı] gibi;
+  TicketSayisi, toplam_tutar, MusteriAdi gibi DEGIL.
 
 CEVAP
 - Sonuc satirlarini ASLA tek tek yazma: ne markdown tablosu (| ... |), ne madde/numarali
@@ -63,7 +67,9 @@ LEHCE: MICROSOFT SQL SERVER (T-SQL)
 - Tarih aritmetigi: DATEADD(month, 1, ...), DATEDIFF(day, ..., ...)
 - Sayfalama: OFFSET ... ROWS FETCH NEXT ... ROWS ONLY
 - Metin birlestirme: + veya CONCAT()
-- Takma ad ornegi: SELECT m.Unvan AS [Musteri]
+- Takma ad: koseli parantez icinde, BOSLUKLU ve TURKCE HARFLI yaz.
+  DOGRU : SELECT COUNT(*) AS [Bilet Sayısı], t.Asama AS [Aşama]
+  YANLIS: SELECT COUNT(*) AS TicketSayisi, t.Asama AS Asama
 
 TARIH IFADELERI (kullanicilar boyle konusur)
 - "1 ay icinde bitecek"  -> BitisTarihi >= CAST(GETDATE() AS date)

@@ -319,3 +319,4 @@ td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @keyframes nabiz { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
 .ajan-rozet.bekliyor { animation: nabiz 1.6s ease-in-out infinite; }
+.balon strong { font-weight: 640; }
