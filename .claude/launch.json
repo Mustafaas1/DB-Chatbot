@@ -12,7 +12,8 @@
         "8000",
         "--reload"
       ],
-      "port": 8000
+      "port": 8000,
+      "autoPort": false
     }
   ]
 }

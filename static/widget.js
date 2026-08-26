@@ -1015,7 +1015,13 @@
   async function durumYukle() {
     try {
       const durumYaniti = await fetch(API + "/api/durum", { headers: basliklar(false) });
-      if (durumYaniti.status === 401) { anahtarFormuGoster(); return; }
+      if (durumYaniti.status === 401) {
+        // Anahtar eksik: bunu "veritabani sorunu" gibi gostermeyelim.
+        noktaEl.className = "nokta kapali";
+        durumEl.textContent = "API anahtarı gerekli";
+        anahtarFormuGoster();
+        return;
+      }
       const veri = await durumYaniti.json();
       const ok = veri.database && veri.database.ok;
       noktaEl.className = "nokta " + (ok ? "acik" : "kapali");
@@ -1030,7 +1036,12 @@
       } else if (ok) {
         durumEl.textContent = "API anahtarı eksik";
       } else {
-        durumEl.textContent = "veritabanına bağlanılamadı";
+        durumEl.textContent = (veri.database && veri.database.error)
+          ? "veritabanına bağlanılamadı"
+          : "veritabanına bağlanılamadı";
+        if (veri.database && veri.database.error) {
+          durumEl.title = String(veri.database.error).slice(0, 300);
+        }
       }
     } catch (e) {
       noktaEl.className = "nokta kapali";
