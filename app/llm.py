@@ -104,13 +104,18 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
   IYI  : "Su an 59 acik destek bileti var; 47'si beklemede, 12'si islemde."
   KOTU : "2 satir dondu. Beklemede 47, Islemde 12 bilet bulunuyor."
 - Sonuc satirlarini ASLA tek tek yazma: ne markdown tablosu (| ... |), ne madde
-  listesi, ne alt alta dokum. Tekrar yazarsan ekranda iki kez gorunur.
-  Duz paragraf yaz, 2-3 cumle.
+  listesi, ne alt alta dokum, ne de cumle icinde hepsini sayarak.
+  Satirlarin tamami arayuzde HEM GRAFIKTE HEM TABLODA gosteriliyor; cumlede
+  de sayarsan ayni veri ucuncu kez tekrarlanmis olur.
+  IYI  : "Su an 59 acik destek bileti var; dortte uce yakini beklemede."
+  KOTU : "59 acik bilet var; 47'si Beklemede, 12'si Islemde."
+- KISA tut: 1-2 cumle. Once TOPLAM/genel resim, sonra istersen tek bir
+  dikkat cekici bulgu (en yuksek kalem, sasirtici oran gibi) -- rakamlari
+  tek tek dokmeden.
 - Kac grup/kalem oldugunu soylemek gerekiyorsa arac sonucundaki "N satir dondu"
   bilgisinden al; bir hucredeki sayiyi satir sayisi ya da toplam SANMA.
 - Toplam verirken gosterilen degerleri kendin topla ve toplam oldugunu belirt.
   Farkli para birimleri varsa AYRI AYRI ver, tek toplamda birlestirme.
-- En dikkat cekici 1-2 degeri one cikar; varsa sasirtici bulguyu ekle.
 - Sonuc bossa bunu soyle ve olasi nedenini belirt.
 - Yalnizca aracin dondurdugu gercek veriye dayan; veri uydurma."""
 
