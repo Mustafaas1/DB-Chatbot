@@ -94,6 +94,8 @@ LEHCE: MYSQL 8
 ONBELLEK_ARAC_ID = "onbellek_0"
 
 
+SATIR_SONU = chr(10)
+
 OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloyu sade Turkce ozetlemek.
 
 - Ilk cumlede DOGRUDAN cevabi ver. "N satir dondu", "sorgu calisti",
@@ -109,10 +111,11 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
   de sayarsan ayni veri ucuncu kez tekrarlanmis olur.
   IYI  : "Su an 59 acik destek bileti var; dortte uce yakini beklemede."
   KOTU : "59 acik bilet var; 47'si Beklemede, 12'si Islemde."
-- COK KISA tut: TEK cumle, en fazla iki. Cumlede EN FAZLA BIR-IKI SAYI
-  kullan; geri kalan butun rakamlar grafikte ve tabloda zaten var.
-  Farkli para birimleri varsa tutarlari tek tek yazmak yerine hangisinin
-  agir bastigini soyle.
+- COK KISA tut: TEK cumle, en fazla iki. Butun rakamlari tek tek sayma;
+  grafikte ve tabloda zaten hepsi var. Genel resmi ver.
+- Toplam vermen gerekirse arac sonucundaki "HESAPLANMIS TOPLAM" satirini
+  kullan; KENDIN TOPLAMA. (O satir kodda hesaplanir, dogrudur.)
+  Birim bazinda verilmisse birimleri karistirmadan aktar.
   IYI  : "Teklif tutarinin neredeyse tamami TRY cinsinden; USD tarafi cok kucuk."
   KOTU : "Toplamda tekliflerin tutari 44.580.647,07 TRY ve 7.026,70 USD
           olarak iki para biriminde goruluyor; TRY tutari cok daha yuksek."
@@ -257,6 +260,56 @@ def _sistem_bloklari(ajan=None) -> list[dict[str, Any]]:
     ]
 
 
+KIMLIK_KOLONU = re.compile(r"(^|[ _])(id|no|kod|numara)([ _]|$)", re.I)
+
+
+def _hesaplanmis_ozet(sonuc: QueryResult) -> list[str]:
+    """Toplami MODEL YERINE KOD hesaplar.
+
+    Model gruplu sonuclarda toplami kafadan atip yanlis rakam veriyordu
+    (103+32+2+14 icin "147" gibi). Hazir toplam verilince hem hata riski
+    kalkiyor hem de cumlede rakamlari tek tek saymasina gerek kalmiyor.
+
+    Birim kolonu (para birimi vb.) birden fazla deger tasiyorsa toplam
+    BIRIM BAZINDA verilir; hepsini toplamak yanlis olurdu.
+    """
+    if not sonuc.rows or len(sonuc.rows) < 2:
+        return []
+
+    sayisal = [
+        i for i, ad in enumerate(sonuc.columns)
+        if not KIMLIK_KOLONU.search(str(ad))
+        and all(isinstance(s[i], (int, float)) and not isinstance(s[i], bool) for s in sonuc.rows)
+    ]
+    if len(sayisal) != 1:
+        return []
+    olcu = sayisal[0]
+
+    birim_deseni = re.compile(r"(para ?birim|birim|currency|kur)", re.I)
+    birim = next(
+        (i for i, ad in enumerate(sonuc.columns)
+         if birim_deseni.search(str(ad)) and len({s[i] for s in sonuc.rows}) > 1),
+        None,
+    )
+
+    def bicim(deger: float) -> str:
+        # :g bilimsel gosterime dusuyordu (4.45806e+07); okunur bicim veriyoruz.
+        return f"{deger:,.2f}".rstrip("0").rstrip(".") if isinstance(deger, float) else f"{deger:,}"
+
+    if birim is None:
+        toplam = sum(s[olcu] for s in sonuc.rows)
+        return [
+            f"HESAPLANMIS TOPLAM ({sonuc.columns[olcu]}): {bicim(toplam)}"
+            f" — {len(sonuc.rows)} grup"
+        ]
+
+    gruplar: dict[str, float] = {}
+    for satir in sonuc.rows:
+        gruplar[str(satir[birim])] = gruplar.get(str(satir[birim]), 0) + satir[olcu]
+    parcalar = ", ".join(f"{k}: {bicim(v)}" for k, v in gruplar.items())
+    return [f"HESAPLANMIS TOPLAM (birim bazinda): {parcalar}"]
+
+
 def _arac_sonucu_metni(sonuc: QueryResult) -> str:
     """Sorgu sonucunu modelin okuyacagi kompakt metne cevirir."""
     if not sonuc.columns:
@@ -278,7 +331,9 @@ def _arac_sonucu_metni(sonuc: QueryResult) -> str:
         satirlar.append(" | ".join("NULL" if h is None else str(h) for h in satir))
     if sonuc.row_count > len(ornek):
         satirlar.append(f"... (ilk {len(ornek)} satir gosterildi, toplam {sonuc.row_count})")
-    return "\n".join(satirlar)
+    # Toplami koda hesaplatiyoruz; model kendi toplarken yanlis rakam veriyordu.
+    satirlar += _hesaplanmis_ozet(sonuc)
+    return SATIR_SONU.join(satirlar)
 
 
 def _sql_araci_calistir(

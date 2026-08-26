@@ -645,15 +645,15 @@
     return (API || "") + "/sonuc#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + sira;
   }
 
-  function sonucBaglantisi(ajan, engellendi) {
+  function sonucBaglantisi(ajan) {
+    // Tarayici otomatik acmayi engellese de baglanti ayni gorunur: uyari
+    // metni her seferinde ciktigi icin gurultu yapiyordu.
     const a = document.createElement("a");
-    a.className = "grafik-baglanti" + (engellendi ? " uyari" : "");
+    a.className = "grafik-baglanti";
     a.href = "#";
     a.target = "_blank";
     a.rel = "noopener";
-    a.textContent = engellendi
-      ? ajan + " sonucunu aç (tarayıcı engelledi)"
-      : ajan + " sonucunu yeni sekmede aç";
+    a.textContent = ajan + " sonucunu yeni sekmede aç";
     return a;
   }
 
@@ -702,7 +702,7 @@
 
     // Sonuc BURADA gosterilmez; tablo, grafik ve cevap metni ayri sekmedeki
     // sayfada. Adres, sonraki adimlar geldikce guncellenir.
-    const bag = sonucBaglantisi(adim.ajan_adi, false);
+    const bag = sonucBaglantisi(adim.ajan_adi);
     bag.dataset.sira = String(adim.sira - 1);
     panel.appendChild(bag);
     // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
@@ -924,14 +924,8 @@
         bekleyenAdimiTazele();
 
         // Bu adimin sayfasini kendi sekmesinde ac.
-        const pencere = window.open(sonucAdresi(metin, yukler, yukler.length - 1), "_blank", "noopener");
-        if (!pencere) {
-          const sonBag = [...sarici.querySelectorAll(".grafik-baglanti")].pop();
-          if (sonBag) {
-            sonBag.classList.add("uyari");
-            sonBag.textContent = kayit.ajan_adi + " sonucunu aç (tarayıcı engelledi)";
-          }
-        }
+        // Engellenirse sessizce gec: panelde zaten tiklanabilir baglanti var.
+        window.open(sonucAdresi(metin, yukler, yukler.length - 1), "_blank", "noopener");
         asagiKaydir();
       }
     };

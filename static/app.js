@@ -379,15 +379,16 @@ function sonucAdresi(soru, yukler, sira, apiKoku) {
   return (apiKoku || "") + "/sonuc#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + sira;
 }
 
-function sonucBaglantisi(adres, ajan, engellendi) {
+function sonucBaglantisi(adres, ajan) {
+  // Tarayici otomatik acmayi engellese de baglanti ayni gorunur: uyari
+  // metni her seferinde ciktigi icin gurultu yapiyordu, tiklayinca zaten
+  // aciliyor.
   const a = document.createElement("a");
-  a.className = "grafik-baglanti" + (engellendi ? " uyari" : "");
+  a.className = "grafik-baglanti";
   a.href = adres;
   a.target = "_blank";
   a.rel = "noopener";
-  a.textContent = engellendi
-    ? ajan + " sonucunu aç (tarayıcı otomatik açmayı engelledi)"
-    : ajan + " sonucunu yeni sekmede aç";
+  a.textContent = ajan + " sonucunu yeni sekmede aç";
   return a;
 }
 
@@ -414,7 +415,7 @@ function adimPaneliOlustur(adim, toplamAdim) {
   // Sonuc BURADA gosterilmez: tablo, grafik ve cevap metni ayri sekmedeki
   // sayfada. Panelde yalnizca yonlendirme kalir. Baglantinin adresi, sonraki
   // adimlar geldikce guncellenir (bkz. baglantilariTazele).
-  const bag = sonucBaglantisi("#", adim.ajan_adi, false);
+  const bag = sonucBaglantisi("#", adim.ajan_adi);
   bag.dataset.sira = String(adim.sira - 1);
   panel.appendChild(bag);
   // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
@@ -619,14 +620,8 @@ async function gonder(metin) {
 
       // Bu adimin sayfasini kendi sekmesinde ac.
       const adres = sonucAdresi(metin, yukler, yukler.length - 1, "");
-      const pencere = window.open(adres, "_blank", "noopener");
-      if (!pencere) {
-        const son = [...sarici.querySelectorAll(".grafik-baglanti")].pop();
-        if (son) {
-          son.classList.add("uyari");
-          son.textContent = kayit.ajan_adi + " sonucunu aç (tarayıcı engelledi)";
-        }
-      }
+      // Engellenirse sessizce gec: panelde zaten tiklanabilir baglanti var.
+      window.open(adres, "_blank", "noopener");
       asagiKaydir();
     }
   };
