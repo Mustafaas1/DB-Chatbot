@@ -55,3 +55,54 @@ def test_bos_ve_none():
 def test_satir_sonlari_tek_bosluga_iner():
     c = _ilk_cumle('Ilk satir' + chr(10) + 'ikinci satir.')
     assert chr(10) not in c
+
+
+# ------------------------------------------------- rakam yigilmasi
+
+from app.orkestra import _rakam_yigilmasini_at, _birim_dagilimi
+
+
+class SahteSonuc:
+    def __init__(self, columns, rows):
+        self.columns = columns
+        self.rows = rows
+
+
+KARISIK = SahteSonuc(
+    ["Durum", "Para Birimi", "Tutar"],
+    [["A", "TRY", 100.0], ["B", "TRY", 50.0], ["C", "USD", 7.0]],
+)
+TEK_BIRIM = SahteSonuc(
+    ["Durum", "Teklif Sayisi"],
+    [["A", 103], ["B", 32], ["C", 14], ["D", 2]],
+)
+
+
+def test_tutar_dokumu_karsilastirmaya_cevrilir():
+    """Istenen bicim: '151 teklif var; TRY, USD'ye gore oldukca fazla.'"""
+    ham = "151 teklif var; TRY 44.580.647,07 TL, USD 7.026,70 USD."
+    assert _rakam_yigilmasini_at(ham, KARISIK) == "151 teklif var; TRY, USD'ye göre oldukça fazla."
+
+
+def test_tek_sayili_cumle_korunur():
+    ham = "Su anda 59 acik bilet var; cogu beklemede."
+    assert _rakam_yigilmasini_at(ham, TEK_BIRIM) == ham
+
+
+def test_noktali_virgulsuz_rakam_dokumu_koddan_kurulur():
+    """Model cumlesi kurtarilamiyorsa veriden cumle uretilir."""
+    c = _rakam_yigilmasini_at("Teklifler 103, 32, 14 ve 2 adet.", TEK_BIRIM)
+    assert "151" in c and "4 grup" in c
+
+
+def test_birimler_buyukten_kucuge_siralanir():
+    assert _birim_dagilimi(KARISIK) == ["TRY", "USD"]
+
+
+def test_birim_kolonu_yoksa_bos_doner():
+    assert _birim_dagilimi(TEK_BIRIM) == []
+
+
+def test_sonuc_yoksa_cumle_bozulmaz():
+    ham = "Toplam 151 teklif bulunuyor."
+    assert _rakam_yigilmasini_at(ham, None) == ham

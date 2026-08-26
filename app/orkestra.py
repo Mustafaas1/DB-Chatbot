@@ -11,6 +11,7 @@ sinirlar; grafik adimlari istemcide cizildigi icin bedavadir.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -95,6 +96,95 @@ def _ilk_cumle(metin: str) -> str:
         kesme = duz.rfind(" ", 0, OZET_AZAMI_HARF)
         duz = duz[: kesme if kesme > 0 else OZET_AZAMI_HARF].rstrip(" ,;:") + "…"
     return duz
+
+
+SAYI_DESENI = re.compile(r"\d[\d.,\s]*\d|\d")
+BIRIM_DESENI = re.compile(r"(para ?birim|birim|currency|kur)", re.I)
+
+
+def _sayi_adedi(metin: str) -> int:
+    return len(SAYI_DESENI.findall(metin))
+
+
+def _birim_dagilimi(sonuc) -> list[str]:
+    """Sonuctaki birim kolonunun degerlerini, olcuye gore buyukten kucuge verir.
+
+    Ornek: ["TRY", "USD"] -- TRY toplami daha buyuk oldugu icin basta.
+    """
+    if not sonuc or not getattr(sonuc, "rows", None) or len(sonuc.rows) < 2:
+        return []
+    kolonlar = sonuc.columns
+
+    birim = next(
+        (i for i, ad in enumerate(kolonlar)
+         if BIRIM_DESENI.search(str(ad)) and len({s[i] for s in sonuc.rows}) > 1),
+        None,
+    )
+    if birim is None:
+        return []
+
+    olculer = [
+        i for i, ad in enumerate(kolonlar)
+        if i != birim
+        and all(isinstance(s[i], (int, float)) and not isinstance(s[i], bool) for s in sonuc.rows)
+    ]
+    if not olculer:
+        return []
+    olcu = olculer[-1]
+
+    toplamlar: dict[str, float] = {}
+    for satir in sonuc.rows:
+        toplamlar[str(satir[birim])] = toplamlar.get(str(satir[birim]), 0) + satir[olcu]
+    return [k for k, _ in sorted(toplamlar.items(), key=lambda x: -x[1])]
+
+
+def _kod_cumlesi(sonuc) -> str:
+    """Model cumlesi kullanilamadiginda veriden dogrudan cumle kurar."""
+    birimler = _birim_dagilimi(sonuc)
+    if len(birimler) >= 2:
+        return f"{birimler[0]}, {', '.join(birimler[1:])}'ye göre oldukça fazla."
+
+    if not sonuc or not getattr(sonuc, "rows", None):
+        return ""
+    kolonlar = sonuc.columns
+    olculer = [
+        i for i, _ in enumerate(kolonlar)
+        if all(isinstance(s[i], (int, float)) and not isinstance(s[i], bool) for s in sonuc.rows)
+    ]
+    if len(olculer) != 1:
+        return ""
+    toplam = sum(s[olculer[0]] for s in sonuc.rows)
+    bicim = f"{toplam:,.2f}".rstrip("0").rstrip(".") if isinstance(toplam, float) else f"{toplam:,}"
+    return f"{kolonlar[olculer[0]]} toplamı {bicim} ({len(sonuc.rows)} grup)."
+
+
+def _rakam_yigilmasini_at(cumle: str, sonuc) -> str:
+    """Cumleden rakam dokumunu ayiklar.
+
+    Model "151 teklif var; TRY'de 44.580.647,07 TL, USD'de 7.026,70 USD."
+    gibi yaziyordu; tutarlar zaten grafikte ve tabloda. Noktali virgulle
+    ayrilmis parcalardan yalnizca EN FAZLA BIR sayi icerenler tutulur,
+    karisik para birimi varsa yerine niteliksel karsilastirma eklenir.
+    """
+    parcalar = [p.strip() for p in cumle.rstrip(".").split(";") if p.strip()]
+    if not parcalar:
+        return cumle
+
+    tutulan = [p for p in parcalar if _sayi_adedi(p) <= 1]
+    atilan = len(tutulan) < len(parcalar)
+
+    if not tutulan:
+        # Cumle noktali virgulle bolunemiyor ve rakam dokuyor
+        # ("Teklifler 103, 32, 14 ve 2 adet." gibi). Model cumlesini
+        # kurtarmaya calismak yerine koddan uretilmis cumleye dusuyoruz.
+        return _kod_cumlesi(sonuc) or cumle
+
+    birimler = _birim_dagilimi(sonuc)
+    if atilan and len(birimler) >= 2:
+        digerleri = ", ".join(birimler[1:])
+        tutulan.append(f"{birimler[0]}, {digerleri}'ye göre oldukça fazla")
+
+    return "; ".join(tutulan) + "."
 
 
 def _devir_metni(cevap: ChatCevabi) -> str:
@@ -187,7 +277,12 @@ def akis_uret(
             "toplam_adim": len(plan),
             **adim.to_dict(),
             # Uzunluk kodda sinirlanir; talimata birakildiginda tutmuyordu.
-            "answer": _ilk_cumle(cevap.cevap) if cevap.tamamlandi else cevap.cevap,
+            # Uzunluk ve rakam yigilmasi kodda sinirlanir; talimata
+            # birakildiginda tutmuyordu.
+            "answer": (
+                _rakam_yigilmasini_at(_ilk_cumle(cevap.cevap), cevap.son_sonuc)
+                if cevap.tamamlandi else cevap.cevap
+            ),
             "steps": cevap.adimlar,
             # Adim yarida kaldiysa elde kalan sonuc basarisiz bir denemeye ait
             # olabilir; arayuze gecerli sonuc gibi gondermiyoruz.
