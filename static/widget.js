@@ -957,7 +957,18 @@
       bekleyenAdim = null;
     };
 
-    const bekleyenAdimiTazele = () => {
+    // Plan kaydindaki ilk adimin ajan adi. Dinamik zincirde plan TEK
+    // adim gelir; gosterge adini buradan alir.
+    const ilkAjanAdi = (kayit) => {
+      const ilk = ((kayit && kayit.adimlar) || [])[0];
+      return (ilk && (ilk.ajan_adi || ilk.ajan)) || "";
+    };
+
+    // varsayilanAd: dinamik zincirde plan TEK adim gelir, zincir ozeti
+    // (ozetEl) hic olusmaz ve gostergenin adi okuyacagi rozet bulunmaz.
+    // O durumda ad plandaki ilk adimdan verilir; yoksa ekran ilk adim
+    // boyunca (50+ sn) bombos kaliyordu.
+    const bekleyenAdimiTazele = (varsayilanAd) => {
       bekleyenAdimiTemizle();
       if (!sarici) return;
       // Statik planda bekleyen rozetten, dinamik zincirde tetik kutusundan
@@ -967,6 +978,7 @@
       let ad = "";
       if (rozet) ad = rozet.textContent;
       else if (tetik) ad = (tetik.firstChild && tetik.firstChild.textContent) || "";
+      if (!ad) ad = varsayilanAd || "";
       if (!ad) return;
       const basla = Date.now();
       bekleyenAdim = el("div", "adim-bekliyor");
@@ -1013,7 +1025,7 @@
           ozetEl = zincirOzetiOlustur(kayit.adimlar);
           sarici.appendChild(ozetEl);
         }
-        bekleyenAdimiTazele();
+        bekleyenAdimiTazele(ilkAjanAdi(kayit));
         asagiKaydir();
         return;
       }

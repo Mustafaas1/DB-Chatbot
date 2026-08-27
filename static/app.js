@@ -619,17 +619,28 @@ async function gonder(metin) {
     bekleyenEl2 = null;
   };
 
-  const bekleyenAdimiTazele = () => {
+  // Plan kaydindaki ilk adimin ajan adi. Dinamik zincirde plan TEK
+  // adim gelir; gosterge adini buradan alir.
+  const ilkAjanAdi = (kayit) => {
+    const ilk = ((kayit && kayit.adimlar) || [])[0];
+    return (ilk && (ilk.ajan_adi || ilk.ajan)) || "";
+  };
+
+  // varsayilanAd: dinamik zincirde plan TEK adim gelir, zincir ozeti
+  // (ozetEl) hic olusmaz. O durumda ad plandaki ilk adimdan verilir;
+  // yoksa ekran ilk adim boyunca (50+ sn) bombos kaliyordu.
+  const bekleyenAdimiTazele = (varsayilanAd) => {
     bekleyenAdimiTemizle();
-    if (!ozetEl || !sarici) return;
-    const kalan = ozetEl.querySelector(".ajan-rozet.bekliyor");
-    if (!kalan) return;
+    if (!sarici) return;
+    const kalan = ozetEl && ozetEl.querySelector(".ajan-rozet.bekliyor");
+    const ad = kalan ? kalan.textContent : (varsayilanAd || "");
+    if (!ad) return;
 
     const basla = Date.now();
     bekleyenEl2 = el("div", "adim-bekliyor");
     const yaz = () => {
       const sn = Math.round((Date.now() - basla) / 1000);
-      bekleyenEl2.textContent = kalan.textContent + " çalışıyor… " + sn + " sn";
+      bekleyenEl2.textContent = ad + " çalışıyor… " + sn + " sn";
     };
     yaz();
     bekleyenSayac = setInterval(yaz, 1000);
@@ -656,7 +667,7 @@ async function gonder(metin) {
         ozetEl = zincirOzetiOlustur(kayit.adimlar);
         sarici.appendChild(ozetEl);
       }
-      bekleyenAdimiTazele();
+      bekleyenAdimiTazele(ilkAjanAdi(kayit));
       asagiKaydir();
       return;
     }
