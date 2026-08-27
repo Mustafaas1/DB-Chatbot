@@ -290,7 +290,7 @@ def test_yarida_kalan_adim_sonrakine_devredilmez(monkeypatch):
         Adim(ajan_bul("finans"), "ikinci"),
     ])
 
-    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None):
+    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None, **_):
         gorevler.append(gorev)
         return SahteCevap(False, SahteSonuc())
 
@@ -308,7 +308,7 @@ def test_zincir_tur_siniri_uygulanir(monkeypatch):
     verilen = {}
     monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
 
-    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None):
+    def sahte(gorev, gecmis=None, ajan=None, azami_tur=None, **_):
         verilen["tur"] = azami_tur
         return SahteCevap(True)
 
@@ -429,3 +429,52 @@ def test_kesilen_cikti_genis_butceyle_tekrar_denenir():
     assert len(denemeler) == 2, "kesilme sonrasi tekrar denenmedi"
     assert denemeler[1] > denemeler[0], "ikinci deneme daha genis butceyle olmali"
     assert plan[0].gorev == "Teklifleri say"
+
+
+# --- Zincirde kapsam devri -------------------------------------------------
+# Tetiklenen ajan, onceki adimin bulgusunu inceleyecegi icin o adimin
+# tablolarini da gormeli. Aksi halde "boyle bir tablo yok" deyip bos donuyordu
+# (Proje Ajani'nin destek biletlerini gorememesi hatasi).
+
+def test_kapsam_ek_tablolarla_genisler():
+    from app.llm import _ajan_kapsami
+    from app.ajanlar import ajan_bul
+
+    proje = ajan_bul("proje")
+    kendi = _ajan_kapsami(proje)
+    genis = _ajan_kapsami(proje, {"TicketRecords"})
+
+    assert "TicketRecords" not in kendi
+    assert "TicketRecords" in genis
+    assert kendi < genis
+
+
+def test_tetiklenen_ajan_onceki_tablonun_semasini_gorur():
+    """Kapsam kumesi degil, ISTEME GIDEN SEMA metni sinanir.
+
+    Hata tam olarak buradaydi: sozluk cumlesi TicketRecords'tan soz
+    ediyordu ama tablo TANIMI semada olmadigi icin Proje Ajani
+    "boyle bir tablo yok" diyordu.
+    """
+    from app.llm import _ajan_kapsami
+    from app.ajanlar import ajan_bul
+    from app.schema import schema_to_prompt
+
+    proje = ajan_bul("proje")
+    destek = ajan_bul("destek")
+
+    dar = schema_to_prompt(sadece=_ajan_kapsami(proje))
+    genis = schema_to_prompt(sadece=_ajan_kapsami(proje, destek.tablolar))
+
+    assert "dbo.TicketRecords(" not in dar
+    assert "dbo.TicketRecords(" in genis
+    # Kendi tablolarini kaybetmemeli.
+    assert "dbo.ProjectTasks(" in genis
+
+
+def test_kapsamsiz_ajan_daraltilmaz():
+    from app.llm import _ajan_kapsami
+
+    # Tablolari olmayan ajan tum semayi gorur; ek tablo bunu daraltmamali.
+    assert _ajan_kapsami(None) is None
+    assert _ajan_kapsami(None, {"TicketRecords"}) is None

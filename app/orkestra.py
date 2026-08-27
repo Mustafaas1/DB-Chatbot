@@ -277,6 +277,8 @@ def akis_uret(
     kullanilmis: list[str] = []
     sira = 0
 
+    onceki_tablolar: set[str] = set()
+
     while kuyruk and sira < azami:
         adim = kuyruk.pop(0)
         sira += 1
@@ -287,6 +289,10 @@ def akis_uret(
             gecmis if sira == 1 else None,
             ajan=adim.ajan,
             azami_tur=ZINCIR_TUR_SINIRI,
+            # Tetiklenen adim onceki adimin bulgusunu inceleyecegi icin
+            # o adimin tablolarini da gormeli; yoksa "boyle bir tablo
+            # yok" deyip bos donuyor.
+            ek_tablolar=onceki_tablolar,
         )
         son_gecmis = cevap.gecmis
 
@@ -342,6 +348,9 @@ def akis_uret(
 
         # Yarida kalan adimin bulgusu guvenilir degil; sonrakine devretme.
         devir = _devir_metni(cevap) if cevap.tamamlandi else ""
+        # Bulguyu devrederken tablolarini da devret: sonraki adim bu
+        # bulguyu ancak kaynagini gorebilirse yorumlayabilir.
+        onceki_tablolar = set(adim.ajan.tablolar or ())
 
         # --- Tetik katmani ---
         # Biten adimin bulgusu baska bir bolumun alanini ilgilendiriyor mu?

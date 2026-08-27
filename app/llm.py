@@ -240,14 +240,33 @@ class ChatCevabi:
         }
 
 
-def _sistem_bloklari(ajan=None) -> list[dict[str, Any]]:
+def _ajan_kapsami(ajan, ek_tablolar=None) -> set[str] | None:
+    """Ajanin gorecegi tablo kumesi.
+
+    Zincirde bir adim, kendisinden onceki adimin bulgusunu yorumlamak
+    uzere tetiklenebiliyor. O bulgu baska bir bolumun tablosundan
+    geldigi icin, ajan yalnizca kendi tablolarini gorurse "boyle bir
+    tablo yok" deyip duruyordu. Bu yuzden tetiklenen adima onceki
+    adimin tablolarini da aciyoruz.
+
+    Ajanin kendi kapsami yoksa (tum tablolar) daraltma da yapilmaz.
+    """
+    if not (ajan and ajan.tablolar):
+        return None
+    return set(ajan.tablolar) | set(ek_tablolar or ())
+
+
+def _sistem_bloklari(ajan=None, ek_tablolar=None) -> list[dict[str, Any]]:
     """Sistem mesajini olusturur.
 
     Sema blogu cache_control ile onbellege alinir: her istekte yeniden
     islenmedigi icin hem hizli hem ucuzdur.
     """
     bugun = datetime.date.today().isoformat()
-    sema_metni = schema_to_prompt()
+    sema_metni = schema_to_prompt(
+        ek_sozluk=ajan.sozluk() if ajan else "",
+        sadece=_ajan_kapsami(ajan, ek_tablolar),
+    )
     return [
         {"type": "text", "text": _sistem_talimati()},
         {
@@ -411,7 +430,8 @@ def _claude_gecmisi_kirp(mesajlar: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
-                   azami_tur: int | None = None) -> ChatCevabi:
+                   azami_tur: int | None = None,
+                   ek_tablolar: set[str] | None = None) -> ChatCevabi:
     """Anthropic Claude ile arac dongusu."""
     client = get_client()
     mesajlar: list[dict[str, Any]] = _claude_gecmisi_kirp(list(gecmis or []))
@@ -471,7 +491,7 @@ def _claude_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=
         yanit = client.messages.create(
             model=settings.claude_model,
             max_tokens=8000,
-            system=_sistem_bloklari(ajan),
+            system=_sistem_bloklari(ajan, ek_tablolar),
             output_config={"effort": settings.claude_effort},
             tools=[SQL_ARACI],
             messages=mesajlar,
@@ -712,7 +732,8 @@ def _groq_istek(client, mesajlar: list[dict[str, Any]], butce: int | None = None
 
 
 def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
-                 azami_tur: int | None = None) -> ChatCevabi:
+                 azami_tur: int | None = None,
+                 ek_tablolar: set[str] | None = None) -> ChatCevabi:
     """Groq (OpenAI uyumlu API) ile arac dongusu.
 
     Anthropic'ten farklari:
@@ -731,8 +752,9 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
         + "\n\n--- VERITABANI SEMASI ---\n"
         + schema_to_prompt(
             ek_sozluk=ajan.sozluk() if ajan else "",
-            # Bolum ajani yalnizca kendi tablolarini gorur.
-            sadece=set(ajan.tablolar) if (ajan and ajan.tablolar) else None,
+            # Bolum ajani kendi tablolarini, tetiklendiyse onceki adimin
+            # tablolarini da gorur (bkz. _ajan_kapsami).
+            sadece=_ajan_kapsami(ajan, ek_tablolar),
         )
         + "\n\nBugunun tarihi: "
         + datetime.date.today().isoformat()
@@ -911,8 +933,13 @@ def _groq_sohbet(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=No
 
 
 def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
-              azami_tur: int | None = None) -> ChatCevabi:
-    """Aktif saglayiciya gore sohbeti yurutur (LLM_PROVIDER ayari)."""
+              azami_tur: int | None = None,
+              ek_tablolar: set[str] | None = None) -> ChatCevabi:
+    """Aktif saglayiciya gore sohbeti yurutur (LLM_PROVIDER ayari).
+
+    ek_tablolar: ajanin kendi kapsamina EK olarak gorecegi tablolar.
+    Zincirde onceki adimin tablolari buradan gecirilir.
+    """
     if settings.is_groq:
-        return _groq_sohbet(mesaj, gecmis, ajan, azami_tur)
-    return _claude_sohbet(mesaj, gecmis, ajan, azami_tur)
+        return _groq_sohbet(mesaj, gecmis, ajan, azami_tur, ek_tablolar)
+    return _claude_sohbet(mesaj, gecmis, ajan, azami_tur, ek_tablolar)
