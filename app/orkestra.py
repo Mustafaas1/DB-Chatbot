@@ -78,6 +78,20 @@ def _sonucu_temizle(sonuc: dict[str, Any] | None) -> dict[str, Any] | None:
 OZET_AZAMI_HARF = 150
 
 
+def _liste_isareti_mi(metin: str, nokta: int) -> bool:
+    """Noktanin madde numarasina mi ait oldugunu soyler.
+
+    Cozum metinleri '1. Sunu yap. 2. Bunu yap.' diye geliyor; noktayi
+    cumle sonu sayinca cevap '1.' olarak kirpiliyordu.
+    """
+    j = nokta - 1
+    while j >= 0 and metin[j].isdigit():
+        j -= 1
+    if j == nokta - 1:          # nokta oncesi rakam yok
+        return False
+    return j < 0 or metin[j] == ' '
+
+
 def _ilk_cumle(metin: str) -> str:
     """Cevabin yalnizca ilk cumlesini birakir.
 
@@ -92,6 +106,8 @@ def _ilk_cumle(metin: str) -> str:
     for i, karakter in enumerate(duz):
         if karakter in ".!?":
             if i + 1 >= len(duz) or duz[i + 1] == " ":
+                if karakter == '.' and _liste_isareti_mi(duz, i):
+                    continue
                 duz = duz[: i + 1]
                 break
 

@@ -938,10 +938,11 @@ if (!adim) {
   }
 
   // Bu adimi bir onceki adimin bulgusu tetiklediyse gerekcesini goster.
-  if (adim.gerekce) {
-    document.getElementById("gerekceMetin").textContent = adim.gerekce;
-    document.getElementById("gerekceKutu").hidden = false;
-  }
+  // Gizlemeye geri donen dal SART: sekme degistirilince gerekcesi olmayan
+  // adimda onceki adimdan kalan kutu acik kaliyor ve BOS gorunuyordu.
+  const gerekceMetni = (adim.gerekce || "").trim();
+  document.getElementById("gerekceMetin").textContent = gerekceMetni;
+  document.getElementById("gerekceKutu").hidden = !gerekceMetni;
 
   if (adim.cevap) {
     kalinMetin(document.getElementById("giris"), adim.cevap);

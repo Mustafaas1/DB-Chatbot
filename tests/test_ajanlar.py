@@ -521,3 +521,33 @@ def test_ilk_parca_kalinca_model_cumlesi_korunur():
     cikti = _rakam_yigilmasini_at(cumle, sonuc)
 
     assert cikti.startswith("151 teklif var")
+
+
+# --- Madde numarasi cumle sonu degildir ---------------------------------
+
+
+def test_madde_numarasi_cumleyi_kesmez():
+    """Cozum metinleri "1. Sunu yap. 2. Bunu yap." diye geliyor.
+
+    "1." cumle sonu sayilinca cevap ekranda sadece "1." olarak
+    goruntuleniyordu.
+    """
+    from app.orkestra import _ilk_cumle
+
+    metin = "1. Biletleri onceliklendirin. 2. Kapasiteyi artirin."
+    assert _ilk_cumle(metin) == "1. Biletleri onceliklendirin."
+
+
+def test_ondalik_sayi_cumleyi_kesmez():
+    from app.orkestra import _ilk_cumle
+
+    metin = "Toplam 3.5 milyon TL. Ikinci cumle."
+    assert _ilk_cumle(metin) == "Toplam 3.5 milyon TL."
+
+
+def test_duz_cumle_hala_kesilir():
+    """Asil davranis bozulmamali."""
+    from app.orkestra import _ilk_cumle
+
+    metin = "Su anda 59 acik destek bileti var. Gerisi tabloda."
+    assert _ilk_cumle(metin) == "Su anda 59 acik destek bileti var."

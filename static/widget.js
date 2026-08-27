@@ -1228,12 +1228,49 @@
     sor: function (metin) { acik = true; panelDurumu(); gonder(metin); },
   };
 
-  // Sonuc sayfasindan (yeni sekme) gelen mesajlari dinle (cozum uygulama)
-  window.addEventListener("message", function(e) {
-    if (e.data && e.data.tip === "uygula") {
-      acik = true;
-      panelDurumu();
-      gonder(e.data.metin);
+  // Sonuc sayfasindan (yeni sekme) gelen mesajlari dinle (cozum uygulama).
+  // DIKKAT: cozum metni bir VERITABANI SORUSU DEGIL, eylem listesidir.
+  // Eskiden gonder() ile zincire sokuluyordu; planlayici onu soru sanip
+  // rastgele bir ajana yonlendiriyor ve ajan metni aynen geri yaziyordu.
+  // Tam sayfadaki (app.js) davranisla ayni sekilde /api/uygula cagrilir.
+  window.addEventListener("message", async function(e) {
+    if (!e.data || e.data.tip !== "uygula") return;
+    acik = true;
+    panelDurumu();
+
+    if (!mesajlar.length) govdeEl.innerHTML = "";
+    const kullaniciMesaji = { rol: "kullanici", metin: e.data.metin };
+    mesajlar.push(kullaniciMesaji);
+    mesajCiz(kullaniciMesaji);
+    asagiKaydir();
+
+    const bekleyen = el("div", "mesaj asistan");
+    bekleyen.appendChild(el("div", "dusunuyor", "Çözüm uygulanıyor…"));
+    govdeEl.appendChild(bekleyen);
+    asagiKaydir();
+
+    try {
+      const yanit = await fetch(API + "/api/uygula", {
+        method: "POST",
+        headers: basliklar(true),
+        body: JSON.stringify({ cozum: e.data.metin }),
+      });
+      const gelen = await yanit.json();
+      bekleyen.remove();
+      if (!yanit.ok) {
+        govdeEl.appendChild(el("div", "hata-kutu",
+          gelen.detail || "Çözüm uygulanamadı."));
+      } else {
+        const asistanMesaji = { rol: "asistan", metin: gelen.mesaj };
+        mesajlar.push(asistanMesaji);
+        mesajCiz(asistanMesaji);
+        if (e.source) e.source.postMessage({ tip: "uygulandi" }, "*");
+      }
+    } catch (hata) {
+      bekleyen.remove();
+      govdeEl.appendChild(el("div", "hata-kutu",
+        "Sunucuya bağlanılamadı: " + (hata.message || hata)));
     }
+    asagiKaydir();
   });
 })();
