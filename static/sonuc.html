@@ -821,11 +821,19 @@ async function detayAc(deger, kaynakEl) {
     return;
   }
 
+  // Zaman asimi olmadan istek sonuclanmayinca ekranda "Kayitlar
+  // getiriliyor..." sonsuza kadar kaliyordu. Sunucunun kendi sorgu
+  // zaman asimi 30 sn; buradaki pay onun bitmesini bekleyecek kadar
+  // uzun, kullaniciyi bekletmeyecek kadar kisa.
+  const kesici = new AbortController();
+  const kesZamani = setTimeout(() => kesici.abort(), 45000);
+
   try {
     const yanit = await fetch((adim.api || "") + "/api/detay", {
       method: "POST",
       headers: jetonBasliklari(),
       body: JSON.stringify({ session_id: adim.oturum, sira: adim.sira, deger: deger }),
+      signal: kesici.signal,
     });
     if (!yanit.ok) {
       let ayrinti = "Kayıtlar getirilemedi.";
@@ -852,7 +860,15 @@ async function detayAc(deger, kaynakEl) {
     detaySuz();
     document.getElementById("detayAra").focus();
   } catch (err) {
-    detayDurumGoster(err.message || String(err), true);
+    if (err && err.name === "AbortError") {
+      detayDurumGoster(
+        "Kayitlar zamaninda gelmedi (45 sn). Veritabani yavas yanit veriyor; " +
+        "tekrar deneyin.", true);
+    } else {
+      detayDurumGoster(err.message || String(err), true);
+    }
+  } finally {
+    clearTimeout(kesZamani);
   }
 }
 
@@ -1058,6 +1074,21 @@ if (!adim) {
     if (!document.getElementById("detayBolumu").hidden) detayKapat();
   });
 }
+
+window.addEventListener("message", function(e) {
+  if (e.data && e.data.tip === "uygulandi") {
+    const butonlar = document.querySelectorAll(".btn-uygula");
+    for (const btn of butonlar) {
+      if (btn.textContent === "Uygulanıyor...") {
+        btn.textContent = "✅ Uygulandı";
+        btn.style.background = "#16a34a";
+        btn.style.color = "white";
+        btn.style.borderColor = "#16a34a";
+      }
+    }
+  }
+});
 </script>
 </body>
 </html>
+
