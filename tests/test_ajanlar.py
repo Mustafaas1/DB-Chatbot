@@ -478,3 +478,46 @@ def test_kapsamsiz_ajan_daraltilmaz():
     # Tablolari olmayan ajan tum semayi gorur; ek tablo bunu daraltmamali.
     assert _ajan_kapsami(None) is None
     assert _ajan_kapsami(None, {"TicketRecords"}) is None
+
+
+# --- Ozet cumlesi: dusen ilk parca ------------------------------------
+
+
+def test_ilk_parca_dusunce_koddan_cumle_kurulur():
+    """Kalan parca onceki parcaya geri gonderme yapiyor olabilir.
+
+    'bunlarin cogu (125) Bekliyor' tek basina havada kaliyordu.
+    """
+    from app.orkestra import _rakam_yigilmasini_at
+    from app.db import QueryResult
+
+    sonuc = QueryResult(
+        columns=["Durum", "Görev Sayısı"],
+        rows=[["Bekliyor", 125], ["Tamamlandı", 39], ["Devam Ediyor", 11]],
+        truncated=False,
+        sql="",
+        duration_ms=1,
+    )
+    cumle = "Toplam 175 görev var, 3 kategoride; bunların çoğu (125) Bekliyor."
+    cikti = _rakam_yigilmasini_at(cumle, sonuc)
+
+    assert not cikti.startswith("bunların")
+    assert "175" in cikti or "Görev" in cikti
+
+
+def test_ilk_parca_kalinca_model_cumlesi_korunur():
+    """Asil davranis bozulmamali: ilk parca duruyorsa o kullanilir."""
+    from app.orkestra import _rakam_yigilmasini_at
+    from app.db import QueryResult
+
+    sonuc = QueryResult(
+        columns=["Durum", "Adet"],
+        rows=[["Gönderildi", 103], ["Kazanıldı", 32]],
+        truncated=False,
+        sql="",
+        duration_ms=1,
+    )
+    cumle = "151 teklif var; 103 gönderildi, 32 kazanıldı, 14 reddedildi."
+    cikti = _rakam_yigilmasini_at(cumle, sonuc)
+
+    assert cikti.startswith("151 teklif var")

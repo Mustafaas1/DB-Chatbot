@@ -176,6 +176,13 @@ def _rakam_yigilmasini_at(cumle: str, sonuc) -> str:
     tutulan = [p for p in parcalar if _sayi_adedi(p) <= 1]
     atilan = len(tutulan) < len(parcalar)
 
+    # ILK parca atildiysa kalanla cumle kurulamaz: sonraki parcalar
+    # ona geri gonderme yapiyor olabiliyor. Ornek: 'Toplam 186 gorev
+    # var, 4 kategoride; bunlarin cogu (125) Bekliyor.' -> ilk parca
+    # dusunce geriye 'bunlarin cogu...' kaliyor ve havada duruyor.
+    if atilan and parcalar and tutulan and tutulan[0] is not parcalar[0]:
+        return _kod_cumlesi(sonuc) or cumle
+
     if not tutulan:
         # Cumle noktali virgulle bolunemiyor ve rakam dokuyor
         # ("Teklifler 103, 32, 14 ve 2 adet." gibi). Model cumlesini
