@@ -358,6 +358,8 @@
   td.bos { color: #b6bcc4; font-style: italic; }
   td.sayi { text-align: right; font-variant-numeric: tabular-nums; }
   .uyari { padding: 6px 11px; background: #fff8ec; color: var(--sari); font-size: 11.5px; border-top: 1px solid #f5e3c3; }
+  .simulasyon-etiket { display: flex; gap: 7px; align-items: flex-start; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; padding: 8px 11px; border-radius: 11px; font-size: 12px; line-height: 1.45; margin-bottom: 7px; }
+  .simulasyon-etiket b { font-weight: 700; }
   .hata-kutu { background: #fdecec; border: 1px solid #f3c2c2; color: #9b1c1c; padding: 10px 12px; border-radius: 13px; font-size: 13px; }
 
   .alt { flex: none; border-top: 1px solid var(--kenar); background: var(--panel); padding: 10px 12px; }
@@ -889,6 +891,12 @@
       if (mesaj.result && mesaj.result.columns && mesaj.result.columns.length) {
         sarici.appendChild(sonucCiz(mesaj.result));
       }
+      if (mesaj.simulasyon) {
+        const et = el("div", "simulasyon-etiket");
+        et.appendChild(el("span", null, "⚠"));
+        et.appendChild(el("span", null, "Simülasyon — bu rapor örnektir. Veritabanında hiçbir değişiklik yapılmadı, rakamlar gerçek işlem sonucu değildir."));
+        sarici.appendChild(et);
+      }
       if (mesaj.metin) sarici.appendChild(balon(mesaj.metin));
     }
 
@@ -1261,7 +1269,11 @@
         govdeEl.appendChild(el("div", "hata-kutu",
           gelen.detail || "Çözüm uygulanamadı."));
       } else {
-        const asistanMesaji = { rol: "asistan", metin: gelen.mesaj };
+        const asistanMesaji = {
+          rol: "asistan",
+          metin: gelen.mesaj,
+          simulasyon: gelen.simulasyon === true,
+        };
         mesajlar.push(asistanMesaji);
         mesajCiz(asistanMesaji);
         if (e.source) e.source.postMessage({ tip: "uygulandi" }, "*");

@@ -876,3 +876,48 @@ devirAl();
 durumYukle();
 semaYukle();
 mesajEl.focus();
+
+/* ---------- çözüm uygulama mesajı dinleyici ---------- */
+window.addEventListener("message", async (e) => {
+  if (e.data && e.data.tip === "uygula") {
+    kullaniciMesajiEkle(e.data.metin);
+    const bekleyen = bekleyenEkle();
+    
+    try {
+      const res = await fetch("/api/uygula", {
+        method: "POST",
+        headers: basliklar(true),
+        body: JSON.stringify({ cozum: e.data.metin })
+      });
+      const yanit = await res.json();
+      bekleyen.remove();
+      clearInterval(bekleyen.sayac);
+
+      if (!res.ok) {
+        hataEkle(yanit.detail || "Çözüm uygulanırken bir hata oluştu.");
+      } else {
+        const sarici = el("div", "mesaj asistan");
+        // Bu uc gercekte hicbir sey yapmiyor; etiketsiz birakilirsa
+        // uydurma rakamlar gercek islem sanilabiliyor.
+        if (yanit.simulasyon) {
+          const et = el("div", "simulasyon-etiket");
+          et.appendChild(el("span", null, "⚠"));
+          et.appendChild(el("span", null, "Simülasyon — bu rapor örnektir. Veritabanında hiçbir değişiklik yapılmadı, rakamlar gerçek işlem sonucu değildir."));
+          sarici.appendChild(et);
+        }
+        sarici.appendChild(balon(yanit.mesaj));
+        sohbetEl.appendChild(sarici);
+        asagiKaydir();
+
+        // Sonuc sekmesine basari durumunu geri bildir
+        if (e.source) {
+          e.source.postMessage({ tip: "uygulandi" }, "*");
+        }
+      }
+    } catch (err) {
+      bekleyen.remove();
+      clearInterval(bekleyen.sayac);
+      hataEkle("Sunucuya bağlanılamadı: " + err.message);
+    }
+  }
+});

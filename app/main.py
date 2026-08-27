@@ -442,3 +442,23 @@ def sql_calistir(istek: SqlIstegi) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return sonuc.to_dict()
+
+
+class UygulamaIstegi(BaseModel):
+    cozum: str
+
+
+@app.post("/api/uygula", dependencies=[Depends(dogrula)])
+def cozum_uygula_api(istek: UygulamaIstegi) -> dict:
+    """Kullanıcının seçtiği çözümü LLM üzerinden simüle ederek uygular."""
+    from .llm import cozum_uygula
+    try:
+        yanit = cozum_uygula(istek.cozum)
+        # Bu uc HICBIR SEY YAPMIYOR: yapilmis gibi bir rapor uretiyor.
+        # Istemciler bunu goruntude acikca isaretlesin diye bayrak
+        # doniyoruz; etiketsiz birakilirsa uydurma rakamlar ("120 bilet
+        # atandi" gibi) gercek islem sanilabiliyor.
+        return {"ok": True, "mesaj": yanit, "simulasyon": True}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
