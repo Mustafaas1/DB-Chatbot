@@ -26,6 +26,8 @@ from .ozet import ozet_getir
 from .orkestra import akis_calistir, akis_uret
 from .guvenlik import dogrula, koruma_durumu
 from . import oturum as oturum_deposu
+from . import detay as detay_deposu
+from .detay import DetayHatasi
 from .schema import get_schema, refresh_schema, schema_to_prompt
 
 @asynccontextmanager
@@ -148,6 +150,19 @@ class SqlIstegi(BaseModel):
     sql: str = Field(..., min_length=1)
 
 
+class DetayIstegi(BaseModel):
+    """Grafikteki bir gruba tiklandiginda o gruba ait ham satirlar.
+
+    SQL istemciden GELMEZ; sunucu, adim sirasina karsilik saklanan ozet
+    sorgudan detay sorgusunu kendisi turetir.
+    """
+
+    session_id: str = Field(..., min_length=1, max_length=64)
+    sira: int = Field(..., ge=1, le=50)
+    deger: Any = None
+    limit: int | None = Field(default=None, ge=1)
+
+
 class OturumIstegi(BaseModel):
     session_id: str | None = None
 
@@ -224,6 +239,7 @@ def durum() -> dict:
         "effort": settings.claude_effort,
         "api_key_var": settings.llm_key_var,
         "max_rows": settings.max_rows,
+        "analiz_aktif": True,
         **koruma_durumu(),
         "oturum": oturum_deposu.istatistik(),
     }
@@ -327,6 +343,9 @@ def akis(istek: AkisIstegi) -> dict:
     with _llm_hatalarini_cevir():
         sonuc = akis_calistir(istek.message, oturum_deposu.getir(oturum_id))
 
+    for kayit in sonuc.get("adimlar", []):
+        _adim_sqlini_sakla(oturum_id, kayit)
+
     oturum_deposu.kaydet(oturum_id, sonuc.pop("gecmis", []))
     return {"session_id": oturum_id, **sonuc}
 
@@ -356,6 +375,10 @@ def akis_canli(istek: AkisIstegi):
             for kayit in akis_uret(istek.message, oturum_deposu.getir(oturum_id)):
                 if kayit["tur"] == "bitti":
                     oturum_deposu.kaydet(oturum_id, kayit.pop("gecmis", []))
+                elif kayit["tur"] == "adim":
+                    # Detay (drill-down) icin ozet SQL'i sunucuda sakla.
+                    # Istemci sonradan yalnizca oturum + sira gonderir.
+                    _adim_sqlini_sakla(oturum_id, kayit)
                 yield kare(kayit)
         except Exception as exc:  # noqa: BLE001 - akis basladi, HTTP kodu degistiremeyiz
             # Baglanti acildiktan sonra hata olursa istemciye kayit olarak bildiriyoruz.
@@ -366,6 +389,33 @@ def akis_canli(istek: AkisIstegi):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _adim_sqlini_sakla(oturum_id: str, kayit: dict) -> None:
+    """Adimin ozet SQL'ini detay listesi icin saklar; hata akisi bozmaz."""
+    sonuc = kayit.get("result") or {}
+    try:
+        detay_deposu.sql_kaydet(oturum_id, kayit.get("sira", 0), sonuc.get("sql"))
+    except Exception:  # noqa: BLE001 - saklama basarisizligi cevabi engellemez
+        pass
+
+
+@app.post("/api/detay", dependencies=[Depends(dogrula)])
+def detay(istek: DetayIstegi) -> dict:
+    """Grafikteki bir gruba ait ham satirlari dondurur (drill-down).
+
+    Ornek: "Asamalarina gore acik biletler" sonucunda "Beklemede" cubuguna
+    tiklandiginda, o asamadaki biletlerin kendisi listelenir.
+    """
+    try:
+        sonuc = detay_deposu.detay_getir(
+            istek.session_id, istek.sira, istek.deger, istek.limit
+        )
+    except DetayHatasi as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"deger": istek.deger, **sonuc.to_dict()}
 
 
 @app.post("/api/oturum/sifirla", dependencies=[Depends(dogrula)])

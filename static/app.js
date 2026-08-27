@@ -401,6 +401,7 @@ function ajanRozeti(adim) {
 function adimPaneliOlustur(adim, toplamAdim) {
   const panel = el("div", "adim-panel");
   panel.style.borderLeftColor = adim.renk;
+  panel.dataset.adimSira = adim.sira;
 
   const ust = el("div", "adim-ust");
   if (toplamAdim > 1) ust.appendChild(el("span", "adim-sira", adim.sira + "/" + toplamAdim));
@@ -418,11 +419,62 @@ function adimPaneliOlustur(adim, toplamAdim) {
   const bag = sonucBaglantisi("#", adim.ajan_adi);
   bag.dataset.sira = String(adim.sira - 1);
   panel.appendChild(bag);
-  // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
   if (adim.tamamlandi === false) {
     panel.appendChild(el("div", "uyari-serit", "Bu adım tamamlanamadı; sonuç güvenilir değil."));
   }
+
+  if (adim.analiz) {
+    const analizKarti = analizKartiCiz(adim.analiz);
+    if (analizKarti) panel.appendChild(analizKarti);
+  }
   return panel;
+}
+
+function analizKartiCiz(analiz) {
+  const kart = el("div", "analiz-kart");
+
+  // Başlık
+  const baslik = el("div", "analiz-baslik");
+  baslik.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> Yapay Zeka Analizi';
+  kart.appendChild(baslik);
+
+  // Sekme verileri
+  const sekmeler = [
+    { tip: "yorum", etiket: "📋 Yorum", icerik: analiz.yorum || "" },
+    { tip: "cozum", etiket: "💡 Çözüm", icerik: analiz.cozum || "" },
+    { tip: "risk", etiket: "⚠️ Risk", icerik: analiz.risk || "" },
+  ].filter(function(s) { return s.icerik; });
+
+  if (!sekmeler.length) return null;
+
+  // Sekme çubuğu
+  const cubuk = el("div", "analiz-sekmeler");
+  const icerikEl = el("div", "analiz-icerik");
+
+  sekmeler.forEach(function(s, i) {
+    const btn = el("button", "analiz-sekme" + (i === 0 ? " aktif" : ""), s.etiket);
+    btn.dataset.tip = s.tip;
+    btn.addEventListener("click", function() {
+      cubuk.querySelectorAll(".analiz-sekme").forEach(function(b) { b.classList.remove("aktif"); });
+      btn.classList.add("aktif");
+      icerikEl.textContent = s.icerik;
+      icerikEl.className = "analiz-icerik aktif analiz-icerik-" + s.tip;
+      // Fade animasyonu
+      icerikEl.style.animation = "none";
+      icerikEl.offsetHeight;
+      icerikEl.style.animation = "cbPop .2s ease-out";
+    });
+    cubuk.appendChild(btn);
+  });
+
+  kart.appendChild(cubuk);
+
+  // İlk sekmenin içeriği
+  icerikEl.textContent = sekmeler[0].icerik;
+  icerikEl.className = "analiz-icerik aktif analiz-icerik-" + sekmeler[0].tip;
+  kart.appendChild(icerikEl);
+
+  return kart;
 }
 
 /* Sunucu adimlari tamamlandikca yayinliyor (SSE). Tek parca beklemek yerine
@@ -622,6 +674,24 @@ async function gonder(metin) {
       const adres = sonucAdresi(metin, yukler, yukler.length - 1, "");
       // Engellenirse sessizce gec: panelde zaten tiklanabilir baglanti var.
       window.open(adres, "_blank", "noopener");
+      asagiKaydir();
+    }
+    if (kayit.tur === "analiz") {
+      var sira = kayit.sira;
+      var analizVerisi = { yorum: kayit.yorum || "", cozum: kayit.cozum || "", risk: kayit.risk || "" };
+      var hedefPanel = sarici && sarici.querySelector('.adim-panel[data-adim-sira="' + sira + '"]');
+      if (hedefPanel) {
+        var analizKarti = analizKartiCiz(kayit);
+        if (analizKarti) {
+          hedefPanel.appendChild(analizKarti);
+          // Yukler'deki ilgili adıma da analiz ekle (sonuc sayfası URL'si için)
+          for (var y = 0; y < yukler.length; y++) {
+            if (yukler[y]) { yukler[y].analiz = yukler[y].analiz || null; }
+            if (y === sira - 1) { yukler[y].analiz = analizVerisi; }
+          }
+          baglantilariTazele();
+        }
+      }
       asagiKaydir();
     }
   };

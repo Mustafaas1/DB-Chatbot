@@ -35,10 +35,13 @@ PLAN_BUTCESI = 800
 class Adim:
     """Plandaki tek bir is adimi."""
 
-    def __init__(self, ajan: Ajan, gorev: str, grafik: bool = False):
+    def __init__(self, ajan: Ajan, gorev: str, grafik: bool = False, gerekce: str = ""):
         self.ajan = ajan
         self.gorev = gorev
         self.grafik = grafik
+        #: Bu adim bir onceki adimin bulgusu tetikledigi icin eklendiyse,
+        #: "neden" cumlesi. Zincirin olay orgusunu arayuzde gorunur kilar.
+        self.gerekce = gerekce
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +50,7 @@ class Adim:
             "renk": self.ajan.renk,
             "gorev": self.gorev,
             "grafik": self.grafik,
+            "gerekce": self.gerekce,
         }
 
     def __repr__(self) -> str:  # hata ayiklama kolayligi

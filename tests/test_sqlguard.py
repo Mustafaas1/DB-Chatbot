@@ -175,3 +175,35 @@ def test_sondaki_noktali_virgul_atilir():
 
 def test_bosluklar_kirpilir():
     assert validate_sql("   SELECT 1   ") == "SELECT 1"
+
+
+# --- Yorum/metin sabiti sirasi (regresyon) -------------------------------
+# Maskeleme eskiden once yorumlari, sonra metin sabitlerini temizliyordu.
+# Bu yuzden metin sabitinin ICINDEKI "--" gercek yorum sanilip satirin geri
+# kalani siliniyor, arkasindaki ";" ve DROP taramaya hic ulasmiyordu.
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM T WHERE a = 'x--' ; DROP TABLE U",
+        "SELECT * FROM T WHERE a = 'x--'; UPDATE T SET a = 1",
+        "SELECT * FROM T WHERE a = 'x/*' ; DROP TABLE U /*'*/",
+        "SELECT * FROM T WHERE a = 'x--' AND b = 1 ; DELETE FROM U",
+    ],
+)
+def test_metin_sabitindeki_yorum_isareti_ikinci_ifadeyi_gizleyemez(sql):
+    with pytest.raises(SqlGuardError):
+        validate_sql(sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM T WHERE [Baslik] = 'A -- B'",
+        "SELECT * FROM T WHERE [Baslik] = 'A -- B' AND x = 1",
+        "SELECT COUNT(*) FROM [dbo].[T] -- adet\nWHERE [IsDeleted] = 0",
+        "SELECT /* not */ [Order] FROM T WHERE n = 'it''s ok'",
+    ],
+)
+def test_masum_yorum_ve_metin_sabitleri_kabul_edilir(sql):
+    validate_sql(sql)

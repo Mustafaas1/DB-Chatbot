@@ -62,6 +62,18 @@
     letter-spacing: -.011em;
   }
 
+  /* ---------- zincir gerekcesi ---------- */
+  .gerekce-kutu {
+    display: grid; gap: 5px; margin: 22px 0 0;
+    padding: 12px 15px; border-radius: 11px;
+    background: var(--panel); border: 1px dashed var(--kenar);
+    max-width: 62ch;
+  }
+  .gerekce-et {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--silik); font-weight: 640;
+  }
+  .gerekce-metin { font-size: 14px; line-height: 1.5; color: var(--metin); }
 
   /* ---------- bolum ---------- */
   .bolum { margin-bottom: 34px; }
@@ -69,6 +81,20 @@
     font-size: 11.5px; margin: 0 0 14px; font-weight: 700;
     color: var(--soluk); text-transform: uppercase; letter-spacing: .08em;
   }
+  .bolum-ust {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+  }
+  .bolum-ust > h2 { margin: 0; }
+  .disa-aktar {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--kenar); background: var(--panel);
+    color: var(--soluk); font: inherit; font-size: 12.5px; font-weight: 550;
+    transition: all .15s;
+  }
+  .disa-aktar:hover { border-color: var(--renk); color: var(--renk); }
+  .disa-aktar:active { transform: scale(.97); }
 
   /* ---------- grafik ---------- */
   .grafik { display: grid; gap: 3px; }
@@ -89,21 +115,142 @@
     background: var(--panel); border: 1px solid var(--kenar);
     border-radius: 12px; box-shadow: var(--golge); overflow: hidden;
   }
-  .tablo-sarici { overflow-x: auto; max-height: 70vh; }
-  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .tablo-sarici { overflow: auto; max-height: 70vh; }
+  /* border-collapse: separate -- yapiskan baslikta "collapse" ile cizgiler
+     hucreye degil tabloya ait olur ve baslik kaydiginda cizgi kaybolur. */
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
   thead th {
-    position: sticky; top: 0; z-index: 1; background: var(--panel);
-    text-align: left; font-weight: 660; color: var(--soluk); font-size: 12.5px;
-    letter-spacing: .01em;
-    padding: 13px 18px; border-bottom: 1px solid var(--kenar); white-space: nowrap;
+    /* z-index basligi govdenin UZERINDE tutar. Onceden hem baslik hem hucre
+       z-index:1 idi; esitlikte DOM sirasi kazandigi icin kaydirirken hucre
+       metni basligin ustune biniyordu. */
+    position: sticky; top: 0; z-index: 3; background: var(--zemin);
+    text-align: left; font-weight: 660; color: var(--soluk); font-size: 12px;
+    letter-spacing: .02em; text-transform: uppercase;
+    padding: 11px 16px; white-space: nowrap;
+    border-bottom: 1px solid var(--kenar);
+    border-right: 1px solid var(--kenar);
   }
+  thead th:last-child { border-right: none; }
   thead th.sayi { text-align: right; }
-  td { padding: 0; border-bottom: 1px solid var(--ince); }
-  td .ic { padding: 12px 18px; position: relative; z-index: 1; font-weight: 500; color: var(--metin); }
-  td.sayi .ic { text-align: right; font-variant-numeric: tabular-nums; font-weight: 660; }
-  tbody tr:hover td { background: #fbfcfe; }
+  td {
+    padding: 0; background: var(--panel);
+    border-bottom: 1px solid var(--ince);
+    border-right: 1px solid var(--ince);
+  }
+  tbody tr td:last-child { border-right: none; }
+  /* Hucreler tek satirda kalir: 40+ kolonlu detay tablosunda sarma yuzunden
+     satirlar 130px'e cikiyor ve saga kaydirinca bos kolonlarda kocaman
+     bosluklar olusuyordu. Tasan metin ... ile kisalir, tamami title'da. */
+  td .ic {
+    padding: 10px 16px; font-weight: 500; color: var(--metin);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 340px;
+  }
+  td.sayi .ic { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  tbody tr:nth-child(even) td { background: #fbfcfe; }
+  tbody tr:hover td { background: var(--renk-hafif); }
   tbody tr:last-child td { border-bottom: none; }
   td.bos .ic { color: var(--silik); }
+
+  /* ---------- detay (drill-down) + arama ---------- */
+  .cizgi.tiklanir { cursor: pointer; }
+  .cizgi.tiklanir:hover { background: var(--renk-hafif); }
+  .cizgi.tiklanir:focus-visible { outline: 2px solid var(--renk); outline-offset: -2px; }
+  .cizgi.secili { background: var(--renk-hafif); }
+  tbody tr.tiklanir { cursor: pointer; }
+  tbody tr.tiklanir:hover td { background: var(--renk-hafif); }
+  tbody tr.secili td { background: var(--renk-hafif); }
+  tbody tr.tiklanir:focus-visible td { outline: 2px solid var(--renk); outline-offset: -2px; }
+  .ipucu { font-size: 12.5px; color: var(--silik); margin-top: 12px; }
+
+  .detay-ust {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .detay-baslik { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .detay-baslik > h2 { margin: 0; }
+  .detay-rozet {
+    font-size: 12.5px; font-weight: 640; color: var(--renk);
+    background: var(--renk-hafif); padding: 3px 11px; border-radius: 999px;
+  }
+  .detay-araclar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ara-kutu { position: relative; display: flex; align-items: center; }
+  .ara-kutu input {
+    font: inherit; font-size: 13.5px; padding: 8px 30px 8px 32px;
+    border: 1px solid var(--kenar); border-radius: 9px; background: var(--panel);
+    color: var(--metin); width: 250px; max-width: 50vw;
+  }
+  .ara-kutu input::-webkit-search-cancel-button { display: none; }
+  .ara-kutu input:focus {
+    outline: none; border-color: var(--renk); box-shadow: 0 0 0 3px var(--renk-hafif);
+  }
+  .ara-kutu .simge {
+    position: absolute; left: 10px; font-size: 12.5px;
+    color: var(--silik); pointer-events: none;
+  }
+  .ara-kutu .temizle {
+    position: absolute; right: 5px; border: 0; background: none; cursor: pointer;
+    color: var(--silik); font-size: 17px; line-height: 1; padding: 3px 6px; border-radius: 6px;
+  }
+  .ara-kutu .temizle:hover { color: var(--metin); background: var(--ince); }
+  .kapat-btn {
+    border: 1px solid var(--kenar); background: var(--panel); color: var(--soluk);
+    font: inherit; font-size: 12.5px; font-weight: 550; padding: 7px 13px;
+    border-radius: 9px; cursor: pointer; transition: all .15s;
+  }
+  .kapat-btn:hover { border-color: var(--renk); color: var(--renk); }
+  /* ---------- kolon secici ---------- */
+  .kolon-sarmal { position: relative; }
+  .kolon-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--kenar); background: var(--panel); color: var(--soluk);
+    font: inherit; font-size: 12.5px; font-weight: 550; padding: 7px 13px;
+    border-radius: 9px; cursor: pointer; transition: all .15s;
+  }
+  .kolon-btn:hover { border-color: var(--renk); color: var(--renk); }
+  .kolon-btn.acik { border-color: var(--renk); color: var(--renk); background: var(--renk-hafif); }
+  .kolon-btn .adet { font-variant-numeric: tabular-nums; }
+
+  .kolon-panel {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+    width: 290px; max-width: 88vw;
+    background: var(--panel); border: 1px solid var(--kenar);
+    border-radius: 12px; box-shadow: var(--golge);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .kolon-panel[hidden] { display: none; }
+  .kolon-panel-ust {
+    display: flex; gap: 6px; padding: 10px 12px;
+    border-bottom: 1px solid var(--ince); flex-wrap: wrap;
+  }
+  .kolon-panel-ust button {
+    border: 1px solid var(--kenar); background: var(--panel); color: var(--soluk);
+    font: inherit; font-size: 11.5px; font-weight: 550; padding: 5px 10px;
+    border-radius: 7px; cursor: pointer;
+  }
+  .kolon-panel-ust button:hover { border-color: var(--renk); color: var(--renk); }
+  .kolon-liste { overflow-y: auto; max-height: 320px; padding: 6px; }
+  .kolon-satir {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 9px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; color: var(--metin);
+  }
+  .kolon-satir:hover { background: var(--zemin); }
+  .kolon-satir input { accent-color: var(--renk); width: 15px; height: 15px; cursor: pointer; flex: none; }
+  .kolon-satir .ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kolon-satir .bos-rozet {
+    margin-left: auto; font-size: 10.5px; color: var(--silik);
+    background: var(--ince); padding: 1px 7px; border-radius: 999px; flex: none;
+  }
+  .kolon-panel-alt {
+    padding: 9px 12px; border-top: 1px solid var(--ince);
+    font-size: 11.5px; color: var(--silik);
+  }
+
+  .detay-sayac { font-size: 12.5px; color: var(--soluk); margin-top: 12px; }
+  .detay-durum { padding: 20px; font-size: 13.5px; color: var(--soluk); }
+  .detay-durum.hata { color: #9b1c1c; background: #fdecec; }
+  mark { background: #fff2a8; color: inherit; border-radius: 3px; padding: 0 1px; }
 
   .bos-kart {
     padding: 56px 24px; text-align: center; color: var(--soluk);
@@ -111,11 +258,62 @@
     margin-top: 40px;
   }
 
+  /* ---------- analiz kartları ---------- */
+  .analiz-bolumu { margin-top: 34px; }
+  .analiz-bolumu > h2 {
+    font-size: 11.5px; margin: 0 0 14px; font-weight: 700;
+    color: var(--soluk); text-transform: uppercase; letter-spacing: .08em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .analiz-kartlari {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .analiz-kart {
+    background: var(--panel); border: 1px solid var(--kenar);
+    border-radius: 12px; box-shadow: var(--golge); overflow: hidden;
+    animation: kartGir .4s ease-out both;
+  }
+  .analiz-kart:nth-child(1) { animation-delay: .05s; }
+  .analiz-kart:nth-child(2) { animation-delay: .15s; }
+  .analiz-kart:nth-child(3) { animation-delay: .25s; }
+  @keyframes kartGir {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .analiz-kart-baslik {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 18px; font-size: 13.5px; font-weight: 660;
+    border-bottom: 1px solid var(--ince);
+  }
+  .analiz-kart-baslik .ikon { font-size: 18px; }
+  .analiz-kart-baslik.yorum { color: #1d4ed8; border-left: 4px solid #3b82f6; }
+  .analiz-kart-baslik.cozum { color: #15803d; border-left: 4px solid #22c55e; }
+  .analiz-kart-baslik.risk { color: #b45309; border-left: 4px solid #f59e0b; }
+  .analiz-kart-govde {
+    padding: 14px 18px; font-size: 14px; line-height: 1.7;
+    color: var(--metin); white-space: pre-wrap;
+  }
+  /* ---------- buton ---------- */
+  .btn-uygula {
+    margin-top: 14px; padding: 9px 18px;
+    background: var(--renk); color: #fff;
+    border: none; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 13px;
+    transition: background .2s, transform .1s;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: 18px; margin-bottom: 14px;
+  }
+  .btn-uygula:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-uygula:active { transform: translateY(0); }
+  .btn-uygula:disabled { opacity: 0.6; cursor: default; transform: none; }
+
   @media (max-width: 640px) {
     .giris { font-size: 16px; }
     .cizgi { grid-template-columns: minmax(0, 40%) 1fr auto; gap: 10px; }
     .cizgi .pay { display: none; }
     thead th, td .ic { padding-left: 14px; padding-right: 14px; }
+    .analiz-kartlari { grid-template-columns: 1fr; }
   }
 
 </style>
@@ -137,6 +335,11 @@
 </div>
 
 <div class="sarici">
+  <div class="gerekce-kutu" id="gerekceKutu" hidden>
+    <span class="gerekce-et">Bu adım neden çalıştı</span>
+    <span class="gerekce-metin" id="gerekceMetin"></span>
+  </div>
+
   <p class="giris" id="giris" hidden></p>
 
   <div class="bolum" id="grafikBolumu" hidden>
@@ -146,12 +349,62 @@
   </div>
 
   <div class="bolum" id="tabloBolumu" hidden>
-    <h2>Veri</h2>
+    <div class="bolum-ust">
+      <h2>Veri</h2>
+      <button class="disa-aktar" id="disaAktar" type="button">Excel'e aktar (CSV)</button>
+    </div>
     <div class="tablo-kart">
       <div class="tablo-sarici">
         <table><thead><tr id="tbaslik"></tr></thead><tbody id="tgovde"></tbody></table>
       </div>
     </div>
+  </div>
+
+  <div class="bolum" id="detayBolumu" hidden>
+    <div class="detay-ust">
+      <div class="detay-baslik">
+        <h2>Kayıtlar</h2>
+        <span class="detay-rozet" id="detayRozet"></span>
+      </div>
+      <div class="detay-araclar">
+        <div class="ara-kutu">
+          <span class="simge" aria-hidden="true">🔎</span>
+          <input type="search" id="detayAra" placeholder="Kayıtlarda ara…"
+                 autocomplete="off" aria-label="Kayıtlarda ara" />
+          <button class="temizle" id="detayAraTemizle" type="button"
+                  aria-label="Aramayı temizle" hidden>×</button>
+        </div>
+        <div class="kolon-sarmal" id="kolonSarmal" hidden>
+          <button class="kolon-btn" id="kolonBtn" type="button"
+                  aria-haspopup="true" aria-expanded="false">
+            Kolonlar <span class="adet" id="kolonAdet"></span>
+          </button>
+          <div class="kolon-panel" id="kolonPanel" hidden>
+            <div class="kolon-panel-ust">
+              <button type="button" data-kural="varsayilan">Önerilen</button>
+              <button type="button" data-kural="hepsi">Tümü</button>
+              <button type="button" data-kural="hicbiri">Hiçbiri</button>
+            </div>
+            <div class="kolon-liste" id="kolonListe"></div>
+            <div class="kolon-panel-alt">Arama ve CSV yalnızca görünen kolonları kapsar.</div>
+          </div>
+        </div>
+        <button class="disa-aktar" id="detayAktar" type="button" hidden>Excel'e aktar (CSV)</button>
+        <button class="kapat-btn" id="detayKapat" type="button">Kapat</button>
+      </div>
+    </div>
+    <div class="tablo-kart">
+      <div class="detay-durum" id="detayDurum">Kayıtlar getiriliyor…</div>
+      <div class="tablo-sarici" id="detayTabloSarici" hidden>
+        <table><thead><tr id="detayBaslik"></tr></thead><tbody id="detayGovde"></tbody></table>
+      </div>
+    </div>
+    <div class="detay-sayac" id="detaySayac"></div>
+  </div>
+
+  <div class="analiz-bolumu" id="analizBolumu" hidden>
+    <h2>🤖 Yapay Zeka Analizi</h2>
+    <div class="analiz-kartlari" id="analizKartlari"></div>
   </div>
 
   <div class="bos-kart" id="bosKart" hidden></div>
@@ -164,8 +417,9 @@
 function parcala() {
   const p = new URLSearchParams((location.hash || "").replace(/^#/, ""));
   try {
+    const v = p.get("veri");
     return {
-      veri: JSON.parse(decodeURIComponent(p.get("veri") || "")),
+      veri: v ? JSON.parse(v) : null,
       i: parseInt(p.get("i") || "0", 10),
     };
   } catch (e) {
@@ -204,6 +458,425 @@ function kalinMetin(kap, metin) {
 
 function adres(veri, i) {
   return "#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + i;
+}
+
+/* ---------- Excel'e aktarma ----------
+   Noktali virgul ayraci ve BOM: Excel'in Turkce yerel ayarinda dosyayi
+   dogru sutunlara bolmesi ve Turkce harfleri bozmamasi icin. */
+function csvOlustur(kolonlar, satirlar) {
+  const kacir = function (v) {
+    if (v === null || v === undefined) return "";
+    const m = String(v);
+    return /[";\n]/.test(m) ? '"' + m.replace(/"/g, '""') + '"' : m;
+  };
+  const ciktilar = [kolonlar.map(kacir).join(";")];
+  for (const satir of satirlar) ciktilar.push(satir.map(kacir).join(";"));
+  return "﻿" + ciktilar.join("\r\n");
+}
+
+function dosyaAdi(ajan) {
+  const damga = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const sade = String(ajan || "sonuc")
+    .toLocaleLowerCase("tr")
+    .replace(/[^a-zçğıöşü0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+  return (sade || "sonuc") + "-" + damga + ".csv";
+}
+
+function csvIndir(kolonlar, satirlar, ajan) {
+  const blob = new Blob([csvOlustur(kolonlar, satirlar)], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = dosyaAdi(ajan);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function analizKartiOlustur(tip, ikon, baslik, icerik) {
+  if (!icerik) return null;
+  const kart = el("div", "analiz-kart");
+  const baslikEl = el("div", "analiz-kart-baslik " + tip);
+  baslikEl.appendChild(el("span", "ikon", ikon));
+  baslikEl.appendChild(document.createTextNode(baslik));
+  kart.appendChild(baslikEl);
+  const govde = el("div", "analiz-kart-govde");
+  govde.textContent = icerik;
+  kart.appendChild(govde);
+  
+  if (tip === "cozum" && window.opener) {
+    const btn = el("button", "btn-uygula", "✨ Çözümü Uygula");
+    btn.onclick = function() {
+      window.opener.postMessage({ tip: "uygula", metin: "Şu çözümü uygula:\n" + icerik }, "*");
+      btn.textContent = "Uygulanıyor...";
+      btn.disabled = true;
+    };
+    kart.appendChild(btn);
+  }
+  
+  return kart;
+}
+
+/* ---------- Detay (drill-down) + arama ----------
+   Grafikteki bir cubuga ya da tablodaki bir satira tiklandiginda, o gruba
+   giren HAM kayitlar sunucudan cekilir. Ozet SQL istemcide tutulmaz: sunucu
+   oturum + adim sirasindan saklanan sorguyu bulup detay sorgusunu kendisi
+   turetir. Arama, gelen satirlar uzerinde tarayicida calisir. */
+
+const detayDurumu = { kolonlar: [], satirlar: [], suzulmus: [], deger: null, kirpildi: false };
+
+// Turkce'ye duyarli kucultme. toLocaleLowerCase("tr") "I" harfini uzunlugu
+// degisen bir diziye cevirebiliyor; vurgulamada indisler kaymasin diye
+// harf sayisini koruyan bir esleme kullaniyoruz.
+const TR_ESLEME = { "İ": "i", "I": "ı", "Ş": "ş", "Ğ": "ğ", "Ü": "ü", "Ö": "ö", "Ç": "ç" };
+
+function kucult(deger) {
+  const m = (deger === null || deger === undefined) ? "" : String(deger);
+  return m.replace(/[A-ZÇĞİIÖŞÜ]/g, function (h) { return TR_ESLEME[h] || h.toLowerCase(); });
+}
+
+function jetonBasliklari() {
+  const h = { "Content-Type": "application/json" };
+  try {
+    const t = localStorage.getItem("vtasistan.token");
+    if (t) h["Authorization"] = "Bearer " + t;
+  } catch (e) { /* depolama kapaliysa jetonsuz dene */ }
+  return h;
+}
+
+/* Eslesen parcalari <mark> ile isaretler. innerHTML kullanilmaz. */
+function vurgula(kap, metin, aranan) {
+  const ham = String(metin);
+  if (!aranan) {
+    kap.textContent = ham;
+    return kap;
+  }
+  const dus = kucult(ham);
+  let bas = 0;
+  let k = dus.indexOf(aranan);
+  while (k !== -1) {
+    if (k > bas) kap.appendChild(document.createTextNode(ham.slice(bas, k)));
+    const m = document.createElement("mark");
+    m.textContent = ham.slice(k, k + aranan.length);
+    kap.appendChild(m);
+    bas = k + aranan.length;
+    k = dus.indexOf(aranan, bas);
+  }
+  kap.appendChild(document.createTextNode(ham.slice(bas)));
+  return kap;
+}
+
+/* ---------- Kolon secici ----------
+   Detay tablosu 40+ kolona cikabiliyor. Varsayilan olarak yalnizca ise
+   yarayan kolonlar acik gelir (teknik kimlikler, bayraklar ve tamamen bos
+   kolonlar kapali); kullanici istedigini geri acabilir. Secim, kolon
+   kumesine gore tarayicida saklanir. */
+
+// Varsayilan olarak KAPALI gelen kolonlar: GUID/yabanci anahtar kimlikleri,
+// Is* bayraklari, sira/dahili alanlar. Kullanici bunlari elle acabilir.
+// Buyuk/kucuk harf duyarsiz olmali: "Id", "CreatedByUserId", "BoardSira".
+const TEKNIK_KOLON = /(id|guid|sira|rowversion|timestamp)$/i;
+// Bayrak kolonlari (IsDeleted, IsArchived). Buyuk harf sarti bilerek: Turkce
+// "Isim", "Islem" gibi adlar yanlislikla gizlenmesin.
+const BAYRAK_KOLON = /^Is[A-Z]/;
+const VARSAYILAN_AZAMI_KOLON = 12;
+
+function teknikKolonMu(ad) {
+  const m = String(ad);
+  return BAYRAK_KOLON.test(m) || TEKNIK_KOLON.test(m);
+}
+
+function kolonImzasi(kolonlar) {
+  return "vtasistan.kolonlar." + kolonlar.join("|").length + "." +
+    kolonlar.join("|").split("").reduce(function (a, c) {
+      return ((a << 5) - a + c.charCodeAt(0)) | 0;
+    }, 0);
+}
+
+/* Kolonun kac satirda gercekten dolu oldugu (0..1). */
+function dolulukOrani(indeks) {
+  const satirlar = detayDurumu.satirlar;
+  if (!satirlar.length) return 0;
+  let dolu = 0;
+  for (const s of satirlar) {
+    const h = s[indeks];
+    if (h !== null && h !== undefined && String(h).trim() !== "") dolu += 1;
+  }
+  return dolu / satirlar.length;
+}
+
+function kolonBosMu(indeks) {
+  return dolulukOrani(indeks) === 0;
+}
+
+function varsayilanGorunurluk(kolonlar) {
+  const adaylar = [];
+  kolonlar.forEach(function (k, n) {
+    if (kolonBosMu(n)) return;                    // tamamen bos kolon ise yaramaz
+    if (teknikKolonMu(k)) return;                 // kimlik / bayrak / sira
+    adaylar.push(n);
+  });
+
+  // Cok kolon kaldiysa once EN COK BOS olanlari birak. Bastan kesmek,
+  // sondaki dolu kolonlari (ornegin TalepEdenAdi) haksiz yere gizliyordu.
+  let secilen = adaylar;
+  if (adaylar.length > VARSAYILAN_AZAMI_KOLON) {
+    secilen = adaylar
+      .slice()
+      .sort(function (a, b) { return dolulukOrani(b) - dolulukOrani(a) || a - b; })
+      .slice(0, VARSAYILAN_AZAMI_KOLON)
+      .sort(function (a, b) { return a - b; });   // kolon sirasi korunsun
+  }
+
+  const gorunur = kolonlar.map(function () { return false; });
+  for (const n of secilen) gorunur[n] = true;
+  if (!gorunur.some(Boolean) && gorunur.length) gorunur[0] = true;
+  return gorunur;
+}
+
+function kolonSeciminiYukle(kolonlar) {
+  try {
+    const ham = localStorage.getItem(kolonImzasi(kolonlar));
+    if (ham) {
+      const kayitli = JSON.parse(ham);
+      if (Array.isArray(kayitli) && kayitli.length === kolonlar.length) {
+        return kayitli.map(Boolean);
+      }
+    }
+  } catch (e) { /* depolama kapali ya da bozuk kayit: varsayilana dus */ }
+  return varsayilanGorunurluk(kolonlar);
+}
+
+function kolonSeciminiKaydet() {
+  try {
+    localStorage.setItem(kolonImzasi(detayDurumu.kolonlar), JSON.stringify(detayDurumu.gorunur));
+  } catch (e) { /* kota dolduysa secim yalnizca bu sayfada gecerli olur */ }
+}
+
+function gorunurIndisler() {
+  const cikti = [];
+  for (let n = 0; n < detayDurumu.kolonlar.length; n++) {
+    if (detayDurumu.gorunur[n]) cikti.push(n);
+  }
+  return cikti;
+}
+
+function kolonSayaciTazele() {
+  document.getElementById("kolonAdet").textContent =
+    gorunurIndisler().length + " / " + detayDurumu.kolonlar.length;
+}
+
+function kolonSeciciCiz() {
+  const liste = document.getElementById("kolonListe");
+  liste.textContent = "";
+  detayDurumu.kolonlar.forEach(function (k, n) {
+    const satir = el("label", "kolon-satir");
+    const kutu = document.createElement("input");
+    kutu.type = "checkbox";
+    kutu.checked = Boolean(detayDurumu.gorunur[n]);
+    kutu.addEventListener("change", function () {
+      detayDurumu.gorunur[n] = kutu.checked;
+      // Hepsi kapatilirsa tablo kaybolur; en az bir kolon acik kalsin.
+      if (!detayDurumu.gorunur.some(Boolean)) {
+        detayDurumu.gorunur[n] = true;
+        kutu.checked = true;
+        return;
+      }
+      kolonSeciminiKaydet();
+      kolonSayaciTazele();
+      detaySuz();
+    });
+    satir.appendChild(kutu);
+    satir.appendChild(el("span", "ad", k));
+    if (kolonBosMu(n)) satir.appendChild(el("span", "bos-rozet", "boş"));
+    liste.appendChild(satir);
+  });
+  kolonSayaciTazele();
+}
+
+function kolonToplucaAyarla(kural) {
+  detayDurumu.gorunur = kural === "varsayilan"
+    ? varsayilanGorunurluk(detayDurumu.kolonlar)
+    : detayDurumu.kolonlar.map(function () { return kural === "hepsi"; });
+  if (!detayDurumu.gorunur.some(Boolean)) detayDurumu.gorunur[0] = true;
+  kolonSeciminiKaydet();
+  kolonSeciciCiz();
+  detaySuz();
+}
+
+function kolonPaneliniKapat() {
+  document.getElementById("kolonPanel").hidden = true;
+  document.getElementById("kolonBtn").classList.remove("acik");
+  document.getElementById("kolonBtn").setAttribute("aria-expanded", "false");
+}
+
+function detayTabloCiz(aranan) {
+  const kolonlar = detayDurumu.kolonlar;
+  const satirlar = detayDurumu.suzulmus;
+  const indisler = gorunurIndisler();
+
+  const sayisal = kolonlar.map(function (_, n) {
+    return detayDurumu.satirlar.length > 0 &&
+      detayDurumu.satirlar.every(function (s) { return typeof s[n] === "number"; });
+  });
+
+  const tb = document.getElementById("detayBaslik");
+  tb.textContent = "";
+  indisler.forEach(function (n) {
+    tb.appendChild(el("th", sayisal[n] ? "sayi" : null, kolonlar[n]));
+  });
+
+  const tg = document.getElementById("detayGovde");
+  tg.textContent = "";
+  for (const satir of satirlar) {
+    const tr = el("tr");
+    indisler.forEach(function (n) {
+      const h = satir[n];
+      const s = typeof h === "number";
+      const bos = h === null || h === undefined;
+      const td = el("td", s ? "sayi" : (bos ? "bos" : null));
+      const ic = el("div", "ic");
+      if (bos) {
+        ic.textContent = "—";
+      } else {
+        const gosterilen = s ? sayi(h) : String(h);
+        vurgula(ic, gosterilen, aranan);
+        // Hucre tek satirda ... ile kisaliyor; tam deger uzerine gelince gorunur.
+        ic.title = gosterilen;
+      }
+      td.appendChild(ic);
+      tr.appendChild(td);
+    });
+    tg.appendChild(tr);
+  }
+
+  const sayacEl = document.getElementById("detaySayac");
+  const toplam = detayDurumu.satirlar.length;
+  if (!satirlar.length && aranan) {
+    sayacEl.textContent = "Aramaya uyan kayıt yok (" + toplam + " kayıt içinde arandı).";
+  } else if (aranan) {
+    sayacEl.textContent = toplam + " kayıttan " + satirlar.length + " tanesi eşleşti.";
+  } else {
+    sayacEl.textContent = toplam + " kayıt" +
+      (detayDurumu.kirpildi ? " (sunucu sınırına takıldı, daha fazlası olabilir)" : "");
+  }
+}
+
+function detaySuz() {
+  const kutu = document.getElementById("detayAra");
+  const aranan = kucult(kutu.value).trim();
+  document.getElementById("detayAraTemizle").hidden = !kutu.value;
+  // Arama YALNIZCA gorunen kolonlarda calisir; gizli bir kolon yuzunden
+  // eslesen ama ekranda eslesmesi gorunmeyen satir kafa karistiriyordu.
+  const indisler = gorunurIndisler();
+  detayDurumu.suzulmus = !aranan
+    ? detayDurumu.satirlar
+    : detayDurumu.satirlar.filter(function (satir) {
+        return indisler.some(function (n) {
+          const h = satir[n];
+          return h !== null && h !== undefined && kucult(h).indexOf(aranan) !== -1;
+        });
+      });
+  detayTabloCiz(aranan);
+}
+
+function detayDurumGoster(mesaj, hataMi) {
+  const durumEl = document.getElementById("detayDurum");
+  durumEl.hidden = false;
+  durumEl.className = "detay-durum" + (hataMi ? " hata" : "");
+  durumEl.textContent = mesaj;
+  document.getElementById("detayTabloSarici").hidden = true;
+  document.getElementById("detayAktar").hidden = true;
+  document.getElementById("kolonSarmal").hidden = true;
+  kolonPaneliniKapat();
+  document.getElementById("detaySayac").textContent = "";
+}
+
+function detayKapat() {
+  document.getElementById("detayBolumu").hidden = true;
+  for (const n of document.querySelectorAll(".secili")) n.classList.remove("secili");
+}
+
+async function detayAc(deger, kaynakEl) {
+  for (const n of document.querySelectorAll(".secili")) n.classList.remove("secili");
+  if (kaynakEl) kaynakEl.classList.add("secili");
+
+  const bolum = document.getElementById("detayBolumu");
+  bolum.hidden = false;
+  document.getElementById("detayRozet").textContent =
+    deger === null || deger === undefined ? "(boş)" : String(deger);
+  document.getElementById("detayAra").value = "";
+  document.getElementById("detayAraTemizle").hidden = true;
+  detayDurumGoster("Kayıtlar getiriliyor…", false);
+  bolum.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  if (!adim.oturum || !adim.sira) {
+    detayDurumGoster(
+      "Bu bağlantı detay listesini desteklemiyor (eski bir sonuç sayfası). " +
+      "Soruyu asistana yeniden sorun.", true);
+    return;
+  }
+
+  try {
+    const yanit = await fetch((adim.api || "") + "/api/detay", {
+      method: "POST",
+      headers: jetonBasliklari(),
+      body: JSON.stringify({ session_id: adim.oturum, sira: adim.sira, deger: deger }),
+    });
+    if (!yanit.ok) {
+      let ayrinti = "Kayıtlar getirilemedi.";
+      try { ayrinti = (await yanit.json()).detail || ayrinti; } catch (e) { /* govde JSON degil */ }
+      throw new Error(ayrinti);
+    }
+    const gelen = await yanit.json();
+    detayDurumu.kolonlar = gelen.columns || [];
+    detayDurumu.satirlar = gelen.rows || [];
+    detayDurumu.deger = deger;
+    detayDurumu.kirpildi = Boolean(gelen.truncated);
+
+    if (!detayDurumu.kolonlar.length || !detayDurumu.satirlar.length) {
+      detayDurumGoster("Bu grupta listelenecek kayıt bulunamadı.", false);
+      return;
+    }
+    detayDurumu.gorunur = kolonSeciminiYukle(detayDurumu.kolonlar);
+    kolonSeciciCiz();
+
+    document.getElementById("detayDurum").hidden = true;
+    document.getElementById("detayTabloSarici").hidden = false;
+    document.getElementById("detayAktar").hidden = false;
+    document.getElementById("kolonSarmal").hidden = false;
+    detaySuz();
+    document.getElementById("detayAra").focus();
+  } catch (err) {
+    detayDurumGoster(err.message || String(err), true);
+  }
+}
+
+/* Tablo satirinda gruplama degeri: ilk sayisal olmayan hucre. Grafikteki
+   etiket de ayni kolondan uretiliyor. */
+function satirinEtiketi(satir) {
+  for (const h of satir) {
+    if (typeof h !== "number" && h !== null && h !== undefined) return h;
+  }
+  return null;
+}
+
+function tiklanirYap(oge, deger) {
+  oge.classList.add("tiklanir");
+  oge.tabIndex = 0;
+  oge.setAttribute("role", "button");
+  oge.title = "Bu gruptaki kayıtları göster";
+  oge.addEventListener("click", function () { detayAc(deger, oge); });
+  oge.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      detayAc(deger, oge);
+    }
+  });
 }
 
 const durum = parcala();
@@ -248,6 +921,12 @@ if (!adim) {
     sekmeler.style.height = "12px";
   }
 
+  // Bu adimi bir onceki adimin bulgusu tetiklediyse gerekcesini goster.
+  if (adim.gerekce) {
+    document.getElementById("gerekceMetin").textContent = adim.gerekce;
+    document.getElementById("gerekceKutu").hidden = false;
+  }
+
   if (adim.cevap) {
     kalinMetin(document.getElementById("giris"), adim.cevap);
     document.getElementById("giris").hidden = false;
@@ -272,9 +951,13 @@ if (!adim) {
       c.appendChild(yol);
       c.appendChild(el("span", "sayi", sayi(d.deger)));
       c.appendChild(el("span", "pay", toplam > 0 ? "%" + Math.round((d.deger / toplam) * 100) : ""));
+      tiklanirYap(c, d.etiket);
       g.appendChild(c);
     }
     if (adim.not) document.getElementById("not").textContent = adim.not;
+    document.getElementById("grafikBolumu").appendChild(
+      el("p", "ipucu", "Bir satıra tıklayarak o gruptaki kayıtları görebilir ve içinde arama yapabilirsiniz.")
+    );
     document.getElementById("grafikBolumu").hidden = false;
   }
 
@@ -295,13 +978,85 @@ if (!adim) {
         const s = typeof h === "number";
         const bos = h === null || h === undefined;
         const td = el("td", s ? "sayi" : (bos ? "bos" : null));
-        td.appendChild(el("div", "ic", bos ? "—" : (s ? sayi(h) : String(h))));
+        const ic = el("div", "ic", bos ? "—" : (s ? sayi(h) : String(h)));
+        if (!bos) ic.title = ic.textContent;
+        td.appendChild(ic);
         tr.appendChild(td);
       });
+      // Ozet tablosunda her satir bir grup: tiklayinca o grubun kayitlari gelir.
+      const etiket = satirinEtiketi(satir);
+      if (etiket !== null) tiklanirYap(tr, etiket);
       tg.appendChild(tr);
     }
     document.getElementById("tabloBolumu").hidden = false;
+
+    // Excel'e aktarma: HAM satirlarin tamami gider, ekranda gosterilen
+    // bicimlenmis metinler degil.
+    document.getElementById("disaAktar").addEventListener("click", function () {
+      csvIndir(kolonlar, satirlar, adim.ajan);
+    });
   }
+
+  // Analiz kartları
+  if (adim.analiz && (adim.analiz.yorum || adim.analiz.cozum || adim.analiz.risk)) {
+    const analizAlani = document.getElementById("analizKartlari");
+    const kartlar = [
+      analizKartiOlustur("yorum", "📋", "Yorum", adim.analiz.yorum),
+      analizKartiOlustur("cozum", "💡", "Çözüm Önerisi", adim.analiz.cozum),
+      analizKartiOlustur("risk", "⚠️", "Risk / Uyarı", adim.analiz.risk),
+    ];
+    var eklendi = false;
+    for (var k = 0; k < kartlar.length; k++) {
+      if (kartlar[k]) {
+        analizAlani.appendChild(kartlar[k]);
+        eklendi = true;
+      }
+    }
+    if (eklendi) document.getElementById("analizBolumu").hidden = false;
+  }
+
+  // --- Detay panelinin kontrolleri ---
+  document.getElementById("detayAra").addEventListener("input", detaySuz);
+  document.getElementById("detayAraTemizle").addEventListener("click", function () {
+    const kutu = document.getElementById("detayAra");
+    kutu.value = "";
+    detaySuz();
+    kutu.focus();
+  });
+  document.getElementById("detayKapat").addEventListener("click", detayKapat);
+
+  const kolonBtn = document.getElementById("kolonBtn");
+  kolonBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    const panel = document.getElementById("kolonPanel");
+    const acilacak = panel.hidden;
+    panel.hidden = !acilacak;
+    kolonBtn.classList.toggle("acik", acilacak);
+    kolonBtn.setAttribute("aria-expanded", acilacak ? "true" : "false");
+  });
+  document.getElementById("kolonPanel").addEventListener("click", function (e) {
+    e.stopPropagation();
+  });
+  for (const b of document.querySelectorAll(".kolon-panel-ust button")) {
+    b.addEventListener("click", function () { kolonToplucaAyarla(b.dataset.kural); });
+  }
+  // Panel disina tiklaninca kapansin.
+  document.addEventListener("click", kolonPaneliniKapat);
+  document.getElementById("detayAktar").addEventListener("click", function () {
+    // Aramayla suzulmus satirlar disa aktarilir; ekranda gorunen neyse o.
+    const indisler = gorunurIndisler();
+    csvIndir(
+      indisler.map(function (n) { return detayDurumu.kolonlar[n]; }),
+      detayDurumu.suzulmus.map(function (s) {
+        return indisler.map(function (n) { return s[n]; });
+      }),
+      adim.ajan + "-" + (detayDurumu.deger === null ? "bos" : detayDurumu.deger));
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!document.getElementById("kolonPanel").hidden) { kolonPaneliniKapat(); return; }
+    if (!document.getElementById("detayBolumu").hidden) detayKapat();
+  });
 }
 </script>
 </body>

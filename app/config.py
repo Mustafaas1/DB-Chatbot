@@ -68,11 +68,22 @@ class Settings:
     mysql_database: str
 
     max_rows: int
+    # Grafikteki bir gruba tiklandiginda listelenen ham kayit siniri.
+    # max_rows'tan ayridir: ozet sorgular kucuk kalirken detay listesi
+    # tek bir grubun tamamini gosterebilmeli.
+    detay_max_rows: int
     model_row_sample: int
     schema_style: str
     schema_exclude: list[str]
     query_timeout: int
     max_tool_turns: int
+    # Ajan zinciri: bir adim bitince bulgusuna bakip baska bir bolum
+    # ajanini tetikleyebilir. Kapatilirsa yalnizca planlayicinin bastan
+    # kurdugu statik plan calisir (eski davranis).
+    zincir_dinamik: bool
+    # Zincirdeki azami VERI adimi. Her adim ~3300 token; Groq ucretsiz
+    # katmani dakikada 8000 token verdigi icin 3'un uzeri limite takilabilir.
+    zincir_azami_adim: int
     # Soru -> SQL onbellegi. SONUC saklanmaz, yalnizca sorgunun kendisi;
     # sorgu her seferinde yeniden calisir, veri canli kalir.
     sql_cache: bool
@@ -202,11 +213,15 @@ def load_settings() -> Settings:
         mysql_password=os.getenv("MYSQL_PASSWORD", ""),
         mysql_database=os.getenv("MYSQL_DATABASE", "").strip(),
         max_rows=_int("MAX_ROWS", 500),
+        detay_max_rows=_int("DETAY_MAX_ROWS", 1000),
         model_row_sample=_int("MODEL_ROW_SAMPLE", 15),
         schema_style=os.getenv("SCHEMA_STYLE", "compact").strip().lower(),
         schema_exclude=_liste("SCHEMA_EXCLUDE_TABLES", []),
         query_timeout=_int("QUERY_TIMEOUT", 30),
         max_tool_turns=_int("MAX_TOOL_TURNS", 6),
+        zincir_dinamik=os.getenv("ZINCIR_DINAMIK", "on").strip().lower()
+        not in {"off", "0", "false", "hayir"},
+        zincir_azami_adim=max(1, _int("ZINCIR_AZAMI_ADIM", 4)),
         sql_cache=os.getenv("SQL_CACHE", "on").strip().lower() not in {"off", "0", "false", "hayir"},
         sql_cache_ttl=_int("SQL_CACHE_TTL", 604800),
         schema_ttl=_int("SCHEMA_TTL", 3600),

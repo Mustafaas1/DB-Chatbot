@@ -260,6 +260,75 @@ Varsayılan `*` (herkese açık) — üretimde mutlaka kendi alan adlarınızla 
 
 ---
 
+## Ajan zinciri (otomatik tetikleme)
+
+Tek bir soru çoğu zaman tek bir bölümün işi değildir. Sistem soruyu bir ajanla
+başlatır, sonra **elde edilen bulguya bakarak** bir sonraki ajanı kendisi seçer.
+Böylece cevap bir tablo değil, neden-sonuç zinciri olur.
+
+```
+"Destek yükümüzü nasıl azaltırız?"
+
+  ADIM 1  Destek Ajanı — açık biletleri aşamalara göre say
+          bulgu: 59 biletin 47'si Beklemede
+
+    ↓ tetik: "Biletlerin %80'i beklemede takıldı; yığının arkasında
+              bitmemiş proje görevleri olabilir."
+
+  ADIM 2  Proje Ajanı — tamamlanmamış görevleri durumlarına göre say
+          bulgu: 3 durumda 128 açık görev
+
+    ↓ tetik: "Görev yığını kapasiteyle ilgili olabilir; yükün kişi
+              başına dağılımına bakıyoruz."
+
+  ADIM 3  İK Ajanı — açık görevlerin kişi başına dağılımı
+```
+
+Her tetik bir **gerekçe** taşır. Gerekçe hem sohbet panelinde adımlar arasında,
+hem de sonuç sayfasında "Bu adım neden çalıştı" başlığı altında görünür; zincirin
+neden böyle kurulduğu kullanıcıdan gizlenmez.
+
+### Nasıl karar veriliyor
+
+| Aşama | Ne yapar | Maliyet |
+|---|---|---|
+| `planlayici.py` | Sorunun **giriş noktasını** seçer (hangi ajanla başlanacak) | ~450 token, önbellekli |
+| `tetikleyici.py` | Biten adımın bulgusuna bakıp zinciri uzatır ya da durdurur | ~500 token / adım |
+| `orkestra.py` | Zinciri yürütür, `plan → adım → tetik → analiz → bitti` akışını yayınlar | — |
+
+Tetikleyici şemayı görmez; yalnızca asıl soruyu, biten adımın görevini, bulgunun
+ilk satırlarını ve daha önce çalışmış ajanları görür.
+
+### Zincir nerede durur
+
+Zincir şu durumlarda uzamaz — hepsinde **eldeki cevap korunur**, hata verilmez:
+
+- Tetikleyici "devam=false" der (yeni adım asıl soruya katkı yapmıyorsa)
+- Adım veri getirememişse (bulgusuz adım zincire dayanak olamaz)
+- Önerilen ajan zaten çalışmışsa (ping-pong döngüsünü önler)
+- `ZINCIR_AZAMI_ADIM` sınırına gelinmişse
+- Groq kotası dolmuş ya da model bozuk JSON döndürmüşse
+
+### Token maliyeti — dikkat
+
+Her veri adımı ~3300 token. Groq ücretsiz katmanı **dakikada 8000** token verir:
+
+| `ZINCIR_AZAMI_ADIM` | Yaklaşık token | Ücretsiz katmanda |
+|---|---|---|
+| 2 | ~7.000 | rahat |
+| 3 | ~10.500 | dakikalık limite değebilir |
+| 4 (varsayılan) | ~14.000 | limite takılması olası |
+
+Limite takılırsa zincir o noktada durur ve tamamlanmış adımlar kullanıcıya
+gösterilir. Ücretli katman ya da Claude kullanıyorsanız sınırı yükseltebilirsiniz.
+
+Eski davranışa (planlayıcının baştan kurduğu statik plan) dönmek için:
+
+```
+ZINCIR_DINAMIK=off
+```
+
+
 ## Güvenlik
 
 Yapay zekanın ürettiği her SQL, çalışmadan önce üç katmandan geçer:
@@ -328,6 +397,12 @@ app/
   db.py         MSSQL/MySQL bağlantısı, sorgu çalıştırma, tip dönüşümleri
   schema.py     Şema tarama + önbellek + yapay zekaya gidecek metin
   llm.py        Claude/Groq çağrısı, araç döngüsü, lehçeye göre sistem talimatı
+  ajanlar.py    Bölüm ajanları (satış/destek/finans/proje/İK) ve tablo kapsamları
+  planlayici.py Sorunun hangi ajanla başlayacağını seçer
+  tetikleyici.py Biten adımın bulgusuna bakıp zinciri uzatır (dinamik zincir)
+  orkestra.py   Zinciri yürütür, adımları/tetikleri akış olarak yayınlar
+  analiz.py     Sonuçtan yorum/çözüm/risk üretir
+  detay.py      Grafikteki gruba tıklanınca ham kayıtları getirir (drill-down)
   main.py       FastAPI uç noktaları
 static/
   widget.js     Gömülebilir widget (sağ alt köşe butonu) - tek dosya, bağımlılıksız
@@ -348,6 +423,8 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 | `GET /api/sema` | Tablo/kolon/ilişki listesi (`?yenile=true` ile yeniden tarar) |
 | `GET /api/sema/onizleme` | Yapay zekaya gönderilen şema metninin birebir kopyası |
 | `POST /api/sql` | Elle yazılmış SELECT çalıştırır (aynı güvenlik katmanından geçer) |
+| `POST /api/akis/canli` | Ajan zincirini adım adım yayınlar (SSE): plan → adım → tetik → analiz |
+| `POST /api/detay` | `{session_id, sira, deger}` → grafikteki gruba ait ham kayıtlar |
 | `GET /api/durum` | Bağlantı ve yapılandırma durumu |
 | `GET /demo` | Widget gömülü örnek portal sayfası |
 
@@ -366,6 +443,9 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 | `MAX_ROWS` | `500` | Tek sorgudan dönebilecek maksimum satır |
 | `QUERY_TIMEOUT` | `30` | Sorgu zaman aşımı (saniye) |
 | `MAX_TOOL_TURNS` | `6` | Yapay zekanın ard arda çalıştırabileceği maksimum sorgu |
+| `ZINCIR_DINAMIK` | `on` | Ajanların birbirini tetiklemesi. `off` = eski statik plan |
+| `ZINCIR_AZAMI_ADIM` | `4` | Zincirdeki azami veri adımı. Her adım ~3300 token |
+| `DETAY_MAX_ROWS` | `1000` | Drill-down listesinde gösterilecek azami kayıt |
 | `CORS_ORIGINS` | `*` | Widget'ın gömülebileceği alan adları (virgülle ayrılır) |
 
 ---

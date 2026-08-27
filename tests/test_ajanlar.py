@@ -272,8 +272,17 @@ def test_tamamlanan_adimin_sonucu_gonderilir(monkeypatch):
 
 def test_yarida_kalan_adim_sonrakine_devredilmez(monkeypatch):
     """Guvenilmez bulgu ikinci ajani yanlis yonlendirmemeli."""
+    import dataclasses
+
     from app import orkestra
+    from app.config import settings
     from app.planlayici import Adim
+
+    # Statik plan yolu test ediliyor: dinamik zincir acikken planlayicinin
+    # ikinci adimi dusuruluyor ve zinciri tetikleyici kuruyor.
+    monkeypatch.setattr(
+        orkestra, "settings", dataclasses.replace(settings, zincir_dinamik=False)
+    )
 
     gorevler = []
     monkeypatch.setattr(orkestra, "plan_yap", lambda s: [

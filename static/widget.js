@@ -307,6 +307,35 @@
   .grafik-baglanti:hover { border-color: var(--renk); }
   .grafik-baglanti.uyari { border-color: #f3c2c2; background: #fdecec; color: #b45309; }
   .adim-gorev { font-size: 11px; color: var(--soluk); line-height: 1.35; }
+  /* Bir ajanin bulgusu baska bir ajani tetikledi: aradaki neden-sonuc bagi */
+  .tetik-kutu {
+    display: grid; gap: 4px; margin: 0 0 9px;
+    padding: 8px 10px; border-radius: 10px;
+    background: var(--zemin); border: 1px dashed var(--kenar);
+  }
+  .tetik-yon {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+    font-size: 10.5px; color: var(--soluk);
+  }
+  .tetik-ok { color: var(--silik); }
+  .tetik-gerekce { font-size: 11.5px; line-height: 1.4; color: var(--metin); }
+  .adim-panel > .tetik-kutu { margin: 0 0 8px; }
+  .zincir-durdu {
+    font-size: 11.5px; line-height: 1.4; color: var(--sari);
+    background: #fff8ec; border: 1px solid #f5e3c3;
+    border-radius: 9px; padding: 7px 10px; margin-bottom: 9px;
+  }
+  .adim-cevap {
+    margin-top: 7px; font-size: 13px; line-height: 1.45; color: var(--metin);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .adim-analiz-ozeti { margin-top: 8px; display: grid; gap: 6px; }
+  .adim-analiz-ozeti .satir {
+    font-size: 12px; line-height: 1.45; color: var(--metin);
+    background: var(--zemin); border: 1px solid var(--kenar);
+    border-radius: 8px; padding: 6px 9px; white-space: pre-wrap;
+  }
+  .adim-analiz-ozeti .risk { border-color: #f5e3c3; background: #fff8ec; }
   .ajan-rozet { transition: opacity .3s ease; }
   .ajan-rozet.bekliyor { opacity: .35; }
   .grafik { padding: 10px 12px 4px; display: none; gap: 7px; }
@@ -637,12 +666,19 @@
       not: g && g.kirpildi ? g.toplamSatir + " satirin ilk " + g.veri.length + "'i cizildi" : "",
       columns: adim.result ? adim.result.columns : null,
       rows: adim.result ? (adim.result.rows || []).slice(0, 50) : null,
+      // Zincirin olay orgusu: bu adim neden eklendi?
+      gerekce: adim.gerekce || "",
+      // Detay (drill-down) icin: sonuc sayfasi bu ikisiyle /api/detay'i cagirir.
+      // SQL tasinmaz; sunucu adim sirasindan saklanan sorguyu bulur.
+      oturum: oturumId,
+      sira: adim.sira,
+      api: API || "",
     };
   }
 
   function sonucAdresi(soru, yukler, sira) {
     const veri = { soru: soru, adimlar: yukler };
-    return (API || "") + "/sonuc#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + sira;
+    return (API || "") + "/sonuc?v=2#veri=" + encodeURIComponent(JSON.stringify(veri)) + "&i=" + sira;
   }
 
   function sonucBaglantisi(ajan) {
@@ -652,7 +688,6 @@
     a.className = "grafik-baglanti";
     a.href = "#";
     a.target = "_blank";
-    a.rel = "noopener";
     a.textContent = ajan + " sonucunu yeni sekmede aç";
     return a;
   }
@@ -688,28 +723,68 @@
     return r;
   }
 
+  /* Zincirdeki devir kutusu: hangi ajandan hangisine gecildi ve NEDEN.
+     Hem canli akista (tetik kaydi gelince) hem de gecmis yeniden cizilirken
+     (adimin kendi gerekcesinden) ayni yerden uretilir. */
+  function tetikKutusuCiz(kaynakAdi, hedefAdi, gerekce) {
+    const kutu = el("div", "tetik-kutu");
+    const yon = el("div", "tetik-yon");
+    if (kaynakAdi) {
+      yon.appendChild(el("span", null, kaynakAdi));
+      yon.appendChild(el("span", "tetik-ok", "→"));
+    }
+    yon.appendChild(el("span", null, hedefAdi || ""));
+    yon.appendChild(el("span", "tetik-ok", "· devrediliyor"));
+    kutu.appendChild(yon);
+    if (gerekce) kutu.appendChild(el("div", "tetik-gerekce", gerekce));
+    return kutu;
+  }
+
   function adimPaneliCiz(adim, toplam) {
     const panel = el("div", "adim-panel");
+    panel.dataset.adimSira = String(adim.sira);
     panel.style.borderLeftColor = adim.renk;
+
+    // Bu adimi bir tetik getirdiyse gerekcesi panelin basinda durur; sayfa
+    // yenilendiginde de kaybolmamasi icin adimin kendi verisinden cizilir.
+    if (adim.gerekce) panel.appendChild(tetikKutusuCiz("", adim.ajan_adi, adim.gerekce));
 
     const ust = el("div", "adim-ust");
     if (toplam > 1) ust.appendChild(el("span", "adim-sira", adim.sira + "/" + toplam));
+    else if (adim.dinamik && adim.sira) ust.appendChild(el("span", "adim-sira", "Adım " + adim.sira));
     ust.appendChild(ajanRozeti(adim));
     panel.appendChild(ust);
-    if (toplam > 1) panel.appendChild(el("div", "adim-gorev", adim.gorev));
+    if (toplam > 1 || adim.dinamik) panel.appendChild(el("div", "adim-gorev", adim.gorev));
 
     for (const s of adim.steps || []) panel.appendChild(sqlKutusuCiz(s));
 
-    // Sonuc BURADA gosterilmez; tablo, grafik ve cevap metni ayri sekmedeki
-    // sayfada. Adres, sonraki adimlar geldikce guncellenir.
+    // Cevap metni BURADA da gosterilir. Tablo ve grafik ayri sekmedeki
+    // sayfada kalir, ama panelin cevapsiz gorunmemesi gerekiyor: yeni sekme
+    // acilisini tarayici engelleyebiliyor ve o zaman kullanici hicbir
+    // cevap goremiyordu.
+    const cevapMetni = (adim.answer || adim.cevap || "").trim();
+    if (cevapMetni) panel.appendChild(el("div", "adim-cevap", cevapMetni));
+
+    // Sonuc adresi, sonraki adimlar geldikce guncellenir.
     const bag = sonucBaglantisi(adim.ajan_adi);
     bag.dataset.sira = String(adim.sira - 1);
     panel.appendChild(bag);
+    if (adim.analiz) panel.appendChild(analizOzetiCiz(adim.analiz));
     // Adim sorgu turlerini tuketip yarida kaldiysa acikca soyle.
     if (adim.tamamlandi === false) {
       panel.appendChild(el("div", "uyari", "Bu adım tamamlanamadı; sonuç güvenilir değil."));
     }
     return panel;
+  }
+
+  /* Analiz kutusu hem canli akista hem de gecmis yeniden cizilirken ayni
+     yerden uretilir; yoksa sayfa yenilenince analiz kayboluyordu. */
+  function analizOzetiCiz(analiz) {
+    const kutu = el("div", "adim-analiz-ozeti");
+    if (analiz.yorum) kutu.appendChild(el("div", "satir yorum", "\u{1F4CB} " + analiz.yorum));
+    if (analiz.cozum) kutu.appendChild(el("div", "satir cozum", "\u{1F4A1} " + analiz.cozum));
+    if (analiz.risk) kutu.appendChild(el("div", "satir risk", "\u26A0\uFE0F " + analiz.risk));
+    return kutu;
   }
 
   var SATIR_SONU = String.fromCharCode(10);
@@ -771,6 +846,25 @@
       sarici.appendChild(ozet);
     }
     for (const adim of adimlar) sarici.appendChild(adimPaneliCiz(adim, adimlar.length));
+
+    // Canli akista adresler baglantilariTazele() ile kuruluyordu; gecmisten
+    // yeniden cizerken bu adim atlaniyor ve baglantilar href="#" kaliyordu,
+    // yani sonuc sayfasi acilmiyordu.
+    const yukler = adimlar.map(adimYuku);
+    const soru = mesaj.soru || sonSorulanSoru(mesaj);
+    for (const a of sarici.querySelectorAll(".grafik-baglanti[data-sira]")) {
+      a.href = sonucAdresi(soru, yukler, Number(a.dataset.sira));
+      a.target = "_blank";
+    }
+  }
+
+  /* Eski kayitlarda soru saklanmiyordu; bir onceki kullanici mesajina duser. */
+  function sonSorulanSoru(mesaj) {
+    const yer = mesajlar.indexOf(mesaj);
+    for (let i = (yer === -1 ? mesajlar.length : yer) - 1; i >= 0; i--) {
+      if (mesajlar[i] && mesajlar[i].rol === "kullanici") return mesajlar[i].metin || "";
+    }
+    return "";
   }
 
   function mesajCiz(mesaj) {
@@ -865,14 +959,20 @@
 
     const bekleyenAdimiTazele = () => {
       bekleyenAdimiTemizle();
-      if (!ozetEl || !sarici) return;
-      const kalan = ozetEl.querySelector(".ajan-rozet.bekliyor");
-      if (!kalan) return;
+      if (!sarici) return;
+      // Statik planda bekleyen rozetten, dinamik zincirde tetik kutusundan
+      // hangi ajanin calistigini ogreniyoruz.
+      const rozet = ozetEl && ozetEl.querySelector(".ajan-rozet.bekliyor");
+      const tetik = sarici.querySelector(".tetik-bekleyen .tetik-yon");
+      let ad = "";
+      if (rozet) ad = rozet.textContent;
+      else if (tetik) ad = (tetik.firstChild && tetik.firstChild.textContent) || "";
+      if (!ad) return;
       const basla = Date.now();
       bekleyenAdim = el("div", "adim-bekliyor");
       const yaz = () => {
         bekleyenAdim.textContent =
-          kalan.textContent + " çalışıyor… " + Math.round((Date.now() - basla) / 1000) + " sn";
+          ad + " çalışıyor… " + Math.round((Date.now() - basla) / 1000) + " sn";
       };
       yaz();
       bekleyenSayac = setInterval(yaz, 1000);
@@ -884,6 +984,7 @@
       if (!sarici) return;
       for (const a of sarici.querySelectorAll(".grafik-baglanti[data-sira]")) {
         a.href = sonucAdresi(metin, yukler, Number(a.dataset.sira));
+        a.target = "_blank";
       }
     };
 
@@ -894,8 +995,13 @@
         return;
       }
       if (kayit.tur === "hata") {
-        (sarici || bekleyen).innerHTML = "";
-        (sarici || bekleyen).appendChild(el("div", "hata-kutu", kayit.mesaj));
+        // Zincirin ortasinda hata olursa TAMAMLANMIS adimlari silmiyoruz;
+        // eskiden innerHTML sifirlaniyor ve gecerli cevaplar da kayboluyordu.
+        const kap = sarici || bekleyen;
+        if (!sarici || !sarici.querySelector(".adim-panel")) kap.innerHTML = "";
+        bekleyenAdimiTemizle();
+        kap.appendChild(el("div", "hata-kutu", kayit.mesaj));
+        asagiKaydir();
         return;
       }
       if (kayit.tur === "plan") {
@@ -917,22 +1023,78 @@
           if (r) r.classList.remove("bekliyor");
         }
         bekleyenAdimiTemizle();
+        // Bu adimin tetik yer tutucusu varsa kaldir: gerekce artik panelin
+        // kendi icinde ciziliyor, iki kez gorunmesin.
+        const yerTutucu = sarici.querySelector('.tetik-bekleyen[data-tetik-sira="' + kayit.sira + '"]');
+        if (yerTutucu) yerTutucu.remove();
         toplanan.push(kayit);
         yukler.push(adimYuku(kayit));
         sarici.appendChild(adimPaneliCiz(kayit, kayit.toplam_adim));
         baglantilariTazele();
         bekleyenAdimiTazele();
+        asagiKaydir();
+      }
+      
+      if (kayit.tur === "zincir_durdu") {
+        // Kota/teknik nedenle duran zinciri gorunur kil; adimlar gecerli kalir.
+        bekleyenAdimiTemizle();
+        if (sarici) sarici.appendChild(el("div", "zincir-durdu", kayit.mesaj));
+        asagiKaydir();
+        return;
+      }
 
-        // Bu adimin sayfasini kendi sekmesinde ac.
-        // Engellenirse sessizce gec: panelde zaten tiklanabilir baglanti var.
-        window.open(sonucAdresi(metin, yukler, yukler.length - 1), "_blank", "noopener");
+      if (kayit.tur === "tetik") {
+        // Sonraki ajan calisirken gerekceyi HEMEN gosteriyoruz; kullanici
+        // zincirin neden uzadigini beklerken goruyor.
+        bekleyenAdimiTemizle();
+        const kutu = tetikKutusuCiz(kayit.kaynak_adi, kayit.hedef_adi, kayit.gerekce);
+        kutu.classList.add("tetik-bekleyen");
+        kutu.dataset.tetikSira = String(kayit.sira);
+        if (sarici) sarici.appendChild(kutu);
+        bekleyenAdimiTazele();
+        asagiKaydir();
+        return;
+      }
+
+      if (kayit.tur === "analiz") {
+        const sira = kayit.sira;
+        const analizVerisi = { yorum: kayit.yorum || "", cozum: kayit.cozum || "", risk: kayit.risk || "" };
+        const hedefPanel = sarici && sarici.querySelector('.adim-panel[data-adim-sira="' + sira + '"]');
+        if (hedefPanel) {
+          hedefPanel.appendChild(analizOzetiCiz(analizVerisi));
+
+          for (let t = 0; t < toplanan.length; t++) {
+            if (toplanan[t].sira === sira) {
+              toplanan[t].analiz = analizVerisi;
+              break;
+            }
+          }
+          for (let y = 0; y < yukler.length; y++) {
+            if (yukler[y]) yukler[y].analiz = yukler[y].analiz || null;
+            if (y === sira - 1) yukler[y].analiz = analizVerisi;
+          }
+          baglantilariTazele();
+        }
+        // Analiz tamamlaninca sonuc sayfasini otomatik acmayi dene (noopener
+        // olmadan ki postMessage calissin). Cevap SSE ile geldigi icin burasi
+        // artik kullanici tiklamasi sayilmiyor; tarayicilarin acilir pencere
+        // engelleyicisi cogu zaman bunu bloklar. O yuzden engellenirse
+        // panelde acik bir bilgi birakiyoruz; cevabin kendisi zaten panelde.
+        const yeniSekme = window.open(sonucAdresi(metin, yukler, sira - 1), "_blank");
+        if (!yeniSekme && hedefPanel && !hedefPanel.querySelector(".acilir-uyari")) {
+          const uyari = el("div", "uyari acilir-uyari",
+            "Tarayıcı yeni sekmeyi engelledi. Tablo ve grafik için aşağıdaki bağlantıya tıklayın.");
+          hedefPanel.appendChild(uyari);
+        }
         asagiKaydir();
       }
     };
 
     try {
       await akisiTuket({ message: metin, session_id: oturumId }, kayitIsle);
-      mesajlar.push({ rol: "asistan", adimlar: toplanan });
+      // Soru da saklanir: sayfa yenilenince sonuc sayfasi adresi yalnizca
+      // adimlardan uretilemiyor, sorunun kendisi de yuke giriyor.
+      mesajlar.push({ rol: "asistan", soru: metin, adimlar: toplanan });
     } catch (err) {
       if (err && err.durum === 401) { anahtarFormuGoster(err.message); return; }
       const hata = { rol: "asistan", hata: err.message || ("Sunucuya ulaşılamadı: " + err) };
@@ -1048,9 +1210,18 @@
   durumYukle();
 
   // Sayfanin kendi butonlarindan widget'i kontrol etmek icin kucuk bir API.
-  window.vtAsistan = {
+  window.vtAsistan = window.VeriAsistani = {
     ac: function () { acik = true; panelDurumu(); },
     kapat: function () { acik = false; panelDurumu(); },
     sor: function (metin) { acik = true; panelDurumu(); gonder(metin); },
   };
+
+  // Sonuc sayfasindan (yeni sekme) gelen mesajlari dinle (cozum uygulama)
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.tip === "uygula") {
+      acik = true;
+      panelDurumu();
+      gonder(e.data.metin);
+    }
+  });
 })();

@@ -16,8 +16,11 @@ from collections.abc import Iterator
 from typing import Any
 
 from .ajanlar import ajanlari_getir
+from .analiz import analiz_yap
+from .config import settings
 from .llm import ChatCevabi, sohbet_et
 from .planlayici import Adim, plan_yap
+from .tetikleyici import sonraki_adim
 
 __all__ = ["akis_calistir", "akis_uret"]
 
@@ -219,15 +222,16 @@ def _gorev_metni(adim: Adim, devir: str) -> str:
         gorev = gorev + chr(10) * 2 + GRAFIK_YONERGESI
     if not devir:
         return gorev
-    return (
-        gorev
-        + chr(10) * 2
-        + "--- ONCEKI ADIMIN BULGUSU ---"
-        + chr(10)
-        + devir
-        + chr(10) * 2
-        + "Bu bulguyu kullanarak kendi bolumunun sorusunu cevapla."
-    )
+    parcalar = [
+        gorev,
+        "--- ONCEKI ADIMIN BULGUSU ---" + chr(10) + devir,
+    ]
+    # Adimi bir tetik getirdiyse gerekcesini de veriyoruz: ajan neye
+    # bakmasi gerektigini bilmeden bulguyu yanlis yorumlayabiliyor.
+    if adim.gerekce:
+        parcalar.append("BU ADIMIN GEREKCESI: " + adim.gerekce)
+    parcalar.append("Bu bulguyu kullanarak kendi bolumunun sorusunu cevapla.")
+    return (chr(10) * 2).join(parcalar)
 
 
 def akis_uret(
@@ -244,8 +248,18 @@ def akis_uret(
     """
     plan = plan_yap(soru)
 
+    # Dinamik zincir: adimlari bulgular kurar. Planlayici yalnizca GIRIS
+    # noktasini verir; sonraki her adimi, biten adimin sonucuna bakan
+    # tetikleyici secer. Kapaliyken eski davranis (statik plan) surer.
+    dinamik = settings.zincir_dinamik and len(ajanlari_getir()) > 1
+    if dinamik:
+        plan = plan[:1]
+    azami = settings.zincir_azami_adim if dinamik else len(plan)
+
     yield {
         "tur": "plan",
+        "dinamik": dinamik,
+        "azami_adim": azami,
         "adimlar": [a.to_dict() for a in plan],
         "ajanlar": [
             {"kod": a.kod, "ad": a.ad, "renk": a.renk, "ornekler": a.ornekler}
@@ -259,7 +273,15 @@ def akis_uret(
     # zaten oncekinin bulgusunu devir metniyle aliyor.
     son_gecmis = list(gecmis or [])
 
-    for sira, adim in enumerate(plan, start=1):
+    kuyruk: list[Adim] = list(plan)
+    kullanilmis: list[str] = []
+    sira = 0
+
+    while kuyruk and sira < azami:
+        adim = kuyruk.pop(0)
+        sira += 1
+        kullanilmis.append(adim.ajan.kod)
+
         cevap = sohbet_et(
             _gorev_metni(adim, devir),
             gecmis if sira == 1 else None,
@@ -271,29 +293,102 @@ def akis_uret(
         toplam["input_tokens"] += cevap.kullanim.get("input_tokens", 0)
         toplam["output_tokens"] += cevap.kullanim.get("output_tokens", 0)
 
+        cevap_metni = (
+            _rakam_yigilmasini_at(_ilk_cumle(cevap.cevap), cevap.son_sonuc)
+            if cevap.tamamlandi else cevap.cevap
+        )
+        temiz_sonuc = _sonucu_temizle(
+            cevap.son_sonuc.to_dict() if (cevap.son_sonuc and cevap.tamamlandi) else None
+        )
+
         yield {
             "tur": "adim",
             "sira": sira,
-            "toplam_adim": len(plan),
+            # Dinamik zincirde toplam adim sayisi ONCEDEN BILINMEZ; arayuz
+            # "1/2" yerine "Adim 1" gosterir.
+            "toplam_adim": 0 if dinamik else len(plan),
+            "dinamik": dinamik,
             **adim.to_dict(),
-            # Uzunluk kodda sinirlanir; talimata birakildiginda tutmuyordu.
             # Uzunluk ve rakam yigilmasi kodda sinirlanir; talimata
             # birakildiginda tutmuyordu.
-            "answer": (
-                _rakam_yigilmasini_at(_ilk_cumle(cevap.cevap), cevap.son_sonuc)
-                if cevap.tamamlandi else cevap.cevap
-            ),
+            "answer": cevap_metni,
             "steps": cevap.adimlar,
             # Adim yarida kaldiysa elde kalan sonuc basarisiz bir denemeye ait
             # olabilir; arayuze gecerli sonuc gibi gondermiyoruz.
             "tamamlandi": cevap.tamamlandi,
-            "result": _sonucu_temizle(
-                cevap.son_sonuc.to_dict() if (cevap.son_sonuc and cevap.tamamlandi) else None
-            ),
+            "result": temiz_sonuc,
             "usage": cevap.kullanim,
         }
+
+        # --- Analiz katmani ---
+        # Adim tamamlandiysa veriye dayali coklu analiz uret (yorum/cozum/risk).
+        # Analiz tek LLM cagrisinda 3 bolumlu JSON olarak gelir; token maliyeti
+        # ~400-600 token.
+        if cevap.tamamlandi and temiz_sonuc:
+            analiz = analiz_yap(
+                soru=soru,
+                cevap_metni=cevap_metni,
+                sonuc=temiz_sonuc,
+                ajan_kodu=adim.ajan.kod,
+            )
+            if not analiz.bos_mu():
+                toplam["input_tokens"] += analiz.kullanim.get("input_tokens", 0)
+                toplam["output_tokens"] += analiz.kullanim.get("output_tokens", 0)
+                yield {
+                    "tur": "analiz",
+                    "sira": sira,
+                    **analiz.to_dict(),
+                }
+
         # Yarida kalan adimin bulgusu guvenilir degil; sonrakine devretme.
         devir = _devir_metni(cevap) if cevap.tamamlandi else ""
+
+        # --- Tetik katmani ---
+        # Biten adimin bulgusu baska bir bolumun alanini ilgilendiriyor mu?
+        # Ilgilendiriyorsa zincire yeni adim eklenir ve GEREKCESI yayinlanir;
+        # kullanici zincirin neden boyle kuruldugunu gorur.
+        if dinamik and sira < azami and cevap.tamamlandi and temiz_sonuc:
+            karar = sonraki_adim(
+                soru=soru,
+                biten=adim,
+                cevap_metni=cevap_metni,
+                sonuc=temiz_sonuc,
+                kullanilmis=kullanilmis,
+            )
+            # Tetigin kendi maliyeti de kullaniciya gorunsun.
+            toplam["input_tokens"] += karar.kullanim.get("input_tokens", 0)
+            toplam["output_tokens"] += karar.kullanim.get("output_tokens", 0)
+
+            if karar.durum in ("kota", "hata"):
+                # Zincir teknik bir nedenle durdu. Sessizce durmak yaniltici:
+                # kullanici zincirin dogal olarak bittigini saniyordu.
+                yield {
+                    "tur": "zincir_durdu",
+                    "sira": sira,
+                    "sebep": karar.durum,
+                    "mesaj": (
+                        "Zincir burada durdu: yapay zeka kotasi doldu. "
+                        "Yukaridaki adimlarin sonuclari gecerlidir."
+                        if karar.durum == "kota"
+                        else "Zincir burada durdu: sonraki adim belirlenemedi. "
+                             "Yukaridaki adimlarin sonuclari gecerlidir."
+                    ),
+                }
+
+            if karar.devam:
+                yield {
+                    "tur": "tetik",
+                    "sira": sira + 1,
+                    "kaynak": adim.ajan.kod,
+                    "kaynak_adi": adim.ajan.ad,
+                    "kaynak_renk": adim.ajan.renk,
+                    "hedef": karar.adim.ajan.kod,
+                    "hedef_adi": karar.adim.ajan.ad,
+                    "hedef_renk": karar.adim.ajan.renk,
+                    "gerekce": karar.gerekce,
+                    "gorev": karar.adim.gorev,
+                }
+                kuyruk.append(karar.adim)
 
     yield {"tur": "bitti", "usage": toplam, "gecmis": son_gecmis}
 
@@ -313,7 +408,18 @@ def akis_calistir(soru: str, gecmis: list[dict[str, Any]] | None = None) -> dict
             ajanlar = kayit["ajanlar"]
         elif kayit["tur"] == "adim":
             adimlar.append({k: v for k, v in kayit.items() if k != "tur"})
-        else:
+        elif kayit["tur"] == "analiz":
+            # Analizi ilgili adıma ekle
+            sira = kayit.get("sira", 0)
+            for a in adimlar:
+                if a.get("sira") == sira:
+                    a["analiz"] = {
+                        "yorum": kayit.get("yorum", ""),
+                        "cozum": kayit.get("cozum", ""),
+                        "risk": kayit.get("risk", ""),
+                    }
+                    break
+        elif kayit["tur"] == "bitti":
             toplam = kayit["usage"]
             son_gecmis = kayit["gecmis"]
 

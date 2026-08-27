@@ -49,18 +49,70 @@ NITELIKLI_AD = re.compile(
 
 def _yorumlari_ve_metinleri_temizle(sql: str) -> str:
     """Anahtar kelime taramasi icin yorumlari, metinleri ve tirnaklanmis
-    tanimlayicilari bosluga cevirir.
+    tanimlayicilari zararsiz doldurmaya cevirir.
 
     Boylece 'Guncelleme Tarihi' gibi bir metin sabiti ya da [Deleted] / `rename`
     adinda bir kolon yanlislikla yasakli kelime olarak algilanmaz.
+
+    TEK GECISTE, soldan saga taranir. Onceden her tur ayri bir duzenli ifadeyle
+    ve sirayla temizleniyordu; yorum temizligi metin sabitlerinden ONCE
+    calistigi icin metin sabitinin ICINDEKI bir "--" gercek yorum sanilip
+    satirin geri kalani siliniyordu. Bu, arkasindaki gercek SQL'i de
+    goturuyordu:
+
+        SELECT * FROM T WHERE a = 'x--' ; DROP TABLE U
+
+    burada ";" ve "DROP" taramaya hic ulasmiyor, sorgu gecerli sayiliyordu.
+    Tek gecis, tirnak ve yorum sinirlarini gercek SQL gibi yorumlar.
     """
-    temiz = YORUM_BLOK.sub(" ", sql)
-    temiz = YORUM_SATIR.sub(" ", temiz)
-    temiz = STRING_LITERAL.sub(" '' ", temiz)
-    temiz = KOSELI_TANIMLAYICI.sub(" _id_ ", temiz)
-    temiz = CIFT_TIRNAK_TANIMLAYICI.sub(" _id_ ", temiz)
-    temiz = GERI_TIRNAK_TANIMLAYICI.sub(" _id_ ", temiz)
-    return temiz
+    cikti: list[str] = []
+    n = len(sql)
+    i = 0
+    while i < n:
+        c = sql[i]
+
+        # Metin sabiti: '...' ('' ikilenmis tirnaktir, sabiti bitirmez)
+        if c == "'":
+            j = i + 1
+            while j < n:
+                if sql[j] == "'":
+                    if j + 1 < n and sql[j + 1] == "'":
+                        j += 2
+                        continue
+                    break
+                j += 1
+            # Kapanmamis tirnak: kalanin tamami sabit sayilir. Gecersiz SQL
+            # zaten veritabaninda hata verir; burada sessizce acilmamali.
+            cikti.append(" '' ")
+            i = (j + 1) if j < n else n
+            continue
+
+        # Tirnaklanmis tanimlayici: [x] / "x" / `x`
+        if c in ("[", '"', "`"):
+            kapanis = "]" if c == "[" else c
+            j = sql.find(kapanis, i + 1)
+            cikti.append(" _id_ ")
+            i = (j + 1) if j != -1 else n
+            continue
+
+        # Satir yorumu
+        if c == "-" and i + 1 < n and sql[i + 1] == "-":
+            j = sql.find("\n", i)
+            cikti.append(" ")
+            i = n if j == -1 else j
+            continue
+
+        # Blok yorumu
+        if c == "/" and i + 1 < n and sql[i + 1] == "*":
+            j = sql.find("*/", i + 2)
+            cikti.append(" ")
+            i = n if j == -1 else j + 2
+            continue
+
+        cikti.append(c)
+        i += 1
+
+    return "".join(cikti)
 
 
 def _ifade_sayisi(temiz_sql: str) -> int:
