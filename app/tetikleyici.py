@@ -82,6 +82,8 @@ def _talimat(adaylar: list[Ajan]) -> str:
     ]
     for a in adaylar:
         satirlar.append(f"- {a.kod}: {a.aciklama}")
+        if a.tablolar:
+            satirlar.append("  tablolari: " + ", ".join(sorted(a.tablolar)))
     satirlar += [
         "",
         "Kurallar:",
@@ -89,8 +91,15 @@ def _talimat(adaylar: list[Ajan]) -> str:
         "  cikardigi bir soruyu cevaplamali; alakasiz bir konuya atlama.",
         "- Yeni adim asil soruyu cevaplamaya GERCEKTEN katki yapmiyorsa dur.",
         "  Zinciri uzatmak icin uzatma; emin degilsen devam=false.",
-        "- 'gorev' o ajana sorulacak TAM bir Turkce soru olmali ve onceki",
-        "  bulguya acikca dayanmali.",
+        "- 'gorev' o ajana sorulacak TAM bir Turkce soru olmali.",
+        "- ONEMLI: Bulgu yeni adima BAGLAM verir, JOIN ANAHTARI DEGILDIR.",
+        "  Gorev, secilen ajanin YUKARIDA LISTELENEN kendi tablolariyla",
+        "  tek basina cevaplanabilmeli. Iki bolumun tablolari arasinda",
+        "  iliski oldugunu VARSAYMA; cogunda yoktur.",
+        "  YANLIS: 'acik biletlere neden olan proje gorevlerini say'",
+        "          (bilet ile gorev tablosu birbirine baglanmaz)",
+        "  DOGRU : 'tamamlanmamis proje gorevlerini durumlarina gore say'",
+        "          (yalnizca proje tablolari yeter)",
         "- Gorev TEK amacli olsun: ya SAYMA/TOPLAMA (gruplu ozet) ya da LISTELEME.",
         "- Yalnizca LISTELEME gorevlerine sinir koy (ornegin 'ilk 10').",
         "- 'gerekce' TEK cumle olsun ve bulguyla yeni adim arasindaki bagi",
@@ -133,6 +142,24 @@ ORNEKLER = [
             "ajan": "finans",
             "gorev": "Gonderildi durumundaki tekliflerin toplam tutarini para birimine gore getir",
             "gerekce": "Bekleyen 103 teklif ciro potansiyeli; once bu potansiyelin parasal buyuklugunu olcuyoruz.",
+            "grafik": True,
+        },
+    ),
+    (
+        # Ayni bulgu, ama 'asil soru' duz bir veri sorusu. Model burada
+        # 'biletlere BAGLI proje gorevleri' gibi join gerektiren bir gorev
+        # yaziyordu; iki tablo birbirine baglanmadigi icin adim bos donuyordu.
+        # Duzyazi kural bu girdide tutmadi, ornek gerekti.
+        "ASIL SORU: Asamalarina gore acik destek biletleri\n"
+        "BITEN ADIM: destek -- Acik destek biletlerini asamalarina gore say\n"
+        "BULGU: Su anda 59 acik destek bileti var.\n"
+        "Asama | Bilet Sayisi\nBeklemede | 47\nIslemde | 12\n"
+        "DAHA ONCE CALISAN AJANLAR: destek",
+        {
+            "devam": True,
+            "ajan": "proje",
+            "gorev": "Tamamlanmamis proje gorevlerini durumlarina gore say",
+            "gerekce": "Biletlerin cogu beklemede; ayni donemde bitmemis proje gorevlerinin dagilimi yuku aciklayabilir.",
             "grafik": True,
         },
     ),
