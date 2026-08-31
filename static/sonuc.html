@@ -155,7 +155,13 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 340px;
   }
-  td.sayi .ic { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  /* max-width sayisal hucrelerde KALKAR: 340px'lik ic kutu genis bir
+     kolonda sola sikisip kaliyor, sayi o kutunun sagina yaslandigi icin
+     hucrenin sag kenarina -- yani basligin altina -- gelmiyordu. */
+  td.sayi .ic {
+    text-align: right; font-variant-numeric: tabular-nums; font-weight: 500;
+    max-width: none;
+  }
   tbody tr:nth-child(even) td { background: #fbfcfe; }
   tbody tr:hover td { background: var(--renk-hafif); }
   tbody tr:last-child td { border-bottom: none; }
