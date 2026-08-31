@@ -5,6 +5,7 @@ import { HedefAgaci, type AgacYaniti } from "./HedefAgaci";
 import {
   AjanSekmeleri, type CalisanOlcum, type OlcumHatasi, type OlcumSonucu,
 } from "./AjanSekmeleri";
+import { Islemler } from "./Islemler";
 
 const ORNEKLER = [
   "Destek yükümüzü nasıl azaltırız?",
@@ -12,7 +13,7 @@ const ORNEKLER = [
   "Proje teslimlerini nasıl hızlandırırız?",
 ];
 
-type Sekme = "ajanlar" | "agac";
+type Sekme = "ajanlar" | "agac" | "islemler";
 
 export default function Sayfa() {
   const [soru, setSoru] = useState("");
@@ -123,14 +124,16 @@ export default function Sayfa() {
       {hata && <div className="kart hata">{hata}</div>}
       {calisiyor && durum && <div className="kart bekliyor">{durum}</div>}
 
-      {birSeyVar && (
-        <div className="sekmeler">
-          <button type="button" className={sekme === "ajanlar" ? "aktif" : ""}
-            onClick={() => setSekme("ajanlar")}>Ajanlar</button>
-          <button type="button" className={sekme === "agac" ? "aktif" : ""}
-            disabled={!agac} onClick={() => setSekme("agac")}>Hedef ağacı</button>
-        </div>
-      )}
+      <div className="sekmeler">
+        <button type="button" className={sekme === "ajanlar" ? "aktif" : ""}
+          onClick={() => setSekme("ajanlar")}>Ajanlar</button>
+        <button type="button" className={sekme === "agac" ? "aktif" : ""}
+          disabled={!agac} onClick={() => setSekme("agac")}>Hedef ağacı</button>
+        <button type="button" className={sekme === "islemler" ? "aktif" : ""}
+          onClick={() => setSekme("islemler")}>İşlemler</button>
+      </div>
+
+      {sekme === "islemler" && <Islemler />}
 
       {sekme === "agac" && agac && <HedefAgaci agac={agac} />}
 
