@@ -2,174 +2,149 @@
 
 import { useState } from "react";
 import { HedefAgaci, type AgacYaniti } from "./HedefAgaci";
-
-interface Adim { ad: string; sorgu: string; ok: boolean; sureMs: number; }
-interface Tablo { kolonlar: string[]; satirlar: unknown[][]; }
-interface Yanit {
-  cevap: string;
-  tablo: Tablo | null;
-  adimlar: Adim[];
-  kullanim: { girdiTokeni: number; ciktiTokeni: number };
-  tamamlandi: boolean;
-}
+import {
+  AjanSekmeleri, type CalisanOlcum, type OlcumHatasi, type OlcumSonucu,
+} from "./AjanSekmeleri";
 
 const ORNEKLER = [
-  "Aşamalarına göre açık destek biletleri",
-  "Durumlarına göre teklif sayısı",
-  "En çok bilet atanan 10 kişi",
-  "Para birimine göre teklif tutarı",
+  "Destek yükümüzü nasıl azaltırız?",
+  "Satış performansımızı nasıl artırırız?",
+  "Proje teslimlerini nasıl hızlandırırız?",
 ];
 
-/** Sayisal kolon: tum hucreleri sayi olan kolon saga yaslanir. */
-function sayisalKolonlar(t: Tablo): boolean[] {
-  return t.kolonlar.map((_, n) =>
-    t.satirlar.length > 0 && t.satirlar.every((s) => typeof s[n] === "number")
-  );
-}
-
-/** **kalin** isaretlerini gercek kalin yaziya cevirir. */
-function kalinla(metin: string) {
-  return metin.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    p.startsWith("**") && p.endsWith("**") && p.length > 4
-      ? <strong key={i}>{p.slice(2, -2)}</strong>
-      : <span key={i}>{p}</span>
-  );
-}
+type Sekme = "ajanlar" | "agac";
 
 export default function Sayfa() {
   const [soru, setSoru] = useState("");
-  const [bekliyor, setBekliyor] = useState(false);
-  const [yanit, setYanit] = useState<Yanit | null>(null);
+  const [calisiyor, setCalisiyor] = useState(false);
+  const [durum, setDurum] = useState("");
   const [agac, setAgac] = useState<AgacYaniti | null>(null);
-  const [agacBekliyor, setAgacBekliyor] = useState(false);
-  const [sekme, setSekme] = useState<"cevap" | "agac">("cevap");
+  const [sonuclar, setSonuclar] = useState<OlcumSonucu[]>([]);
+  const [calisanlar, setCalisanlar] = useState<CalisanOlcum[]>([]);
+  const [hatalar, setHatalar] = useState<OlcumHatasi[]>([]);
+  const [atlananlar, setAtlananlar] = useState<{ baslik: string; sebep: string }[]>([]);
   const [hata, setHata] = useState("");
+  const [sekme, setSekme] = useState<Sekme>("ajanlar");
 
   async function sor(metin: string) {
     const s = metin.trim();
-    if (!s || bekliyor) return;
-    setBekliyor(true); setHata(""); setYanit(null); setAgac(null);
-    setSekme("cevap"); setSoru(s);
+    if (!s || calisiyor) return;
+    setCalisiyor(true); setSoru(s); setHata("");
+    setAgac(null); setSonuclar([]); setCalisanlar([]); setHatalar([]); setAtlananlar([]);
+    setDurum("Hedef ağacı kuruluyor…"); setSekme("ajanlar");
+
     try {
-      const r = await fetch("/api/sor", {
+      const r = await fetch("/api/akis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soru: s }),
       });
-      const g = await r.json();
-      if (!r.ok) { setHata(g.hata ?? "İstek başarısız."); return; }
-      setYanit(g);
+      if (!r.ok || !r.body) { setHata("İstek başarısız."); return; }
+
+      // SSE'yi elle ayristiriyoruz: EventSource yalnizca GET destekliyor,
+      // soruyu govdede gondermek gerekiyor.
+      const okuyucu = r.body.getReader();
+      const cozucu = new TextDecoder();
+      let tampon = "";
+
+      for (;;) {
+        const { done, value } = await okuyucu.read();
+        if (done) break;
+        tampon += cozucu.decode(value, { stream: true });
+
+        const parcalar = tampon.split("\n\n");
+        tampon = parcalar.pop() ?? "";
+        for (const p of parcalar) {
+          const satir = p.trim();
+          if (!satir.startsWith("data:")) continue;
+          isle(JSON.parse(satir.slice(5).trim()));
+        }
+      }
     } catch (e) {
       setHata(e instanceof Error ? e.message : "Sunucuya ulaşılamadı.");
-      return;
     } finally {
-      setBekliyor(false);
+      setCalisiyor(false); setDurum("");
     }
-
-    // Agaci AYRI istekte kuruyoruz: cevap hemen gorunsun, agac arkadan
-    // gelsin. Ikisini tek istege koymak hem beklemeyi uzatiyor hem de
-    // dakikalik token sinirini tek seferde zorluyordu.
-    setAgacBekliyor(true);
-    try {
-      const r = await fetch("/api/agac", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ soru: s }),
-      });
-      const g = await r.json();
-      if (r.ok) setAgac(g);
-    } catch { /* agac gelmezse cevap yine duruyor */ }
-    finally { setAgacBekliyor(false); }
   }
 
-  const sayisal = yanit?.tablo ? sayisalKolonlar(yanit.tablo) : [];
+  function isle(k: any) {
+    switch (k.tur) {
+      case "agac":
+        setAgac(k.agac);
+        setDurum("Ölçümler ajanlara dağıtılıyor…");
+        break;
+      case "plan":
+        setDurum(`${k.atamalar.length} ölçüm bulundu`);
+        break;
+      case "basladi":
+        setCalisanlar((o) => [...o, k]);
+        setDurum(`${k.ajanAd} çalışıyor…`);
+        break;
+      case "bitti":
+        if (k.sonuc) setSonuclar((o) => [...o, k.sonuc]);
+        else setDurum("");
+        break;
+      case "hata":
+        if (k.dugumId) setHatalar((o) => [...o, k]);
+        else setHata(k.mesaj);
+        break;
+      case "atlandi":
+        setAtlananlar((o) => [...o, { baslik: k.baslik, sebep: k.sebep }]);
+        break;
+    }
+  }
+
+  const birSeyVar = agac || sonuclar.length || calisanlar.length;
 
   return (
     <main className="sarmal">
       <header>
         <h1>İş Zekâsı Ajanı</h1>
-        <p>Sorunuzu gündelik Türkçe yazın; SQL bilmeniz gerekmiyor.</p>
+        <p>
+          Soru doğrudan cevaplanmaz: hedef ağacına çevrilir, dalları bölüm
+          ajanlarına dağıtılır, her ajan kendi verisini sorgular.
+        </p>
       </header>
 
       <form onSubmit={(e) => { e.preventDefault(); void sor(soru); }}>
-        <input
-          type="text" value={soru} placeholder="Örn: aşamalarına göre açık destek biletleri"
-          onChange={(e) => setSoru(e.target.value)} disabled={bekliyor}
-        />
-        <button type="submit" disabled={bekliyor || !soru.trim()}>
-          {bekliyor ? "Çalışıyor…" : "Sor"}
+        <input type="text" value={soru} placeholder="Örn: destek yükümüzü nasıl azaltırız?"
+          onChange={(e) => setSoru(e.target.value)} disabled={calisiyor} />
+        <button type="submit" disabled={calisiyor || !soru.trim()}>
+          {calisiyor ? "Çalışıyor…" : "Sor"}
         </button>
       </form>
 
       <div className="ornekler">
         {ORNEKLER.map((o) => (
-          <button key={o} type="button" disabled={bekliyor} onClick={() => void sor(o)}>{o}</button>
+          <button key={o} type="button" disabled={calisiyor} onClick={() => void sor(o)}>{o}</button>
         ))}
       </div>
 
-      {bekliyor && <div className="kart bekliyor">Ajan çalışıyor, sorgu hazırlanıyor…</div>}
       {hata && <div className="kart hata">{hata}</div>}
+      {calisiyor && durum && <div className="kart bekliyor">{durum}</div>}
 
-      {yanit && (
-        <>
-          <div className="sekmeler">
-            <button type="button" className={sekme === "cevap" ? "aktif" : ""}
-              onClick={() => setSekme("cevap")}>Cevap</button>
-            <button type="button" className={sekme === "agac" ? "aktif" : ""}
-              disabled={!agac && !agacBekliyor} onClick={() => setSekme("agac")}>
-              Hedef ağacı{agacBekliyor ? " (kuruluyor…)" : ""}
-            </button>
-          </div>
-        </>
+      {birSeyVar && (
+        <div className="sekmeler">
+          <button type="button" className={sekme === "ajanlar" ? "aktif" : ""}
+            onClick={() => setSekme("ajanlar")}>Ajanlar</button>
+          <button type="button" className={sekme === "agac" ? "aktif" : ""}
+            disabled={!agac} onClick={() => setSekme("agac")}>Hedef ağacı</button>
+        </div>
       )}
 
-      {yanit && sekme === "agac" && (
-        agac ? <HedefAgaci agac={agac} />
-             : <div className="kart bekliyor">Hedef ağacı kuruluyor…</div>
-      )}
+      {sekme === "agac" && agac && <HedefAgaci agac={agac} />}
 
-      {yanit && sekme === "cevap" && (
+      {sekme === "ajanlar" && (
         <>
-          <div className="kart">
-            <div className="cevap">{kalinla(yanit.cevap)}</div>
-          </div>
-
-          {yanit.tablo && yanit.tablo.satirlar.length > 0 && (
-            <div className="kart">
-              <div className="bolum-baslik">Veri</div>
-              <div className="tablo-sarici">
-                <table>
-                  <thead>
-                    <tr>{yanit.tablo.kolonlar.map((k, n) => (
-                      <th key={k + n} className={sayisal[n] ? "sayi" : undefined}>{k}</th>
-                    ))}</tr>
-                  </thead>
-                  <tbody>
-                    {yanit.tablo.satirlar.map((s, i) => (
-                      <tr key={i}>{s.map((h, n) => (
-                        <td key={n} className={sayisal[n] ? "sayi" : undefined}>
-                          {h === null || h === undefined ? "—" : String(h)}
-                        </td>
-                      ))}</tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {yanit.adimlar.length > 0 && (
-            <div className="kart">
-              <div className="bolum-baslik">Çalıştırılan sorgu</div>
-              {yanit.adimlar.map((a, i) => (
-                <div key={i} style={{ marginBottom: 8 }}>
-                  <pre className="sql">{a.sorgu || "(sorgu yok)"}</pre>
-                  <div className="alt-bilgi">{a.ok ? "başarılı" : "hata"} · {a.sureMs} ms</div>
+          <AjanSekmeleri sonuclar={sonuclar} calisanlar={calisanlar} hatalar={hatalar} />
+          {atlananlar.length > 0 && (
+            <div className="kart atlanan">
+              <div className="bolum-baslik">Çalıştırılmayan ölçümler</div>
+              {atlananlar.map((a, i) => (
+                <div key={i} className="atlanan-satir">
+                  {a.baslik} <span>— {a.sebep}</span>
                 </div>
               ))}
-              <div className="alt-bilgi">
-                {yanit.kullanim.girdiTokeni} girdi + {yanit.kullanim.ciktiTokeni} çıktı token
-              </div>
             </div>
           )}
         </>

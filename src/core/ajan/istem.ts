@@ -9,12 +9,19 @@ import { degerlerMetni, durumDegerleri } from "../db/degerler";
  * Belirleyici olmasi gereken seyler koda alinmali, istemde kalanlar da
  * kisa ve somut ornekli olmali. Uzun nasihat listesi ise yaramiyor.
  */
-export async function sistemIstemi(soru: string): Promise<string> {
+export async function sistemIstemi(
+  soru: string,
+  /** Bolum ajaninin kapsami. Verilirse soruya gore secim yapilmaz. */
+  sadeceTablolar?: readonly string[]
+): Promise<string> {
   const tablolar = await semaGetir();
   // Tum semayi gondermek Groq ucretsiz katmaninin 8.000 TPM sinirini tek
   // soruda asiyordu. Soruya gore daraltiyoruz; tum tablo ADLARI yine de
   // veriliyor ki model neyin var oldugunu bilsin.
-  const { secilen, tumAdlar } = kapsamSec(soru, tablolar);
+  const tumAdlar = tablolar.map((t) => t.ad);
+  const secilen = sadeceTablolar?.length
+    ? tablolar.filter((t) => sadeceTablolar.includes(t.ad))
+    : kapsamSec(soru, tablolar).secilen;
   // Durum degerleri VERITABANINDAN okunur; elle yazilirsa (Tamamlandi gibi)
   // model birebir kopyalayip yanlis filtre kuruyor.
   const degerler = degerlerMetni(await durumDegerleri(tablolar));
