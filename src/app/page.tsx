@@ -26,6 +26,8 @@ export default function Sayfa() {
   const [hatalar, setHatalar] = useState<OlcumHatasi[]>([]);
   const [atlananlar, setAtlananlar] = useState<{ baslik: string; sebep: string }[]>([]);
   const [gecersizler, setGecersizler] = useState<{ baslik: string; soru: string; sebepler: string[] }[]>([]);
+  const [niyet, setNiyet] = useState<{ metrik: string; zamanAraligi: string; segment: string; ortukHedef: string; tur: string } | null>(null);
+  const [teshisler, setTeshisler] = useState<{ dugumId: string; baslik: string; bulgular: { tur: string; metin: string }[] }[]>([]);
   const [hata, setHata] = useState("");
   const [sekme, setSekme] = useState<Sekme>("ajanlar");
 
@@ -34,6 +36,7 @@ export default function Sayfa() {
     if (!s || calisiyor) return;
     setCalisiyor(true); setSoru(s); setHata("");
     setAgac(null); setSonuclar([]); setCalisanlar([]); setHatalar([]); setAtlananlar([]); setGecersizler([]);
+    setNiyet(null); setTeshisler([]);
     setDurum("Hedef ağacı kuruluyor…"); setSekme("ajanlar");
 
     try {
@@ -72,6 +75,13 @@ export default function Sayfa() {
 
   function isle(k: any) {
     switch (k.tur) {
+      case "niyet":
+        setNiyet(k.niyet);
+        setDurum("Hedef ağacı kuruluyor…");
+        break;
+      case "teshis":
+        setTeshisler((o) => [...o, k.teshis]);
+        break;
       case "agac":
         setAgac(k.agac);
         setDurum("Ölçümler ajanlara dağıtılıyor…");
@@ -126,6 +136,18 @@ export default function Sayfa() {
         ))}
       </div>
 
+      {niyet && (
+        <div className="kart niyet-kart">
+          <div className="bolum-baslik">Anlaşılan hedef</div>
+          <div className="niyet-hedef">{niyet.ortukHedef}</div>
+          <div className="niyet-alanlar">
+            {niyet.metrik && <span><b>metrik</b> {niyet.metrik}</span>}
+            {niyet.zamanAraligi && <span><b>zaman</b> {niyet.zamanAraligi}</span>}
+            {niyet.segment && <span><b>kırılım</b> {niyet.segment}</span>}
+          </div>
+        </div>
+      )}
+
       {hata && <div className="kart hata">{hata}</div>}
       {calisiyor && durum && <div className="kart bekliyor">{durum}</div>}
 
@@ -149,6 +171,20 @@ export default function Sayfa() {
       {sekme === "ajanlar" && (
         <>
           <AjanSekmeleri sonuclar={sonuclar} calisanlar={calisanlar} hatalar={hatalar} />
+
+          {teshisler.length > 0 && (
+            <div className="kart">
+              <div className="bolum-baslik">Teşhis — veri neden böyle</div>
+              {teshisler.map((t) => (
+                <div key={t.dugumId} className="teshis-satir">
+                  <div className="teshis-baslik">{t.baslik}</div>
+                  {t.bulgular.map((b, i) => (
+                    <div key={i} className={`teshis-bulgu b-${b.tur}`}>{b.metin}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
           {gecersizler.length > 0 && (
             <div className="kart gecersiz-kart">
               <div className="bolum-baslik">Çalıştırılmayan ölçümler — veriyle uyumsuz</div>

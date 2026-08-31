@@ -6,6 +6,8 @@ import { olcumleriCalistir } from "@/core/ajan/olcum";
 import { semaGetir } from "@/core/db/sema";
 import { durumDegerleri } from "@/core/db/degerler";
 import { saglayiciSec } from "@/core/llm/index";
+import { niyetCikar } from "@/core/pipeline/intent";
+import { teshisCikar } from "@/core/pipeline/teshis";
 import { sistemKur } from "@/core/kur";
 
 export const runtime = "nodejs";
@@ -38,8 +40,13 @@ export async function POST(istek: Request) {
         const tablolar = await semaGetir();
         const degerler = await durumDegerleri(tablolar);
 
+        // S0 - INTENT: ortuk hedefi cikar. Agacin KOKU bu olur; ham soru
+        // kok olursa agac raporlama agacina donusuyor, kaldirac aramiyor.
+        const { niyet, geriDusuldu } = await niyetCikar(saglayici, soru);
+        yolla({ tur: "niyet", niyet, geriDusuldu });
+
         const agac = await agacKur({
-          saglayici, soru,
+          saglayici, soru: niyet.ortukHedef,
           veriOzetiMetni: veriOzeti(tablolar, degerler),
           azamiDerinlik: 2, azamiCagri: 4,
         });
@@ -62,6 +69,11 @@ export async function POST(istek: Request) {
           tablolar, degerler,
         })) {
           yolla(olay);
+          // S2 - DIAGNOSE: olcum biter bitmez hesaplanabilir bulgulari
+          // cikar. LLM cagrisi yok, tamami aritmetik.
+          if (olay.tur === "bitti") {
+            yolla({ tur: "teshis", teshis: teshisCikar(olay.sonuc) });
+          }
         }
 
         yolla({ tur: "bitti" });
