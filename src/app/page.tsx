@@ -6,6 +6,7 @@ import {
   AjanSekmeleri, type CalisanOlcum, type OlcumHatasi, type OlcumSonucu,
 } from "./AjanSekmeleri";
 import { Islemler } from "./Islemler";
+import { Planlar, type Plan } from "./Planlar";
 import { GeriBesleme } from "./GeriBesleme";
 
 const ORNEKLER = [
@@ -27,6 +28,7 @@ export default function Sayfa() {
   const [atlananlar, setAtlananlar] = useState<{ baslik: string; sebep: string }[]>([]);
   const [gecersizler, setGecersizler] = useState<{ baslik: string; soru: string; sebepler: string[] }[]>([]);
   const [niyet, setNiyet] = useState<{ metrik: string; zamanAraligi: string; segment: string; ortukHedef: string; tur: string } | null>(null);
+  const [planlar, setPlanlar] = useState<Plan[]>([]);
   const [teshisler, setTeshisler] = useState<{ dugumId: string; baslik: string; bulgular: { tur: string; metin: string }[] }[]>([]);
   const [hata, setHata] = useState("");
   const [sekme, setSekme] = useState<Sekme>("ajanlar");
@@ -36,7 +38,7 @@ export default function Sayfa() {
     if (!s || calisiyor) return;
     setCalisiyor(true); setSoru(s); setHata("");
     setAgac(null); setSonuclar([]); setCalisanlar([]); setHatalar([]); setAtlananlar([]); setGecersizler([]);
-    setNiyet(null); setTeshisler([]);
+    setNiyet(null); setTeshisler([]); setPlanlar([]);
     setDurum("Hedef ağacı kuruluyor…"); setSekme("ajanlar");
 
     try {
@@ -81,6 +83,9 @@ export default function Sayfa() {
         break;
       case "teshis":
         setTeshisler((o) => [...o, k.teshis]);
+        break;
+      case "planlar":
+        setPlanlar((o) => [...o, ...k.planlar]);
         break;
       case "agac":
         setAgac(k.agac);
@@ -171,6 +176,8 @@ export default function Sayfa() {
       {sekme === "ajanlar" && (
         <>
           <AjanSekmeleri sonuclar={sonuclar} calisanlar={calisanlar} hatalar={hatalar} />
+
+          <Planlar planlar={planlar} />
 
           {teshisler.length > 0 && (
             <div className="kart">

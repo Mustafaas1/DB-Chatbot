@@ -8,6 +8,7 @@ import { durumDegerleri } from "@/core/db/degerler";
 import { saglayiciSec } from "@/core/llm/index";
 import { niyetCikar } from "@/core/pipeline/intent";
 import { teshisCikar } from "@/core/pipeline/teshis";
+import { planUret } from "@/core/pipeline/plan";
 import { sistemKur } from "@/core/kur";
 
 export const runtime = "nodejs";
@@ -72,7 +73,17 @@ export async function POST(istek: Request) {
           // S2 - DIAGNOSE: olcum biter bitmez hesaplanabilir bulgulari
           // cikar. LLM cagrisi yok, tamami aritmetik.
           if (olay.tur === "bitti") {
-            yolla({ tur: "teshis", teshis: teshisCikar(olay.sonuc) });
+            const teshis = teshisCikar(olay.sonuc);
+            yolla({ tur: "teshis", teshis });
+
+            // S4 - PLAN: bos olcumden plan uretmenin anlami yok; kota
+            // bosa gitmesin.
+            if (!olay.sonuc.bosMu) {
+              const { planlar } = await planUret(
+                saglayici, olay.sonuc, teshis, niyet.ortukHedef
+              );
+              if (planlar.length) yolla({ tur: "planlar", planlar });
+            }
           }
         }
 
