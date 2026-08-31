@@ -1,0 +1,14 @@
+{
+  "_aciklama": "MCP sunuculari. 'kapali': true ile silmeden devre disi birakilir.",
+  "sunucular": {
+    "dosya": {
+      "komut": "npx",
+      "argumanlar": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "<izin-verilen-klasor>"
+      ],
+      "kapali": true
+    }
+  }
+}

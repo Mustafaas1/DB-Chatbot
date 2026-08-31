@@ -10,3 +10,9 @@ oturumlar.db
 oturumlar.db-*
 .env.*
 !.env.example
+
+# Next.js / TS
+node_modules/
+.next/
+next-env.d.ts
+tsconfig.tsbuildinfo
