@@ -25,6 +25,7 @@ export default function Sayfa() {
   const [calisanlar, setCalisanlar] = useState<CalisanOlcum[]>([]);
   const [hatalar, setHatalar] = useState<OlcumHatasi[]>([]);
   const [atlananlar, setAtlananlar] = useState<{ baslik: string; sebep: string }[]>([]);
+  const [gecersizler, setGecersizler] = useState<{ baslik: string; soru: string; sebepler: string[] }[]>([]);
   const [hata, setHata] = useState("");
   const [sekme, setSekme] = useState<Sekme>("ajanlar");
 
@@ -32,7 +33,7 @@ export default function Sayfa() {
     const s = metin.trim();
     if (!s || calisiyor) return;
     setCalisiyor(true); setSoru(s); setHata("");
-    setAgac(null); setSonuclar([]); setCalisanlar([]); setHatalar([]); setAtlananlar([]);
+    setAgac(null); setSonuclar([]); setCalisanlar([]); setHatalar([]); setAtlananlar([]); setGecersizler([]);
     setDurum("Hedef ağacı kuruluyor…"); setSekme("ajanlar");
 
     try {
@@ -93,6 +94,9 @@ export default function Sayfa() {
       case "atlandi":
         setAtlananlar((o) => [...o, { baslik: k.baslik, sebep: k.sebep }]);
         break;
+      case "gecersiz":
+        setGecersizler((o) => [...o, { baslik: k.baslik, soru: k.soru, sebepler: k.sebepler }]);
+        break;
     }
   }
 
@@ -145,6 +149,23 @@ export default function Sayfa() {
       {sekme === "ajanlar" && (
         <>
           <AjanSekmeleri sonuclar={sonuclar} calisanlar={calisanlar} hatalar={hatalar} />
+          {gecersizler.length > 0 && (
+            <div className="kart gecersiz-kart">
+              <div className="bolum-baslik">Çalıştırılmayan ölçümler — veriyle uyumsuz</div>
+              <p className="agac-aciklama">
+                Hedef ağacı bu ölçümleri üretti ama veride karşılıkları yok.
+                Çalıştırılmadılar; boş sonuç için kota harcanmadı.
+              </p>
+              {gecersizler.map((g, i) => (
+                <div key={i} className="gecersiz-satir">
+                  <div className="gecersiz-baslik">{g.baslik}</div>
+                  <div className="olcum-soru">{g.soru}</div>
+                  {g.sebepler.map((s, j) => <div key={j} className="gecersiz-sebep">{s}</div>)}
+                </div>
+              ))}
+            </div>
+          )}
+
           {atlananlar.length > 0 && (
             <div className="kart atlanan">
               <div className="bolum-baslik">Çalıştırılmayan ölçümler</div>

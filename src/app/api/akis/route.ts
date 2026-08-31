@@ -57,6 +57,9 @@ export async function POST(istek: Request) {
         for await (const olay of olcumleriCalistir({
           saglayici, kayit: sistem.kayit, atamalar,
           esZamanli: 2, azamiOlcum: 4,
+          // Dogrulama: olmayan degere atif yapan olcumler calistirilmadan
+          // elenir, boylece kota bos sorguya harcanmaz.
+          tablolar, degerler,
         })) {
           yolla(olay);
         }

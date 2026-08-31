@@ -3,6 +3,9 @@ import type { Saglayici } from "../llm/tipler";
 import { donguCalistir } from "./dongu";
 import { sistemIstemi } from "./istem";
 import type { Atama } from "./dagitici";
+import { olcumuDogrula } from "../hedef/dogrula";
+import type { Tablo } from "../db/sema";
+import type { KolonDegerleri } from "../db/degerler";
 
 export interface OlcumSonucu {
   dugumId: string;
@@ -26,7 +29,8 @@ export type OlcumOlayi =
   | { tur: "basladi"; dugumId: string; ajanKod: string; ajanAd: string; renk: string; baslik: string }
   | { tur: "bitti"; sonuc: OlcumSonucu }
   | { tur: "hata"; dugumId: string; ajanKod: string; baslik: string; mesaj: string }
-  | { tur: "atlandi"; dugumId: string; baslik: string; sebep: string };
+  | { tur: "atlandi"; dugumId: string; baslik: string; sebep: string }
+  | { tur: "gecersiz"; dugumId: string; baslik: string; soru: string; sebepler: string[] };
 
 export interface OlcumSecenekleri {
   saglayici: Saglayici;
@@ -38,6 +42,10 @@ export interface OlcumSecenekleri {
   /** Kac olcum calistirilacak. Agac 12 olcum uretebiliyor; hepsini
    *  calistirmak gunluk kotayi tek soruda bitirir. */
   azamiOlcum?: number;
+  /** Dogrulama icin sema ve gercek durum degerleri. Verilmezse dogrulama
+   *  atlanir (davranis eskisi gibi olur). */
+  tablolar?: Tablo[];
+  degerler?: KolonDegerleri[];
 }
 
 /**
@@ -53,8 +61,28 @@ export async function* olcumleriCalistir(
   const esZamanli = Math.max(1, s.esZamanli ?? 2);
   const azami = s.azamiOlcum ?? 4;
 
-  const calisacak = s.atamalar.slice(0, azami);
-  for (const atlanan of s.atamalar.slice(azami)) {
+  // ONCE DOGRULA, sonra butceyi harca. Model istemde gercek degerler
+  // olmasina ragmen olmayan deger uretebiliyor (Asama='Kapalı',
+  // Oncelik='Yuksek'); bunlar ~40 sn ve ~3.000 token harcayip bos
+  // donuyordu. Calistirmadan once eleniyorlar.
+  const gecerliler: Atama[] = [];
+  const gecersizOlaylar: OlcumOlayi[] = [];
+
+  for (const a of s.atamalar) {
+    if (!s.tablolar?.length || !s.degerler?.length) { gecerliler.push(a); continue; }
+    const metin = `${a.dugum.baslik} ${a.dugum.olcumSorusu ?? ""}`;
+    const d = olcumuDogrula(metin, s.tablolar, s.degerler);
+    if (d.gecerli) gecerliler.push(a);
+    else gecersizOlaylar.push({
+      tur: "gecersiz", dugumId: a.dugum.id, baslik: a.dugum.baslik,
+      soru: a.dugum.olcumSorusu ?? a.dugum.baslik,
+      sebepler: d.gecersizlikler.map((g) => g.mesaj),
+    });
+  }
+  for (const o of gecersizOlaylar) yield o;
+
+  const calisacak = gecerliler.slice(0, azami);
+  for (const atlanan of gecerliler.slice(azami)) {
     yield {
       tur: "atlandi",
       dugumId: atlanan.dugum.id,
