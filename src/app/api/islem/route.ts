@@ -35,7 +35,14 @@ export async function POST(istek: Request) {
   const eylem = String(govde.eylem ?? "");
   try {
     if (eylem === "oner") {
-      return NextResponse.json(await oner(String(govde.islemKodu ?? ""), govde.parametreler));
+      // olcumBaglamlari: planin dogdugu olcum(ler). F6 bunlari yeniden
+      // calistirip etkiyi olcuyor.
+      const baglamlar = Array.isArray(govde.olcumBaglamlari)
+        ? (govde.olcumBaglamlari as any[])
+        : undefined;
+      return NextResponse.json(
+        await oner(String(govde.islemKodu ?? ""), govde.parametreler, baglamlar)
+      );
     }
     if (eylem === "uygula") {
       return NextResponse.json(await uygula(String(govde.kayitId ?? ""), String(govde.onaylayan ?? "")));

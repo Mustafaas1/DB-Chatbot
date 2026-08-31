@@ -2,6 +2,9 @@ import * as denetim from "./denetim";
 import { AZAMI_ETKI, islemBul } from "./islemler";
 import { yazmaAcikMi } from "./havuzYaz";
 import type { DenetimKaydi, Prova } from "./tipler";
+import * as gbDepo from "../geribesleme/depo";
+import type { OlcumBaglami } from "../geribesleme/tipler";
+import { havuzGetir } from "../db/havuz";
 
 /**
  * Yazma yurutucusu.
@@ -30,7 +33,16 @@ export interface Oneri {
  * Islemi ONERIR: parametreleri dogrular, provayi calistirir, denetime yazar.
  * HICBIR SEY DEGISTIRMEZ.
  */
-export async function oner(islemKodu: string, hamParametreler: unknown): Promise<Oneri> {
+export async function oner(
+  islemKodu: string,
+  hamParametreler: unknown,
+  /**
+   * Bu islemin hangi olcumden dogdugu. F6 geri beslemesi bu sorgulari
+   * yeniden calistirip once/sonra karsilastirmasi yapar. Verilmezse
+   * geri besleme calisamaz (olcum baglami bulunamadi der).
+   */
+  olcumBaglamlari?: OlcumBaglami[]
+): Promise<Oneri> {
   const islem = islemBul(islemKodu);
   if (!islem) throw new OnayHatasi(`Tanimsiz islem: ${islemKodu}. Beyaz listede yok.`);
 
@@ -51,6 +63,13 @@ export async function oner(islemKodu: string, hamParametreler: unknown): Promise
   const kayitId = denetim.oneriKaydet(
     islem.kod, islem.ad, islem.hedefTablo, dogrulama.data, prova
   );
+
+  // Olcum baglamlari ONERI aninda saklanir: plan hangi olcumden dogduysa
+  // etkisi de o olcumle olculmeli.
+  for (const b of olcumBaglamlari ?? []) {
+    try { gbDepo.baglamKaydet(kayitId, b); }
+    catch { /* baglam kaydedilemezse islem yine de onerilebilir */ }
+  }
 
   return {
     kayitId,
@@ -91,6 +110,14 @@ export async function uygula(kayitId: string, onaylayan: string): Promise<Deneti
   if (!islem) throw new OnayHatasi(`Tanimsiz islem: ${kayit.islemKodu}`);
 
   denetim.durumGuncelle(kayitId, "onaylandi", { onaylayan });
+
+  // "ONCE" goruntusu YAZMADAN HEMEN ONCE alinir. Geri besleme boylece
+  // gercek bir once/sonra karsilastirmasi yapabilir; yoksa yalnizca
+  // uygulamadan SONRAKI durumu olcup "referans yok" demek zorunda kaliyor.
+  //
+  // Oneri aninda almak yaniltici olurdu: oneri ile onay arasinda dakikalar
+  // gecebilir ve o aralikta olan degisim bu isleme yazilirdi.
+  await oncekiGoruntuleriAl(kayitId);
 
   try {
     const { oncekiDurum } = await islem.uygula(kayit.parametreler);
@@ -140,6 +167,35 @@ export async function geriAl(kayitId: string, geriAlan: string): Promise<Denetim
   }
 
   return denetim.getir(kayitId)!;
+}
+
+/**
+ * Islemle iliskili olcum sorgularini calistirip "once" goruntusu kaydeder.
+ *
+ * Sessizce basarisiz olur: geri besleme bir ek katman, olcum alinamadi
+ * diye yazma islemi engellenmemeli.
+ */
+async function oncekiGoruntuleriAl(kayitId: string): Promise<void> {
+  let baglamlar: OlcumBaglami[] = [];
+  try { baglamlar = gbDepo.baglamlariGetir(kayitId); } catch { return; }
+  if (!baglamlar.length) return;
+
+  for (const b of baglamlar) {
+    try {
+      const havuz = await havuzGetir();
+      const istek = havuz.request();
+      istek.arrayRowMode = true;
+      const y = await istek.query(b.sql);
+
+      const ust = y.recordset?.columns ?? {};
+      const kolonlar = Object.values(ust).sort((x, z) => x.index - z.index).map((k) => k.name);
+      const satirlar = (y.recordset as unknown as unknown[][]) ?? [];
+
+      gbDepo.snapshotKaydet(
+        kayitId, b.dugumId, b.ajanKod, b.soru, b.sql, kolonlar, satirlar, "once"
+      );
+    } catch { /* tek olcum alinamazsa digerlerine devam */ }
+  }
 }
 
 export { denetim };
