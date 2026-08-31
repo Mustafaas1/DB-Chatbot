@@ -44,7 +44,7 @@ function atamalar(adet: number): Atama[] {
       id: `d${i}`, baslik: `olcum ${i}`, tur: "olcum", gerekce: "",
       seviye: 2, cocuklar: [], durum: "bekliyor", olcumSorusu: `soru ${i}`,
     };
-    return { dugum: d, ajan: AJANLAR[i % AJANLAR.length]!, puan: 10 };
+    return { dugum: d, ajan: AJANLAR[i % AJANLAR.length]!, puan: 10, belirsiz: false };
   });
 }
 

@@ -21,7 +21,7 @@ const sonuc: OlcumSonucu = {
   dugumId: "d1", ajanKod: "destek", ajanAd: "Destek Ajanı", renk: "#b45309",
   baslik: "Aşama dağılımı", soru: "s", cevap: "", sql: "",
   kolonlar: ["Asama", "Adet"], satirlar: [["Beklemede", 47], ["İşlemde", 12]],
-  satirSayisi: 2, bosMu: false, sureMs: 10,
+  satirSayisi: 2, bosMu: false, belirsiz: false, sureMs: 10,
   kullanim: { girdiTokeni: 0, ciktiTokeni: 0 },
 };
 

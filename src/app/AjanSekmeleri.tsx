@@ -14,6 +14,7 @@ export interface OlcumSonucu {
   kolonlar: string[];
   satirlar: unknown[][];
   bosMu: boolean;
+  belirsiz: boolean;
   sureMs: number;
   kullanim: { girdiTokeni: number; ciktiTokeni: number };
 }
@@ -48,6 +49,13 @@ function SonucKarti({ s }: { s: OlcumSonucu }) {
         <span className="alt-bilgi">{s.sureMs} ms</span>
       </div>
       <div className="olcum-soru">{s.soru}</div>
+
+      {s.belirsiz && (
+        <div className="olcum-belirsiz">
+          Bu ölçüm hangi bölüme ait olduğu <strong>anlaşılamadığı için</strong>
+          {" "}varsayılan ajana verildi; sonuç yanlış kapsamda olabilir.
+        </div>
+      )}
 
       {s.bosMu ? (
         <div className="olcum-bos">

@@ -7,7 +7,7 @@ function sonuc(kolonlar: string[], satirlar: unknown[][]): OlcumSonucu {
     dugumId: "d1", ajanKod: "destek", ajanAd: "Destek", renk: "#000",
     baslik: "test", soru: "s", cevap: "", sql: "",
     kolonlar, satirlar, satirSayisi: satirlar.length,
-    bosMu: satirlar.length === 0, sureMs: 1,
+    bosMu: satirlar.length === 0, belirsiz: false, sureMs: 1,
     kullanim: { girdiTokeni: 0, ciktiTokeni: 0 },
   };
 }

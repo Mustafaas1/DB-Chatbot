@@ -22,12 +22,14 @@ export interface OlcumSonucu {
   satirSayisi: number;
   /** 0 satir donduren olcum: dugum muhtemelen olmayan bir seye atif yapiyor. */
   bosMu: boolean;
+  /** Yonlendirme tahmine dayaliysa true. */
+  belirsiz: boolean;
   sureMs: number;
   kullanim: { girdiTokeni: number; ciktiTokeni: number };
 }
 
 export type OlcumOlayi =
-  | { tur: "basladi"; dugumId: string; ajanKod: string; ajanAd: string; renk: string; baslik: string }
+  | { tur: "basladi"; dugumId: string; ajanKod: string; ajanAd: string; renk: string; baslik: string; belirsiz: boolean }
   | { tur: "bitti"; sonuc: OlcumSonucu }
   | { tur: "hata"; dugumId: string; ajanKod: string; baslik: string; mesaj: string }
   | { tur: "atlandi"; dugumId: string; baslik: string; sebep: string }
@@ -145,6 +147,7 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
   const baslangic: OlcumOlayi = {
     tur: "basladi", dugumId: dugum.id, ajanKod: ajan.kod,
     ajanAd: ajan.ad, renk: ajan.renk, baslik: dugum.baslik,
+    belirsiz: atama.belirsiz,
   };
 
   const t0 = Date.now();
@@ -179,6 +182,7 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
         baslik: dugum.baslik, soru, cevap: sonuc.cevap, sql,
         kolonlar, satirlar, satirSayisi: satirlar.length,
         bosMu: satirlar.length === 0,
+        belirsiz: atama.belirsiz,
         sureMs: Date.now() - t0,
         kullanim: sonuc.kullanim,
       },
