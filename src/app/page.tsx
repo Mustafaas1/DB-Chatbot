@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HedefAgaci, type AgacYaniti } from "./HedefAgaci";
 
 interface Adim { ad: string; sorgu: string; ok: boolean; sureMs: number; }
 interface Tablo { kolonlar: string[]; satirlar: unknown[][]; }
@@ -39,12 +40,16 @@ export default function Sayfa() {
   const [soru, setSoru] = useState("");
   const [bekliyor, setBekliyor] = useState(false);
   const [yanit, setYanit] = useState<Yanit | null>(null);
+  const [agac, setAgac] = useState<AgacYaniti | null>(null);
+  const [agacBekliyor, setAgacBekliyor] = useState(false);
+  const [sekme, setSekme] = useState<"cevap" | "agac">("cevap");
   const [hata, setHata] = useState("");
 
   async function sor(metin: string) {
     const s = metin.trim();
     if (!s || bekliyor) return;
-    setBekliyor(true); setHata(""); setYanit(null); setSoru(s);
+    setBekliyor(true); setHata(""); setYanit(null); setAgac(null);
+    setSekme("cevap"); setSoru(s);
     try {
       const r = await fetch("/api/sor", {
         method: "POST",
@@ -52,12 +57,29 @@ export default function Sayfa() {
         body: JSON.stringify({ soru: s }),
       });
       const g = await r.json();
-      if (!r.ok) setHata(g.hata ?? "İstek başarısız."); else setYanit(g);
+      if (!r.ok) { setHata(g.hata ?? "İstek başarısız."); return; }
+      setYanit(g);
     } catch (e) {
       setHata(e instanceof Error ? e.message : "Sunucuya ulaşılamadı.");
+      return;
     } finally {
       setBekliyor(false);
     }
+
+    // Agaci AYRI istekte kuruyoruz: cevap hemen gorunsun, agac arkadan
+    // gelsin. Ikisini tek istege koymak hem beklemeyi uzatiyor hem de
+    // dakikalik token sinirini tek seferde zorluyordu.
+    setAgacBekliyor(true);
+    try {
+      const r = await fetch("/api/agac", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soru: s }),
+      });
+      const g = await r.json();
+      if (r.ok) setAgac(g);
+    } catch { /* agac gelmezse cevap yine duruyor */ }
+    finally { setAgacBekliyor(false); }
   }
 
   const sayisal = yanit?.tablo ? sayisalKolonlar(yanit.tablo) : [];
@@ -89,6 +111,24 @@ export default function Sayfa() {
       {hata && <div className="kart hata">{hata}</div>}
 
       {yanit && (
+        <>
+          <div className="sekmeler">
+            <button type="button" className={sekme === "cevap" ? "aktif" : ""}
+              onClick={() => setSekme("cevap")}>Cevap</button>
+            <button type="button" className={sekme === "agac" ? "aktif" : ""}
+              disabled={!agac && !agacBekliyor} onClick={() => setSekme("agac")}>
+              Hedef ağacı{agacBekliyor ? " (kuruluyor…)" : ""}
+            </button>
+          </div>
+        </>
+      )}
+
+      {yanit && sekme === "agac" && (
+        agac ? <HedefAgaci agac={agac} />
+             : <div className="kart bekliyor">Hedef ağacı kuruluyor…</div>
+      )}
+
+      {yanit && sekme === "cevap" && (
         <>
           <div className="kart">
             <div className="cevap">{kalinla(yanit.cevap)}</div>

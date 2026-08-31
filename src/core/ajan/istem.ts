@@ -1,5 +1,6 @@
 import { semaGetir, semaMetni } from "../db/sema";
 import { kapsamSec } from "../db/kapsam";
+import { degerlerMetni, durumDegerleri } from "../db/degerler";
 
 /**
  * Sistem istemi.
@@ -14,6 +15,9 @@ export async function sistemIstemi(soru: string): Promise<string> {
   // soruda asiyordu. Soruya gore daraltiyoruz; tum tablo ADLARI yine de
   // veriliyor ki model neyin var oldugunu bilsin.
   const { secilen, tumAdlar } = kapsamSec(soru, tablolar);
+  // Durum degerleri VERITABANINDAN okunur; elle yazilirsa (Tamamlandi gibi)
+  // model birebir kopyalayip yanlis filtre kuruyor.
+  const degerler = degerlerMetni(await durumDegerleri(tablolar));
   const sema = semaMetni(tablolar, new Set(secilen.map((t) => t.ad)));
 
   return [
@@ -48,12 +52,10 @@ export async function sistemIstemi(soru: string): Promise<string> {
     "- Listeleme yalnizca 'listele', 'getir', 'en cok ... 10' gibi",
     "  aciklikla satir istenen sorularda yapilir.",
     "",
-    "IS SOZLUGU (degerleri TAHMIN ETME, bunlar veritabanindaki gercek yazimlar)",
-    "- TicketRecords.Asama: 'Beklemede', 'İşlemde', 'Tamamlandı'",
-    "  'Acik' bilet demek: Asama <> N'Tamamlandı'",
-    "- Teklifler.Durum: 'Teklif', 'Gönderildi', 'Kazanıldı', 'Kaybedildi'",
-    "- Turkce karakterleri AYNEN yaz: Tamamlandı (Tamamlandi DEGIL),",
-    "  Kazanıldı, Gönderildi, İşlemde. Yanlis yazim sessizce bos sonuc verir.",
+    "DURUM DEGERLERI (veritabanindan okundu; baskasini UYDURMA)",
+    degerler,
+    "- Turkce karakterleri AYNEN yaz. Yanlis yazim sessizce BOS sonuc verir.",
+    "- 'Acik' bilet demek: Asama <> N'Tamamlandı'",
     "- Tarih kolonlari datetime2; gun bazinda karsilastirirken CAST(... AS date) kullan.",
     "",
     "--- TUM TABLOLAR ---",
