@@ -118,14 +118,15 @@
   .tablo-sarici { overflow: auto; max-height: 70vh; }
   /* border-collapse: separate -- yapiskan baslikta "collapse" ile cizgiler
      hucreye degil tabloya ait olur ve baslik kaydiginda cizgi kaybolur. */
-  /* Tablo ICERIGI kadar genis olur, panele yayilmaz. width:100% iken
-     iki kolonluk bir ozet 950px'e uzuyor ve hucreler arasinda yuzlerce
-     piksel bosluk kaliyordu. Cok kolonlu tablolar .tablo-sarici icinde
-     yatay kayar. min-width tek kolonluk sonuclarin cook dar kalmasini
-     onler. */
+  /* Tablo karti doldurur. Kolon sirasi metin->sayi oldugu icin etiket
+     SOL kenarda, sayi SAG kenarda hizalanir; iki kolonlu ozette alan
+     ortadan ikiye bolunmus gorunur. (Sirasi sayi->metin iken ayni
+     genislik cirkin duruyordu: ikisi de ortadaki bosluga bakiyordu.)
+     Cok kolonlu tablolar icerik kadar uzar ve .tablo-sarici icinde
+     yatay kayar. */
   table {
     border-collapse: separate; border-spacing: 0; font-size: 13.5px;
-    width: max-content; min-width: min(100%, 340px);
+    width: 100%;
   }
   thead th {
     /* z-index basligi govdenin UZERINDE tutar. Onceden hem baslik hem hucre
