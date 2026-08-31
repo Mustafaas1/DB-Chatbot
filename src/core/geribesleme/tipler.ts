@@ -33,6 +33,15 @@ export interface OlcumBaglami {
 /** Tek bir kolonun onceki ve sonraki degerleri arasindaki fark. */
 export interface KolonEtkisi {
   kolon: string;
+  /**
+   * Uygulama öncesi ve sonrası toplam.
+   *
+   * Yalnızca farkı göstermek yetersizdi: "+1" ile "47 → 48" arasında
+   * okunabilirlik farkı var, ayrıca farkın büyüklüğü ancak tabana
+   * bakılınca anlam kazanıyor.
+   */
+  onceki: number | null;
+  sonraki: number | null;
   /** Sayısal kolonlarda fark; diğerlerinde null. */
   fark: number | null;
   /** Yüzde değişim; önceki 0 ise null. */

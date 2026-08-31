@@ -18,6 +18,8 @@ interface GBKayit {
 
 interface KolonEtkisi {
   kolon: string;
+  onceki: number | null;
+  sonraki: number | null;
   fark: number | null;
   yuzde: number | null;
   yon: "artis" | "azalis" | "ayni" | "belirsiz";
@@ -101,18 +103,24 @@ function EtkiKarti({ sonuc }: { sonuc: EtkiSonuc }) {
               <thead>
                 <tr>
                   <th>Kolon</th>
+                  <th className="sayi">Önce</th>
+                  <th className="sayi">Sonra</th>
                   <th className="sayi">Fark</th>
                   <th className="sayi">Değişim</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {rapor.kolonEtkileri.map((ke) => (
                   <tr key={ke.kolon}>
                     <td>{ke.kolon}</td>
+                    <td className="sayi gb-taban">
+                      {ke.onceki != null ? ke.onceki.toLocaleString("tr-TR") : "—"}
+                    </td>
+                    <td className="sayi gb-taban">
+                      {ke.sonraki != null ? ke.sonraki.toLocaleString("tr-TR") : "—"}
+                    </td>
                     <td className="sayi"><YonSimge yon={ke.yon} deger={ke.fark} /></td>
                     <td className="sayi"><YuzdeBadge yuzde={ke.yuzde} /></td>
-                    <td></td>
                   </tr>
                 ))}
               </tbody>

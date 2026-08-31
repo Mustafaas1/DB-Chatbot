@@ -82,6 +82,8 @@ function kolonEtkileriHesapla(
 
     etkiler.push({
       kolon,
+      onceki: o ?? null,
+      sonraki: s ?? null,
       fark,
       yuzde,
       yon: fark !== 0 ? yon(fark) : "ayni",

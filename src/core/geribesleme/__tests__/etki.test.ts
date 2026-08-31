@@ -151,3 +151,19 @@ describe("etkiHesapla", () => {
     expect(rapor.kolonEtkileri).toEqual([]);
   });
 });
+
+describe("kolon etkisi once/sonra tasir", () => {
+  // Onceden yalnizca fark vardi; "+1" ile "47 -> 48" arasinda
+  // okunabilirlik farki var ve farkin buyuklugu ancak tabana bakilinca
+  // anlam kazaniyor.
+  it("onceki ve sonraki toplamlar raporda yer alir", () => {
+    const once = snapshot("once", ["Asama", "Bilet Sayisi"], [["Beklemede", 47], ["İşlemde", 12]]);
+    const sonra = snapshot("sonra", ["Asama", "Bilet Sayisi"], [["Beklemede", 47], ["İşlemde", 13]]);
+    const r = etkiHesapla(once, sonra, true);
+
+    const k = r.kolonEtkileri.find((x) => x.kolon === "Bilet Sayisi");
+    expect(k?.onceki).toBe(59);
+    expect(k?.sonraki).toBe(60);
+    expect(k?.fark).toBe(1);
+  });
+});
