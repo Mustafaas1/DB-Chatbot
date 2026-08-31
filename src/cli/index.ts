@@ -7,6 +7,9 @@
  *   npm run cli -- calistir veri_sorgula "{...}" --prova
  */
 import { baglamOlustur, sistemKur } from "../core/kur.js";
+import { donguCalistir } from "../core/ajan/dongu.js";
+import { sistemIstemi } from "../core/ajan/istem.js";
+import { saglayiciSec } from "../core/llm/index.js";
 
 const RENK = { sonuc: "[32m", hata: "[31m", soluk: "[90m", bitir: "[0m" };
 
@@ -14,7 +17,8 @@ function yardim(): void {
   console.log(`Kullanim:
   liste                       Kayitli araclari listeler
   sema <arac>                 Aracin girdi semasini (JSON Schema) gosterir
-  calistir <arac> <json>      Araci calistirir. --prova ile gercekten calismaz.`);
+  calistir <arac> <json>      Araci calistirir. --prova ile gercekten calismaz.
+  sor "<soru>"                Soruyu LLM'e sorar; araclari kendisi cagirir.`);
 }
 
 async function main(): Promise<number> {
@@ -64,6 +68,39 @@ async function main(): Promise<number> {
       console.log(JSON.stringify(sonuc.deger, null, 2));
       console.log(`${RENK.soluk}${sonuc.sureMs} ms${provaMi ? " (prova)" : ""}${RENK.bitir}`);
       return 0;
+    }
+
+    if (komut === "sor") {
+      const soru = kalan.join(" ").trim();
+      if (!soru) { console.error("Soru gerekli."); return 2; }
+
+      const saglayici = saglayiciSec();
+      const istem = await sistemIstemi();
+      console.log(`${RENK.soluk}${saglayici.ad}/${saglayici.model} - istem ~${Math.round(istem.length / 4)} token${RENK.bitir}`);
+
+      const sonuc = await donguCalistir({
+        saglayici,
+        kayit: sistem.kayit,
+        baglam: baglamOlustur(provaMi),
+        sistemIstemi: istem,
+        soru,
+      });
+
+      for (const a of sonuc.adimlar) {
+        const im = a.ok ? `${RENK.sonuc}OK${RENK.bitir}` : `${RENK.hata}HATA${RENK.bitir}`;
+        const sorgu = (a.girdi as { sorgu?: string })?.sorgu ?? JSON.stringify(a.girdi);
+        console.log(`${RENK.soluk}. ${a.ad} ${im} ${a.sureMs} ms${RENK.bitir}`);
+        console.log(`${RENK.soluk}  ${String(sorgu).replace(/\s+/g, " ").slice(0, 160)}${RENK.bitir}`);
+        if (!a.ok) console.log(`${RENK.hata}  ${a.ozet.slice(0, 200)}${RENK.bitir}`);
+      }
+
+      console.log();
+      console.log(sonuc.cevap);
+      console.log(
+        `${RENK.soluk}${sonuc.kullanim.girdiTokeni} + ${sonuc.kullanim.ciktiTokeni} token` +
+        `${sonuc.durmaSebebi ? ` - durdu: ${sonuc.durmaSebebi}` : ""}${RENK.bitir}`
+      );
+      return sonuc.tamamlandi ? 0 : 1;
     }
 
     console.error(`Bilinmeyen komut: ${komut}`);
