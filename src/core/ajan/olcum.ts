@@ -4,6 +4,7 @@ import { donguCalistir } from "./dongu";
 import { sistemIstemi } from "./istem";
 import type { Atama } from "./dagitici";
 import { olcumuDogrula } from "../hedef/dogrula";
+import { semaSozlugu, zeminKontrol } from "../hedef/zemin";
 import type { Tablo } from "../db/sema";
 import type { KolonDegerleri } from "../db/degerler";
 
@@ -68,15 +69,33 @@ export async function* olcumleriCalistir(
   const gecerliler: Atama[] = [];
   const gecersizOlaylar: OlcumOlayi[] = [];
 
+  const sozluk = s.tablolar?.length ? semaSozlugu(s.tablolar) : null;
+
   for (const a of s.atamalar) {
-    if (!s.tablolar?.length || !s.degerler?.length) { gecerliler.push(a); continue; }
+    if (!s.tablolar?.length) { gecerliler.push(a); continue; }
     const metin = `${a.dugum.baslik} ${a.dugum.olcumSorusu ?? ""}`;
-    const d = olcumuDogrula(metin, s.tablolar, s.degerler);
-    if (d.gecerli) gecerliler.push(a);
+    const sebepler: string[] = [];
+
+    // 1) ZEMIN: veride hic karsiligi olmayan kavram var mi
+    //    ("SSS makale", "chatbot"). Bunlar 22-34 sn harcayip anlamsiz
+    //    donuyordu.
+    if (sozluk) {
+      const z = zeminKontrol(metin, sozluk);
+      if (!z.zeminli) sebepler.push(z.sebep);
+    }
+
+    // 2) DEGER/TIP: olmayan durum degeri ya da sayisal kolon-metin
+    //    karsilastirmasi.
+    if (s.degerler?.length) {
+      const d = olcumuDogrula(metin, s.tablolar, s.degerler);
+      if (!d.gecerli) sebepler.push(...d.gecersizlikler.map((g) => g.mesaj));
+    }
+
+    if (!sebepler.length) gecerliler.push(a);
     else gecersizOlaylar.push({
       tur: "gecersiz", dugumId: a.dugum.id, baslik: a.dugum.baslik,
       soru: a.dugum.olcumSorusu ?? a.dugum.baslik,
-      sebepler: d.gecersizlikler.map((g) => g.mesaj),
+      sebepler,
     });
   }
   for (const o of gecersizOlaylar) yield o;
