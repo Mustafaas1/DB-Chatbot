@@ -45,6 +45,50 @@ describe("skorHesapla", () => {
   });
 });
 
+const dogrulamaVeri = {
+  tablolar: [{
+    sema: "dbo", ad: "TicketRecords", satirSayisi: 100,
+    kolonlar: [
+      { ad: "Asama", tip: "nvarchar", bosOlabilir: true },
+      { ad: "Oncelik", tip: "int", bosOlabilir: false },
+    ],
+  }],
+  degerler: [{ tablo: "TicketRecords", kolon: "Asama",
+               degerler: ["Beklemede", "İşlemde", "Tamamlandı"] }],
+};
+
+describe("plan dogrulamasi", () => {
+  it("OLMAYAN duruma atif yapan plan yurutulemez isaretlenir", async () => {
+    const s = new Sahte(JSON.stringify([{
+      baslik: "Biletleri kapat", aciklama: "Asama = 'Çözülmüş' yap",
+      etki: 4, caba: 2, guven: 0.8, islemKodu: "bilet_asama_degistir",
+    }]));
+    const r = await planUret(s, sonuc, teshis, "hedef", dogrulamaVeri);
+    expect(r.planlar[0]!.yurutulebilir).toBe(false);
+    expect(r.planlar[0]!.islemKodu).toBe("");
+    expect(r.planlar[0]!.uyari).toContain("Çözülmüş");
+  });
+
+  it("GECERLI duruma atif yapan plan yurutulebilir kalir", async () => {
+    const s = new Sahte(JSON.stringify([{
+      baslik: "Biletleri kapat", aciklama: "Asama = 'Tamamlandı' yap",
+      etki: 4, caba: 2, guven: 0.8, islemKodu: "bilet_asama_degistir",
+    }]));
+    const r = await planUret(s, sonuc, teshis, "hedef", dogrulamaVeri);
+    expect(r.planlar[0]!.yurutulebilir).toBe(true);
+    expect(r.planlar[0]!.uyari).toBe("");
+  });
+
+  it("dogrulama verilmezse davranis degismez", async () => {
+    const s = new Sahte(JSON.stringify([{
+      baslik: "X", aciklama: "Asama = 'Çözülmüş'",
+      etki: 4, caba: 2, guven: 0.8, islemKodu: "bilet_asama_degistir",
+    }]));
+    const r = await planUret(s, sonuc, teshis, "hedef");
+    expect(r.planlar[0]!.yurutulebilir).toBe(true);
+  });
+});
+
 describe("planUret", () => {
   it("planlari SKORA GORE siralar", async () => {
     const r = await uret(JSON.stringify([

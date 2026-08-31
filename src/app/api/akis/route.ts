@@ -80,7 +80,8 @@ export async function POST(istek: Request) {
             // bosa gitmesin.
             if (!olay.sonuc.bosMu) {
               const { planlar } = await planUret(
-                saglayici, olay.sonuc, teshis, niyet.ortukHedef
+                saglayici, olay.sonuc, teshis, niyet.ortukHedef,
+                { tablolar, degerler }
               );
               if (planlar.length) yolla({ tur: "planlar", planlar });
             }

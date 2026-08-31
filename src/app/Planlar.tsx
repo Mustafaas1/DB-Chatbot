@@ -14,6 +14,7 @@ export interface Plan {
   skor: number;
   islemKodu: string;
   yurutulebilir: boolean;
+  uyari: string;
 }
 
 /** 1-5 arasi degeri nokta dizisiyle gosterir; sayidan hizli okunuyor. */
@@ -62,6 +63,10 @@ export function Planlar({ planlar }: { planlar: Plan[] }) {
             <div className="plan-yurut">
               Bu plan sistemde tanımlı bir işlemle uygulanabilir
               {" "}(<code>{p.islemKodu}</code>). İşlemler sekmesinden onaya sunun.
+            </div>
+          ) : p.uyari ? (
+            <div className="plan-uyari">
+              Uygulanabilir işaretlenmedi: {p.uyari}
             </div>
           ) : (
             <div className="plan-elle">Bu plan elle uygulanır; sistemde tanımlı bir işlemi yok.</div>

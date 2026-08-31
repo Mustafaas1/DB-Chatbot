@@ -1,4 +1,4 @@
-/* ---------------------------------------------------------------------------
+﻿/* ---------------------------------------------------------------------------
    F5 - YAZMA KATMANI
    ---------------------------------------------------------------------------
    Beyaz listeyi VERITABANINDA zorlar. ajan_yazar kullanicisinin hicbir
@@ -8,6 +8,9 @@
 
    PAROLA DOSYAYA YAZILMAZ. sqlcmd degiskeni olarak disaridan verilir;
    bu repo public oldugu icin parolanin dosyaya girmesi sizinti olurdu.
+
+   NOT: Dosya UTF-8 BOM ile kaydedilir; sqlcmd BOM'suz UTF-8'i ANSI
+   sanip Turkce karakterleri bozuyor.
 
    Calistirma (yonetici PowerShell):
      sqlcmd -S "localhost\SQLEXPRESS" -E -d gokkusagi_passwordvault ^
@@ -54,10 +57,23 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Asama degerleri SABIT: uygulama katmani asilsa bile baska deger giremez.
-    IF @Deger NOT IN (N'Beklemede', N'İşlemde', N'Tamamlandı')
+    -- Asama degeri TABLODA VAR OLAN bir deger olmali.
+    --
+    -- Onceden sabit liste yaziliydi (N'Beklemede', N'İşlemde', ...) ama
+    -- sqlcmd bu dosyayi ANSI okuyunca Turkce karakterler bozuluyor ve
+    -- 'Tamamlandı' yordamda 'TamamlandÄ±' olarak kaliyordu: gecerli deger
+    -- reddediliyor, geri alma calismiyor du.
+    --
+    -- Veriyle karsilastirma hem kodlamadan bagimsiz (iki taraf da
+    -- veritabanindan geliyor) hem de kendi kendini gunceller: yeni bir
+    -- asama eklenirse liste elle bakim istemez. Uydurulmus deger yine
+    -- giremez, cunku tabloda karsiligi yoktur.
+    IF NOT EXISTS (
+        SELECT 1 FROM dbo.TicketRecords
+        WHERE Asama = @Deger AND IsDeleted = 0
+    )
     BEGIN
-        RAISERROR('Gecersiz asama degeri.', 16, 1);
+        RAISERROR('Gecersiz asama degeri: tabloda boyle bir asama yok.', 16, 1);
         RETURN;
     END
 

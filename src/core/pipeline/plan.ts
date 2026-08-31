@@ -4,6 +4,9 @@ import { LlmHatasi } from "../llm/tipler";
 import type { OlcumSonucu } from "../ajan/olcum";
 import type { Teshis } from "./teshis";
 import { ISLEMLER } from "../yaz/islemler";
+import { olcumuDogrula } from "../hedef/dogrula";
+import type { Tablo } from "../db/sema";
+import type { KolonDegerleri } from "../db/degerler";
 
 /**
  * S4 - PLAN
@@ -40,6 +43,8 @@ export interface Plan extends HamPlan {
   skor: number;
   /** islemKodu beyaz listede var mi; arayuz "Uygula" gosterir. */
   yurutulebilir: boolean;
+  /** Yurutulemez isaretlendiyse sebebi. */
+  uyari: string;
 }
 
 /** Siralama skoru. Formul kodda sabit; planlar boylece karsilastirilabilir. */
@@ -109,7 +114,9 @@ export async function planUret(
   saglayici: Saglayici,
   sonuc: OlcumSonucu,
   teshis: Teshis,
-  hedef: string
+  hedef: string,
+  /** Verilirse plan metni gercek degerlere karsi denetlenir. */
+  dogrulama?: { tablolar: Tablo[]; degerler: KolonDegerleri[] }
 ): Promise<PlanSonucu> {
   const kodlar = ISLEMLER.map((i) => i.kod);
   const gecerliKodlar = new Set(kodlar);
@@ -129,9 +136,24 @@ export async function planUret(
     const planlar: Plan[] = ham.map((p, i) => {
       // Model olmayan islem kodu uydurabiliyor; beyaz listeye karsi
       // denetleniyor. Uydurulmussa plan kalir ama yurutulemez isaretlenir.
-      const kod = gecerliKodlar.has(p.islemKodu) ? p.islemKodu : "";
+      let kod = gecerliKodlar.has(p.islemKodu) ? p.islemKodu : "";
+      let uyari = "";
+
+      // Plan olmayan bir duruma atif yapiyorsa (Asama='Çözülmüş' gibi)
+      // YURUTULEBILIR sayilmaz. F5 yordami bunu zaten reddederdi, ama
+      // arayuzun tutamayacagi bir soz vermesi de dogru degil.
+      if (kod && dogrulama) {
+        const d = olcumuDogrula(
+          `${p.baslik} ${p.aciklama}`, dogrulama.tablolar, dogrulama.degerler
+        );
+        if (!d.gecerli) {
+          uyari = d.gecersizlikler.map((g) => g.mesaj).join(" ");
+          kod = "";
+        }
+      }
+
       return {
-        ...p, islemKodu: kod,
+        ...p, islemKodu: kod, uyari,
         id: `${sonuc.dugumId}-${i}`,
         dugumId: sonuc.dugumId,
         ajanKod: sonuc.ajanKod, ajanAd: sonuc.ajanAd, renk: sonuc.renk,
