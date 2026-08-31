@@ -118,7 +118,15 @@
   .tablo-sarici { overflow: auto; max-height: 70vh; }
   /* border-collapse: separate -- yapiskan baslikta "collapse" ile cizgiler
      hucreye degil tabloya ait olur ve baslik kaydiginda cizgi kaybolur. */
-  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+  /* Tablo ICERIGI kadar genis olur, panele yayilmaz. width:100% iken
+     iki kolonluk bir ozet 950px'e uzuyor ve hucreler arasinda yuzlerce
+     piksel bosluk kaliyordu. Cok kolonlu tablolar .tablo-sarici icinde
+     yatay kayar. min-width tek kolonluk sonuclarin cook dar kalmasini
+     onler. */
+  table {
+    border-collapse: separate; border-spacing: 0; font-size: 13.5px;
+    width: max-content; min-width: min(100%, 340px);
+  }
   thead th {
     /* z-index basligi govdenin UZERINDE tutar. Onceden hem baslik hem hucre
        z-index:1 idi; esitlikte DOM sirasi kazandigi icin kaydirirken hucre
@@ -132,12 +140,6 @@
   }
   thead th:last-child { border-right: none; }
   thead th.sayi { text-align: right; }
-  /* Kolonlar ICERIGE gore daralir; artan genislik EN SONA birakilir.
-     Onceden her kolon esit pay aliyordu: iki kolonlu bir tabloda 950px'lik
-     alan 490/460 bolunuyor, sayi kendi yarisinin SAGINA, etiket kendi
-     yarisinin SOLUNA yaslandigi icin aralarinda 150px bosluk kaliyordu. */
-  thead th, tbody td { width: 1px; }
-  thead th:last-child, tbody td:last-child { width: auto; }
   td {
     padding: 0; background: var(--panel);
     border-bottom: 1px solid var(--ince);
@@ -989,15 +991,33 @@ if (!adim) {
       return satirlar.length > 0 && satirlar.every(function (s) { return typeof s[n] === "number"; });
     });
 
+    // GORUNTU SIRASI: once metin kolonlari, sonra sayisal olanlar.
+    // Model bazen "COUNT(*), Asama" sirasiyla donuyor; o zaman sayi SAGA,
+    // etiket SOLA yaslandigi icin ikisi de ortadaki bosluga bakiyor ve
+    // arada kocaman bir aciklik kaliyordu. Etiket basta, sayi sonda
+    // olunca klasik rapor duzeni cikiyor: "Beklemede ....... 47".
+    // Siralama KARARLI: kolonlarin kendi aralarindaki sira korunur.
+    // Yalnizca DAR ozet tablolarinda uygulanir. Genis listelerde (bilet
+    // dokumu gibi) sorgunun kendi kolon sirasi anlamlidir; orada sayisal
+    // kolonu sona atmak gereksiz yere duzeni bozuyordu.
+    const ozetMi = kolonlar.length <= 3;
+    const sira = kolonlar
+      .map(function (_, n) { return n; })
+      .sort(function (a, b) {
+        if (!ozetMi) return a - b;
+        return (sayisalKolon[a] - sayisalKolon[b]) || (a - b);
+      });
+
     const tb = document.getElementById("tbaslik");
-    kolonlar.forEach(function (k, n) {
-      tb.appendChild(el("th", sayisalKolon[n] ? "sayi" : null, k));
+    sira.forEach(function (n) {
+      tb.appendChild(el("th", sayisalKolon[n] ? "sayi" : null, kolonlar[n]));
     });
 
     const tg = document.getElementById("tgovde");
     for (const satir of satirlar) {
       const tr = el("tr");
-      satir.forEach(function (h, n) {
+      sira.forEach(function (n) {
+        const h = satir[n];
         const s = typeof h === "number";
         const bos = h === null || h === undefined;
         const td = el("td", s ? "sayi" : (bos ? "bos" : null));
@@ -1006,7 +1026,8 @@ if (!adim) {
         td.appendChild(ic);
         tr.appendChild(td);
       });
-      // Ozet tablosunda her satir bir grup: tiklayinca o grubun kayitlari gelir.
+      // satirinEtiketi HAM satiri alir: goruntu sirasi degisti diye
+      // gruplama degeri degismemeli.
       const etiket = satirinEtiketi(satir);
       if (etiket !== null) tiklanirYap(tr, etiket);
       tg.appendChild(tr);
@@ -1016,7 +1037,12 @@ if (!adim) {
     // Excel'e aktarma: HAM satirlarin tamami gider, ekranda gosterilen
     // bicimlenmis metinler degil.
     document.getElementById("disaAktar").addEventListener("click", function () {
-      csvIndir(kolonlar, satirlar, adim.ajan);
+      // CSV ekranla ayni sirada olsun; yoksa disa aktarma farkli goruntu verir.
+      csvIndir(
+        sira.map(function (n) { return kolonlar[n]; }),
+        satirlar.map(function (r) { return sira.map(function (n) { return r[n]; }); }),
+        adim.ajan
+      );
     });
   }
 
