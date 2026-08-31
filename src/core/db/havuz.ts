@@ -1,5 +1,5 @@
 import sql from "mssql";
-import { dbAyari } from "./ayar.js";
+import { dbAyari } from "./ayar";
 
 let havuz: sql.ConnectionPool | null = null;
 

@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from app import oturum
+from pybot import oturum
 
 
 @pytest.fixture(autouse=True)

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AracHataKodu, AracSonucu, AracTanimi, Baglam } from "./tipler.js";
+import type { AracHataKodu, AracSonucu, AracTanimi, Baglam } from "./tipler";
 
 /** Anthropic tool-use bicimindeki arac semasi. */
 export interface AnthropicArac {

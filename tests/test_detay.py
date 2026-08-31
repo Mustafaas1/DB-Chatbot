@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.detay import DetayHatasi, _bolumler, detay_sql_uret
+from pybot.detay import DetayHatasi, _bolumler, detay_sql_uret
 
 OZET = (
     "SELECT COUNT(*) AS [Bilet Sayisi], [Asama] AS [Asama]\n"
@@ -94,7 +94,7 @@ def test_cok_uzun_deger_reddedilir():
 
 
 def test_uretilen_sql_guvenlik_dogrulamasindan_gecer():
-    from app.sqlguard import validate_sql
+    from pybot.sqlguard import validate_sql
 
     # run_select bu dogrulamayi calistiriyor; enjeksiyon denemesi de dahil
     # uretilen sorgu salt-okunur kuralini gecmeli.

@@ -8,7 +8,7 @@ icinde bulunulan turun satirlarinin KORUNDUGUNU guvence altina alir.
 
 from __future__ import annotations
 
-from app.llm import _arac_ozeti, _claude_gecmisi_kirp, _groq_gecmisi_kirp
+from pybot.llm import _arac_ozeti, _claude_gecmisi_kirp, _groq_gecmisi_kirp
 
 SONUC = (
     "Sorgu basarili. 16 satir dondu (51 ms)." + chr(10) +

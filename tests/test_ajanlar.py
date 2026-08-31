@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from app import sqlcache
-from app.ajanlar import ajan_bul, ajanlari_getir
-from app.planlayici import AZAMI_VERI_ADIMI, _json_ayikla, _tek_adim, plan_yap
-from app.schema import schema_to_prompt
+from pybot import sqlcache
+from pybot.ajanlar import ajan_bul, ajanlari_getir
+from pybot.planlayici import AZAMI_VERI_ADIMI, _json_ayikla, _tek_adim, plan_yap
+from pybot.schema import schema_to_prompt
 
 
 @pytest.fixture(autouse=True)
@@ -20,8 +20,8 @@ def crm_ajanlari(monkeypatch):
     sabitliyoruz ki .env degisince testler kirilmasin.
     """
     import dataclasses
-    from app import ajanlar as ajan_modulu
-    from app import schema as sema_modulu
+    from pybot import ajanlar as ajan_modulu
+    from pybot import schema as sema_modulu
 
     sabit = dataclasses.replace(
         ajan_modulu.settings, db_type="mssql", mssql_database="gokkusagi_passwordvault"
@@ -66,7 +66,7 @@ def test_ajan_sozlugu_isteme_giriyor(monkeypatch):
 
     Sema sahte: test hangi veritabanina bagli oldugumuzdan bagimsiz olmali.
     """
-    from app import schema as sema_modulu
+    from pybot import schema as sema_modulu
 
     sahte = {
         "database": "gokkusagi_passwordvault",
@@ -236,7 +236,7 @@ class SahteSonuc:
 
 
 def test_varsayilan_cevap_tamamlanmis_sayilir():
-    from app.llm import ChatCevabi
+    from pybot.llm import ChatCevabi
 
     assert ChatCevabi("x", [], None, [], {}).tamamlandi is True
 
@@ -244,8 +244,8 @@ def test_varsayilan_cevap_tamamlanmis_sayilir():
 def test_yarida_kalan_adimin_sonucu_gonderilmez(monkeypatch):
     """Sorgu turleri tukenince elde kalan sonuc yarim bir denemeye ait
     olabilir; arayuze gecerli sonuc gibi gitmemeli."""
-    from app import orkestra
-    from app.planlayici import Adim
+    from pybot import orkestra
+    from pybot.planlayici import Adim
 
     monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
     monkeypatch.setattr(orkestra, "sohbet_et",
@@ -258,8 +258,8 @@ def test_yarida_kalan_adimin_sonucu_gonderilmez(monkeypatch):
 
 
 def test_tamamlanan_adimin_sonucu_gonderilir(monkeypatch):
-    from app import orkestra
-    from app.planlayici import Adim
+    from pybot import orkestra
+    from pybot.planlayici import Adim
 
     monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
     monkeypatch.setattr(orkestra, "sohbet_et",
@@ -274,9 +274,9 @@ def test_yarida_kalan_adim_sonrakine_devredilmez(monkeypatch):
     """Guvenilmez bulgu ikinci ajani yanlis yonlendirmemeli."""
     import dataclasses
 
-    from app import orkestra
-    from app.config import settings
-    from app.planlayici import Adim
+    from pybot import orkestra
+    from pybot.config import settings
+    from pybot.planlayici import Adim
 
     # Statik plan yolu test ediliyor: dinamik zincir acikken planlayicinin
     # ikinci adimi dusuruluyor ve zinciri tetikleyici kuruyor.
@@ -302,8 +302,8 @@ def test_yarida_kalan_adim_sonrakine_devredilmez(monkeypatch):
 
 def test_zincir_tur_siniri_uygulanir(monkeypatch):
     """Zincirde basarisiz bir adim 6 tur donerse cok pahaliya mal oluyor."""
-    from app import orkestra
-    from app.planlayici import Adim
+    from pybot import orkestra
+    from pybot.planlayici import Adim
 
     verilen = {}
     monkeypatch.setattr(orkestra, "plan_yap", lambda s: [Adim(ajan_bul("satis"), "gorev")])
@@ -318,8 +318,8 @@ def test_zincir_tur_siniri_uygulanir(monkeypatch):
 
 
 def test_grafik_adimina_bicim_yonergesi_eklenir():
-    from app.orkestra import _gorev_metni
-    from app.planlayici import Adim
+    from pybot.orkestra import _gorev_metni
+    from pybot.planlayici import Adim
 
     grafikli = _gorev_metni(Adim(ajan_bul("finans"), "gorev", True), "")
     duz = _gorev_metni(Adim(ajan_bul("finans"), "gorev", False), "")
@@ -335,7 +335,7 @@ def test_grafik_adimina_bicim_yonergesi_eklenir():
 def test_sabit_etiket_kolonu_atilir():
     """Model talimata ragmen her satirda ayni degeri tasiyan 'Etiket' kolonu
     ekliyordu; uc kez talimatla denendi, kodda ayikliyoruz."""
-    from app.orkestra import _sonucu_temizle
+    from pybot.orkestra import _sonucu_temizle
 
     c = _sonucu_temizle({
         "columns": ["Durum", "Sayi", "Etiket"],
@@ -347,7 +347,7 @@ def test_sabit_etiket_kolonu_atilir():
 
 
 def test_degisen_etiket_kolonu_korunur():
-    from app.orkestra import _sonucu_temizle
+    from pybot.orkestra import _sonucu_temizle
 
     c = _sonucu_temizle({
         "columns": ["Durum", "Etiket"],
@@ -359,7 +359,7 @@ def test_degisen_etiket_kolonu_korunur():
 
 def test_anlamli_sabit_kolon_korunur():
     """Tek para birimi donen bir sorguda 'Para Birimi' sabittir ama anlamlidir."""
-    from app.orkestra import _sonucu_temizle
+    from pybot.orkestra import _sonucu_temizle
 
     c = _sonucu_temizle({
         "columns": ["Durum", "Para Birimi", "Tutar"],
@@ -370,7 +370,7 @@ def test_anlamli_sabit_kolon_korunur():
 
 
 def test_tek_satirda_dokunulmaz():
-    from app.orkestra import _sonucu_temizle
+    from pybot.orkestra import _sonucu_temizle
 
     g = {"columns": ["Durum", "Etiket"], "rows": [["A", "X"]], "row_count": 1}
     assert _sonucu_temizle(g)["columns"] == ["Durum", "Etiket"]
@@ -437,8 +437,8 @@ def test_kesilen_cikti_genis_butceyle_tekrar_denenir():
 # (Proje Ajani'nin destek biletlerini gorememesi hatasi).
 
 def test_kapsam_ek_tablolarla_genisler():
-    from app.llm import _ajan_kapsami
-    from app.ajanlar import ajan_bul
+    from pybot.llm import _ajan_kapsami
+    from pybot.ajanlar import ajan_bul
 
     proje = ajan_bul("proje")
     kendi = _ajan_kapsami(proje)
@@ -456,9 +456,9 @@ def test_tetiklenen_ajan_onceki_tablonun_semasini_gorur():
     ediyordu ama tablo TANIMI semada olmadigi icin Proje Ajani
     "boyle bir tablo yok" diyordu.
     """
-    from app.llm import _ajan_kapsami
-    from app.ajanlar import ajan_bul
-    from app.schema import schema_to_prompt
+    from pybot.llm import _ajan_kapsami
+    from pybot.ajanlar import ajan_bul
+    from pybot.schema import schema_to_prompt
 
     proje = ajan_bul("proje")
     destek = ajan_bul("destek")
@@ -473,7 +473,7 @@ def test_tetiklenen_ajan_onceki_tablonun_semasini_gorur():
 
 
 def test_kapsamsiz_ajan_daraltilmaz():
-    from app.llm import _ajan_kapsami
+    from pybot.llm import _ajan_kapsami
 
     # Tablolari olmayan ajan tum semayi gorur; ek tablo bunu daraltmamali.
     assert _ajan_kapsami(None) is None
@@ -488,8 +488,8 @@ def test_ilk_parca_dusunce_koddan_cumle_kurulur():
 
     'bunlarin cogu (125) Bekliyor' tek basina havada kaliyordu.
     """
-    from app.orkestra import _rakam_yigilmasini_at
-    from app.db import QueryResult
+    from pybot.orkestra import _rakam_yigilmasini_at
+    from pybot.db import QueryResult
 
     sonuc = QueryResult(
         columns=["Durum", "Görev Sayısı"],
@@ -507,8 +507,8 @@ def test_ilk_parca_dusunce_koddan_cumle_kurulur():
 
 def test_ilk_parca_kalinca_model_cumlesi_korunur():
     """Asil davranis bozulmamali: ilk parca duruyorsa o kullanilir."""
-    from app.orkestra import _rakam_yigilmasini_at
-    from app.db import QueryResult
+    from pybot.orkestra import _rakam_yigilmasini_at
+    from pybot.db import QueryResult
 
     sonuc = QueryResult(
         columns=["Durum", "Adet"],
@@ -532,14 +532,14 @@ def test_madde_numarasi_cumleyi_kesmez():
     "1." cumle sonu sayilinca cevap ekranda sadece "1." olarak
     goruntuleniyordu.
     """
-    from app.orkestra import _ilk_cumle
+    from pybot.orkestra import _ilk_cumle
 
     metin = "1. Biletleri onceliklendirin. 2. Kapasiteyi artirin."
     assert _ilk_cumle(metin) == "1. Biletleri onceliklendirin."
 
 
 def test_ondalik_sayi_cumleyi_kesmez():
-    from app.orkestra import _ilk_cumle
+    from pybot.orkestra import _ilk_cumle
 
     metin = "Toplam 3.5 milyon TL. Ikinci cumle."
     assert _ilk_cumle(metin) == "Toplam 3.5 milyon TL."
@@ -547,7 +547,7 @@ def test_ondalik_sayi_cumleyi_kesmez():
 
 def test_duz_cumle_hala_kesilir():
     """Asil davranis bozulmamali."""
-    from app.orkestra import _ilk_cumle
+    from pybot.orkestra import _ilk_cumle
 
     metin = "Su anda 59 acik destek bileti var. Gerisi tabloda."
     assert _ilk_cumle(metin) == "Su anda 59 acik destek bileti var."

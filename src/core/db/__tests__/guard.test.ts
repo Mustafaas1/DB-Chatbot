@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SqlGuardHatasi, sqlDogrula } from "../guard.js";
+import { SqlGuardHatasi, sqlDogrula } from "../guard";
 
 const YASAK = new Set(["users", "credentialrecords", "refreshtokens"]);
 

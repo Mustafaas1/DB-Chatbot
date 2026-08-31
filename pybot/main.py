@@ -67,7 +67,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-API-Token"],
 )
 
-# Oturum gecmisi SQLite'ta tutulur (app/oturum.py). Bellekte tutuldugunda
+# Oturum gecmisi SQLite'ta tutulur (pybot/oturum.py). Bellekte tutuldugunda
 # sunucu her yeniden baslatildiginda konusmalar siliniyordu ve birden fazla
 # worker calistirildiginda her worker'in kendi kopyasi oluyordu.
 

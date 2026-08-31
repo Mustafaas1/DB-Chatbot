@@ -2,17 +2,30 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "chatbot",
+      "name": "chatbot-python",
       "runtimeExecutable": "python",
       "runtimeArgs": [
         "-m",
         "uvicorn",
-        "app.main:app",
+        "pybot.main:app",
         "--port",
         "8000",
         "--reload"
       ],
       "port": 8000,
+      "autoPort": false
+    },
+    {
+      "name": "is-zekasi",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3000"
+      ],
+      "port": 3000,
       "autoPort": false
     }
   ]

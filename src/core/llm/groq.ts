@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import type {
   AracCagrisi, BitisSebebi, KonusmaIstegi, Mesaj, Saglayici, SaglayiciYaniti,
-} from "./tipler.js";
-import { LlmHatasi } from "./tipler.js";
+} from "./tipler";
+import { LlmHatasi } from "./tipler";
 
 const TABAN_URL = "https://api.groq.com/openai/v1";
 

@@ -12,7 +12,7 @@ import dataclasses
 import pytest
 from fastapi import HTTPException
 
-from app import guvenlik
+from pybot import guvenlik
 
 ANAHTAR = "gizli-deneme-anahtari-1234567890"
 
@@ -84,7 +84,7 @@ def test_bosluklar_kirpilir(token_ayarla):
 
 def test_tum_api_uclari_korumali():
     """Yeni bir /api/* ucu eklenirse korumasiz unutulmasin."""
-    from app.main import app
+    from pybot.main import app
 
     korumasiz = []
     for rota in app.routes:
@@ -100,7 +100,7 @@ def test_tum_api_uclari_korumali():
 
 
 def test_ham_sql_varsayilan_kapali():
-    from app.config import settings
+    from pybot.config import settings
     assert settings.allow_raw_sql is False, "ALLOW_RAW_SQL varsayilan kapali olmali"
 
 

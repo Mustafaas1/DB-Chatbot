@@ -13,10 +13,10 @@ import json
 
 import pytest
 
-from app import tetikleyici
-from app.ajanlar import ajan_bul
-from app.config import settings
-from app.planlayici import Adim
+from pybot import tetikleyici
+from pybot.ajanlar import ajan_bul
+from pybot.config import settings
+from pybot.planlayici import Adim
 
 
 class SahteMesaj:
@@ -175,7 +175,7 @@ def test_verisi_olmayan_adim_tetik_uretmez(biten):
 
 
 def test_tum_ajanlar_kullanildiysa_model_cagrilmaz(biten):
-    from app.ajanlar import ajanlari_getir
+    from pybot.ajanlar import ajanlari_getir
 
     hepsi = [a.kod for a in ajanlari_getir()]
     istemci = SahteIstemci(json.dumps({"devam": True, "ajan": "proje", "gorev": "x"}))
@@ -226,9 +226,9 @@ def _zinciri_kur(monkeypatch, tetikler, azami=4, tamamlandi=True):
     """akis_uret'i sahte ajan ve sahte tetiklerle calistirir."""
     import dataclasses
 
-    from app import orkestra
-    from app.ajanlar import ajan_bul as _bul
-    from app.config import settings as _ayar
+    from pybot import orkestra
+    from pybot.ajanlar import ajan_bul as _bul
+    from pybot.config import settings as _ayar
 
     monkeypatch.setattr(
         orkestra, "settings",
@@ -256,7 +256,7 @@ def _zinciri_kur(monkeypatch, tetikler, azami=4, tamamlandi=True):
 
 
 def _tetik(kod, gorev, gerekce):
-    from app.ajanlar import ajan_bul as _bul
+    from pybot.ajanlar import ajan_bul as _bul
 
     return tetikleyici.TetikKarari(Adim(_bul(kod), gorev, False, gerekce), gerekce)
 
@@ -306,8 +306,8 @@ def test_yarida_kalan_adim_zinciri_uzatmaz(monkeypatch):
 
 
 def test_tetikli_adimin_gorevine_gerekce_eklenir():
-    from app.orkestra import _gorev_metni
-    from app.ajanlar import ajan_bul as _bul
+    from pybot.orkestra import _gorev_metni
+    from pybot.ajanlar import ajan_bul as _bul
 
     metin = _gorev_metni(
         Adim(_bul("proje"), "Gorevleri say", False, "Biletler beklemede."),

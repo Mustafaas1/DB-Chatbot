@@ -1,4 +1,5 @@
-import { semaGetir, semaMetni } from "../db/sema.js";
+import { semaGetir, semaMetni } from "../db/sema";
+import { kapsamSec } from "../db/kapsam";
 
 /**
  * Sistem istemi.
@@ -7,9 +8,13 @@ import { semaGetir, semaMetni } from "../db/sema.js";
  * Belirleyici olmasi gereken seyler koda alinmali, istemde kalanlar da
  * kisa ve somut ornekli olmali. Uzun nasihat listesi ise yaramiyor.
  */
-export async function sistemIstemi(sadece?: ReadonlySet<string>): Promise<string> {
+export async function sistemIstemi(soru: string): Promise<string> {
   const tablolar = await semaGetir();
-  const sema = semaMetni(tablolar, sadece);
+  // Tum semayi gondermek Groq ucretsiz katmaninin 8.000 TPM sinirini tek
+  // soruda asiyordu. Soruya gore daraltiyoruz; tum tablo ADLARI yine de
+  // veriliyor ki model neyin var oldugunu bilsin.
+  const { secilen, tumAdlar } = kapsamSec(soru, tablolar);
+  const sema = semaMetni(tablolar, new Set(secilen.map((t) => t.ad)));
 
   return [
     "Turkce bir veri asistanisin. Kullanicilar SQL bilmez.",
@@ -32,8 +37,34 @@ export async function sistemIstemi(sadece?: ReadonlySet<string>): Promise<string
     "  DOGRU : SELECT COUNT(*) AS [Bilet Sayisi]",
     "  YANLIS: SELECT COUNT(*) AS BiletSayisi",
     "",
-    "--- VERITABANI SEMASI ---",
+    "GRUPLAMA (bu modelde en sik yapilan hata)",
+    "- Soruda '...-e gore' geciyorsa GROUP BY kullan, satir listeleme.",
+    "  Soru  : Asamalarina gore acik destek biletleri",
+    "  DOGRU : SELECT Asama AS [Asama], COUNT(*) AS [Bilet Sayisi]",
+    "          FROM dbo.TicketRecords",
+    "          WHERE IsDeleted = 0 AND Asama <> N'Tamamlandı'",
+    "          GROUP BY Asama",
+    "  YANLIS: SELECT TOP 10 BiletNo, Baslik, Asama FROM dbo.TicketRecords",
+    "- Listeleme yalnizca 'listele', 'getir', 'en cok ... 10' gibi",
+    "  aciklikla satir istenen sorularda yapilir.",
+    "",
+    "IS SOZLUGU (degerleri TAHMIN ETME, bunlar veritabanindaki gercek yazimlar)",
+    "- TicketRecords.Asama: 'Beklemede', 'İşlemde', 'Tamamlandı'",
+    "  'Acik' bilet demek: Asama <> N'Tamamlandı'",
+    "- Teklifler.Durum: 'Teklif', 'Gönderildi', 'Kazanıldı', 'Kaybedildi'",
+    "- Turkce karakterleri AYNEN yaz: Tamamlandı (Tamamlandi DEGIL),",
+    "  Kazanıldı, Gönderildi, İşlemde. Yanlis yazim sessizce bos sonuc verir.",
+    "- Tarih kolonlari datetime2; gun bazinda karsilastirirken CAST(... AS date) kullan.",
+    "",
+    "--- TUM TABLOLAR ---",
+    tumAdlar.join(", "),
+    "",
+    "--- SORUYLA ILGILI TABLOLARIN AYRINTISI ---",
     sema,
+    "",
+    "Yukaridaki listede olup ayrintisi verilmeyen bir tabloya ihtiyacin",
+    "olursa yine sorgulayabilirsin; kolon adlarini tahmin etme, once",
+    "SELECT TOP 1 * ile bak.",
     "",
     "Bugunun tarihi: " + new Date().toISOString().slice(0, 10),
   ].join("\n");

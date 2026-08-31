@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
-import type { AracKaydi } from "../tools/kayit.js";
-import type { AracTanimi } from "../tools/tipler.js";
+import type { AracKaydi } from "../tools/kayit";
+import type { AracTanimi } from "../tools/tipler";
 
 /** mcp.json bicimi. */
 export const McpAyarSemasi = z.object({

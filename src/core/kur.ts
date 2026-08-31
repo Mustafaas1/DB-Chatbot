@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { AracKaydi } from "./tools/kayit.js";
-import type { Baglam } from "./tools/tipler.js";
-import { veriSorgulaAraci } from "./db/aracSorgu.js";
-import { McpYoneticisi } from "./mcp/yonetici.js";
+import { AracKaydi } from "./tools/kayit";
+import type { Baglam } from "./tools/tipler";
+import { veriSorgulaAraci } from "./db/aracSorgu";
+import { McpYoneticisi } from "./mcp/yonetici";
 
 export interface Sistem {
   kayit: AracKaydi;
@@ -24,7 +24,7 @@ export async function sistemKur(mcpAyarYolu = "mcp.json"): Promise<Sistem> {
     mcp,
     async kapat() {
       await mcp.kapat();
-      const { havuzKapat } = await import("./db/havuz.js");
+      const { havuzKapat } = await import("./db/havuz");
       await havuzKapat();
     },
   };

@@ -1,7 +1,7 @@
-import type { AracKaydi } from "../tools/kayit.js";
-import type { Baglam } from "../tools/tipler.js";
-import type { Mesaj, Saglayici, SaglayiciYaniti } from "../llm/tipler.js";
-import { LlmHatasi } from "../llm/tipler.js";
+import type { AracKaydi } from "../tools/kayit";
+import type { Baglam } from "../tools/tipler";
+import type { Mesaj, Saglayici, SaglayiciYaniti } from "../llm/tipler";
+import { LlmHatasi } from "../llm/tipler";
 
 export interface AdimKaydi {
   tur: "arac";

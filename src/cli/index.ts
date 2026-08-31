@@ -6,10 +6,10 @@
  *   npm run cli -- calistir veri_sorgula "{\"sorgu\":\"SELECT 1 AS x\"}"
  *   npm run cli -- calistir veri_sorgula "{...}" --prova
  */
-import { baglamOlustur, sistemKur } from "../core/kur.js";
-import { donguCalistir } from "../core/ajan/dongu.js";
-import { sistemIstemi } from "../core/ajan/istem.js";
-import { saglayiciSec } from "../core/llm/index.js";
+import { baglamOlustur, sistemKur } from "../core/kur";
+import { donguCalistir } from "../core/ajan/dongu";
+import { sistemIstemi } from "../core/ajan/istem";
+import { saglayiciSec } from "../core/llm/index";
 
 const RENK = { sonuc: "[32m", hata: "[31m", soluk: "[90m", bitir: "[0m" };
 
@@ -75,7 +75,7 @@ async function main(): Promise<number> {
       if (!soru) { console.error("Soru gerekli."); return 2; }
 
       const saglayici = saglayiciSec();
-      const istem = await sistemIstemi();
+      const istem = await sistemIstemi(soru);
       console.log(`${RENK.soluk}${saglayici.ad}/${saglayici.model} - istem ~${Math.round(istem.length / 4)} token${RENK.bitir}`);
 
       const sonuc = await donguCalistir({

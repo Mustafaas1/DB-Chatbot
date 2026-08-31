@@ -59,7 +59,7 @@ verilerle doldurur (sözleşmelerin bir kısmı bilerek önümüzdeki 30 gün i�
 ### 4. Çalıştırma
 
 ```bash
-python -m uvicorn app.main:app --reload
+python -m uvicorn pybot.main:app --reload
 ```
 
 Tarayıcıdan <http://localhost:8000/demo> adresini açın — sağ alt köşedeki yuvarlak butona tıklayın.
@@ -156,7 +156,7 @@ Groq'ta **araç çağırmayı destekleyen** bir model seçin — aksi halde SQL 
 Groq kataloğu sık değişir; hesabınızda hangileri var görmek için:
 
 ```bash
-python -c "import sys; sys.path.insert(0,'.'); from app.llm import get_groq_client; print(*sorted(m.id for m in get_groq_client().models.list().data), sep='
+python -c "import sys; sys.path.insert(0,'.'); from pybot.llm import get_groq_client; print(*sorted(m.id for m in get_groq_client().models.list().data), sep='
 ')"
 ```
 
@@ -335,8 +335,8 @@ Yapay zekanın ürettiği her SQL, çalışmadan önce üç katmandan geçer:
 
 | Katman | Ne yapar |
 |---|---|
-| `app/sqlguard.py` | Yalnızca tek bir `SELECT`/`WITH` ifadesine izin verir. `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `EXEC`, `xp_*`, `SELECT ... INTO` gibi ifadeleri reddeder. Noktalı virgülle **ve** noktalı virgülsüz (`SELECT 1 DROP TABLE x`) zincirlemeyi engeller. |
-| `app/db.py` | Bağlantı `autocommit=False` açılır ve sorgu bitince **her zaman `rollback`** yapılır. Satır limiti (`MAX_ROWS`) ve zaman aşımı (`QUERY_TIMEOUT`) uygulanır. |
+| `pybot/sqlguard.py` | Yalnızca tek bir `SELECT`/`WITH` ifadesine izin verir. `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `EXEC`, `xp_*`, `SELECT ... INTO` gibi ifadeleri reddeder. Noktalı virgülle **ve** noktalı virgülsüz (`SELECT 1 DROP TABLE x`) zincirlemeyi engeller. |
+| `pybot/db.py` | Bağlantı `autocommit=False` açılır ve sorgu bitince **her zaman `rollback`** yapılır. Satır limiti (`MAX_ROWS`) ve zaman aşımı (`QUERY_TIMEOUT`) uygulanır. |
 | Veritabanı | `db_datareader` yetkili kullanıcı (yukarıdaki öneri). |
 
 Metin sabitleri (`WHERE Unvan LIKE '%delete%'`) ve köşeli parantezli kolon adları
@@ -494,7 +494,7 @@ gidilmediği için token harcamaz. Sorgular 60 saniye önbelleklenir.
 
 Aktif veritabanı için tanım yoksa bölüm boş kalır ve bunu açıkça söyler —
 uydurma rakam gösterilmez. Kendi veritabanınız için tanımları
-[app/ozet.py](app/ozet.py) içindeki `TANIMLAR` sözlüğüne ekleyin.
+[pybot/ozet.py](pybot/ozet.py) içindeki `TANIMLAR` sözlüğüne ekleyin.
 
 ---
 
@@ -557,8 +557,8 @@ Tamamen kapatmak için `.env` içinde `SQL_CACHE=off`.
 
 - **Oturumlar bellekte tutulur.** Uygulama yeniden başlarsa sohbet geçmişi silinir ve
   birden fazla işçi süreçle (`--workers 2`) çalıştırılamaz. Çok kullanıcılı dağıtımda
-  `app/main.py` içindeki `OTURUMLAR` sözlüğü Redis gibi bir depoya taşınmalıdır.
+  `pybot/main.py` içindeki `OTURUMLAR` sözlüğü Redis gibi bir depoya taşınmalıdır.
 - **Kimlik doğrulama yok.** Uygulamayı olduğu gibi internete açmayın; şirket ağı içinde
   veya bir kimlik doğrulama katmanı (reverse proxy / SSO) arkasında çalıştırın.
 - **Çok büyük şemalar.** Yüzlerce tablolu veritabanlarında şema metni uzar ve token
-  maliyetini artırır. Bu durumda `app/schema.py` içine tablo filtresi eklenmelidir.
+  maliyetini artırır. Bu durumda `pybot/schema.py` içine tablo filtresi eklenmelidir.

@@ -8,7 +8,7 @@ ekleniyor; model yalnizca aktariyor.
 
 from __future__ import annotations
 
-from app.llm import _hesaplanmis_ozet
+from pybot.llm import _hesaplanmis_ozet
 
 
 class SahteSonuc:

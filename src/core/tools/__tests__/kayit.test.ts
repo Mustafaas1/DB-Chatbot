@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AracKaydi } from "../kayit.js";
-import type { AracTanimi, Baglam } from "../tipler.js";
+import { AracKaydi } from "../kayit";
+import type { AracTanimi, Baglam } from "../tipler";
 
 const baglam = (provaMi = false): Baglam => ({ izId: "test", provaMi });
 

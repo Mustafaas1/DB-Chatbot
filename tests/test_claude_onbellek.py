@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from app import llm, sqlcache
+from pybot import llm, sqlcache
 
 
 class SahteBlok:

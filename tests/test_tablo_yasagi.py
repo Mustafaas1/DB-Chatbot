@@ -12,15 +12,15 @@ import dataclasses
 
 import pytest
 
-from app import sqlguard
-from app.sqlguard import SqlGuardError, validate_sql
+from pybot import sqlguard
+from pybot.sqlguard import SqlGuardError, validate_sql
 
 YASAKLI = ["CredentialRecords", "Users", "RefreshTokens"]
 
 
 @pytest.fixture(autouse=True)
 def yasakli_ayar(monkeypatch):
-    from app import config
+    from pybot import config
 
     monkeypatch.setattr(
         config, "settings",
@@ -68,7 +68,7 @@ def test_mesru_sorgular_engellenmez(sql):
 
 def test_yasak_listesi_bossa_her_sey_serbest(monkeypatch):
     """Hassas tablosu olmayan kurulumlarda davranis degismemeli."""
-    from app import config
+    from pybot import config
 
     monkeypatch.setattr(
         config, "settings", dataclasses.replace(config.settings, schema_exclude=[])

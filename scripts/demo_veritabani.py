@@ -18,7 +18,7 @@ import pyodbc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings  # noqa: E402
+from pybot.config import settings  # noqa: E402
 
 DB_ADI = settings.mssql_database
 
@@ -305,4 +305,4 @@ if __name__ == "__main__":
     print(f"Sunucu: {settings.mssql_server}")
     veritabanini_olustur()
     veri_ekle()
-    print("\nHazir. Uygulamayi baslatmak icin:  python -m uvicorn app.main:app --reload")
+    print("\nHazir. Uygulamayi baslatmak icin:  python -m uvicorn pybot.main:app --reload")

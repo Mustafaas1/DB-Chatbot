@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.sqlguard import SqlGuardError, validate_sql
+from pybot.sqlguard import SqlGuardError, validate_sql
 
 
 # ---------------------------------------------------------------- izin verilenler

@@ -12,9 +12,9 @@ import time
 
 import pytest
 
-from app import schema as sema_modulu
-from app import sqlcache
-from app.schema import sema_hatasi_mi, _bayat
+from pybot import schema as sema_modulu
+from pybot import sqlcache
+from pybot.schema import sema_hatasi_mi, _bayat
 
 
 def tmp_yol():

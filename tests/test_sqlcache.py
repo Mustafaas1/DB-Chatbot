@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from app import sqlcache
+from pybot import sqlcache
 
 
 @pytest.fixture(autouse=True)

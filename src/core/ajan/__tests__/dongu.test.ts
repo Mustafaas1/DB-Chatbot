@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AracKaydi } from "../../tools/kayit.js";
-import type { AracTanimi, Baglam } from "../../tools/tipler.js";
-import type { KonusmaIstegi, Saglayici, SaglayiciYaniti } from "../../llm/tipler.js";
-import { LlmHatasi } from "../../llm/tipler.js";
-import { donguCalistir } from "../dongu.js";
+import { AracKaydi } from "../../tools/kayit";
+import type { AracTanimi, Baglam } from "../../tools/tipler";
+import type { KonusmaIstegi, Saglayici, SaglayiciYaniti } from "../../llm/tipler";
+import { LlmHatasi } from "../../llm/tipler";
+import { donguCalistir } from "../dongu";
 
 const baglam: Baglam = { izId: "t", provaMi: false };
 

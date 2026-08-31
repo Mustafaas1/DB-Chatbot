@@ -1,4 +1,4 @@
-import { havuzGetir } from "./havuz.js";
+import { havuzGetir } from "./havuz";
 
 export interface Kolon { ad: string; tip: string; bosOlabilir: boolean; }
 export interface Tablo {

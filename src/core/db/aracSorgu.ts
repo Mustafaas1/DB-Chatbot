@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { AracTanimi } from "../tools/tipler.js";
-import { dbAyari } from "./ayar.js";
-import { havuzGetir } from "./havuz.js";
-import { sqlDogrula } from "./guard.js";
+import type { AracTanimi } from "../tools/tipler";
+import { dbAyari } from "./ayar";
+import { havuzGetir } from "./havuz";
+import { sqlDogrula } from "./guard";
 
 /**
  * Yasakli tablolar. Veritabaninda zaten DENY var; burasi ONDEKI kapi,

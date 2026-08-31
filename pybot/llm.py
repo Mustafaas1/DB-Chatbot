@@ -30,8 +30,9 @@ ORTAK_TALIMAT = """Turkce bir veri asistanisin. Kullanicilar SQL bilmez, gunluk 
 Sorulari SQL'e cevir, calistir, sonucu sade Turkce ozetle.
 
 CALISMA
-- `sql_calistir` aracini kullan; yalnizca aracin dondurdugu gercek veriye dayan, veri uydurma.
-- Once calistir sonra yorumla; tahmin yurutme.
+- Veri gerektiren sorularda `sql_calistir` aracini kullan; yalnizca aracin dondurdugu gercek veriye dayan, veri uydurma.
+- Eger gorevin veri sorgulamak degil de salt stratejik analiz, cozum uretme veya fikir gelistirme ise araci KULLANMADAN dogrudan cevap verebilirsin. Gerekli tablo/veri yoksa bile genel gecer en iyi stratejileri ve endustri standartlarinda onerileri sun.
+- Once calistir sonra yorumla; veri gerekiyorsa tahmin yurutme.
 - Her arac cagrisinda YALNIZCA TEK SELECT gonder. Iki sorgu gerekiyorsa araci iki kez cagir;
   noktali virgulle birlestirirsen guvenlik katmani reddeder ve bir tur bosa gider.
 - Hata donerse hatayi oku, sorguyu duzelt, tekrar dene.
@@ -943,3 +944,48 @@ def sohbet_et(mesaj: str, gecmis: list[dict[str, Any]] | None = None, ajan=None,
     if settings.is_groq:
         return _groq_sohbet(mesaj, gecmis, ajan, azami_tur, ek_tablolar)
     return _claude_sohbet(mesaj, gecmis, ajan, azami_tur, ek_tablolar)
+
+
+def cozum_uygula(cozum_metni: str) -> str:
+    """Kullanıcının seçtiği çözüm önerisini simüle ederek uygular."""
+    talimat = (
+        "Sen proaktif ve yetenekli bir asistan ajanısın. Sistemdeki tüm diğer ajanlar adına "
+        "kullanıcının seçtiği çözüm önerisini uygulamakla görevlisin.\n\n"
+        "GÖREVİN:\n"
+        "1. Aşağıdaki çözümü gerçekten bir sisteme entegre edip çalıştırmış gibi gerçekçi "
+        "ve güven veren bir rapor hazırla.\n"
+        "2. Çözümün uygulanması için attığın (simüle edilen) adımları kısa ve öz şekilde sırala.\n"
+        "3. (Örn: 'İlgili e-posta şablonu oluşturuldu ve 45 kişiye gönderim kuyruğuna alındı', "
+        "'Veriler segmentlere ayrıldı ve CRM'de güncellendi').\n"
+        "4. En fazla 3-4 cümle veya madde kullan.\n"
+        "5. Markdown formatında (bold, liste vs.) güzelce biçimlendir."
+    )
+    
+    if settings.is_groq:
+        client = get_groq_client()
+        try:
+            yanit = client.chat.completions.create(
+                model=settings.groq_model,
+                max_tokens=500,
+                temperature=0.3,
+                messages=[
+                    {"role": "system", "content": talimat},
+                    {"role": "user", "content": f"Şu çözümü uygula:\n{cozum_metni}"},
+                ],
+            )
+            return yanit.choices[0].message.content or "Çözüm uygulandı."
+        except Exception as e:
+            return f"Çözüm uygulanırken bir hata oluştu: {str(e)}"
+    else:
+        client = get_client()
+        try:
+            yanit = client.messages.create(
+                model=settings.claude_model,
+                max_tokens=500,
+                system=[{"type": "text", "text": talimat}],
+                messages=[{"role": "user", "content": f"Şu çözümü uygula:\n{cozum_metni}"}],
+            )
+            return "\n".join(b.text for b in yanit.content if b.type == "text")
+        except Exception as e:
+            return f"Çözüm uygulanırken bir hata oluştu: {str(e)}"
+

@@ -1,7 +1,7 @@
 import { config as envYukle } from "dotenv";
-import { GroqSaglayici } from "./groq.js";
-import type { Saglayici } from "./tipler.js";
-import { LlmHatasi } from "./tipler.js";
+import { GroqSaglayici } from "./groq";
+import type { Saglayici } from "./tipler";
+import { LlmHatasi } from "./tipler";
 
 envYukle();
 
@@ -32,4 +32,4 @@ export function saglayiciSec(): Saglayici {
   throw new LlmHatasi(`Bilinmeyen LLM_PROVIDER: ${secim}`, "kimlik");
 }
 
-export * from "./tipler.js";
+export * from "./tipler";

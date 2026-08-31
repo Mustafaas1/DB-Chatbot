@@ -7,7 +7,7 @@ uzunluk artik deterministik olarak kodda kesiliyor.
 
 from __future__ import annotations
 
-from app.orkestra import OZET_AZAMI_HARF, _ilk_cumle
+from pybot.orkestra import OZET_AZAMI_HARF, _ilk_cumle
 
 
 def test_ikinci_cumle_atilir():
@@ -59,7 +59,7 @@ def test_satir_sonlari_tek_bosluga_iner():
 
 # ------------------------------------------------- rakam yigilmasi
 
-from app.orkestra import _rakam_yigilmasini_at, _birim_dagilimi
+from pybot.orkestra import _rakam_yigilmasini_at, _birim_dagilimi
 
 
 class SahteSonuc:
