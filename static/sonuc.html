@@ -132,6 +132,12 @@
   }
   thead th:last-child { border-right: none; }
   thead th.sayi { text-align: right; }
+  /* Kolonlar ICERIGE gore daralir; artan genislik EN SONA birakilir.
+     Onceden her kolon esit pay aliyordu: iki kolonlu bir tabloda 950px'lik
+     alan 490/460 bolunuyor, sayi kendi yarisinin SAGINA, etiket kendi
+     yarisinin SOLUNA yaslandigi icin aralarinda 150px bosluk kaliyordu. */
+  thead th, tbody td { width: 1px; }
+  thead th:last-child, tbody td:last-child { width: auto; }
   td {
     padding: 0; background: var(--panel);
     border-bottom: 1px solid var(--ince);
