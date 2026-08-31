@@ -260,6 +260,44 @@ Varsayılan `*` (herkese açık) — üretimde mutlaka kendi alan adlarınızla 
 
 ---
 
+## Geri besleme döngüsü (F6)
+
+Bir aksiyon (bilet atama, aşama değiştirme vb.) uygulandıktan sonra **"Etkisini ölç"**
+butonuna tıklanarak aynı ölçüm sorguları yeniden çalıştırılır ve önceki/sonraki değerler
+karşılaştırılır.
+
+```
+"Bileti ata" → Uygula → ... zaman geçer ... → "Etkisini ölç"
+
+  ADIM 1  Önceki snapshot okunur (uygulama anında kaydedilmiş)
+  ADIM 2  Aynı ölçüm sorguları yeniden çalıştırılır → sonraki snapshot
+  ADIM 3  Deterministik diff: satır sayısı, kolon toplamları, yüzde değişim
+  ADIM 4  Etki raporu UI'da gösterilir: ▲ artış (yeşil), ▼ azalış (kırmızı)
+```
+
+### Ne ölçülür
+
+| Metrik | Nasıl |
+|---|---|
+| Satır sayısı değişimi | Önceki vs. sonraki satır sayısı |
+| Kolon toplamları | Sayısal kolonların önceki/sonraki toplamı, fark ve yüzde |
+| Satır bazında değişim | İlk kolon anahtar alınarak eşleşen satırlar karşılaştırılır |
+
+### Teknik ayrıntılar
+
+- Snapshot'lar SQLite'ta (`veri/denetim.db`, `olcum_snapshot` tablosu) saklanır
+- Ölçüm bağlamı (ajan kodu, sorgu, tablolar) `olcum_baglami` tablosunda tutulur
+- Etki hesaplama **LLM kullanmaz** — tamamen deterministik
+- SSE akışı ile sonuçlar bittikçe UI'a yansır
+
+### Bilinen sınırlar
+
+- F6 entegrasyonu öncesinde uygulanmış işlemler için **önceki referans snapshot yok**.
+  Bu durumda "Etkisini ölç" hem önceki hem sonraki değerleri o an çalıştırır;
+  gerçek bir önceki/sonraki karşılaştırması yapılamaz (uyarı gösterilir).
+
+---
+
 ## Ajan zinciri (otomatik tetikleme)
 
 Tek bir soru çoğu zaman tek bir bölümün işi değildir. Sistem soruyu bir ajanla

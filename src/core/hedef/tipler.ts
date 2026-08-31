@@ -41,6 +41,13 @@ export interface HedefDugumu {
   olcumSorusu?: string;
   durum: DugumDurumu;
   bulgu?: Bulgu;
+  /** F6: geri besleme dongusunun olctugu etki raporu. */
+  etki?: {
+    onceki: Bulgu;
+    sonraki: Bulgu;
+    satirDegisimi: { onceki: number; sonraki: number; fark: number; yon: string };
+    kolonEtkileri: { kolon: string; fark: number | null; yuzde: number | null; yon: string }[];
+  };
 }
 
 export interface AgacKullanimi {

@@ -6,6 +6,7 @@ import {
   AjanSekmeleri, type CalisanOlcum, type OlcumHatasi, type OlcumSonucu,
 } from "./AjanSekmeleri";
 import { Islemler } from "./Islemler";
+import { GeriBesleme } from "./GeriBesleme";
 
 const ORNEKLER = [
   "Destek yükümüzü nasıl azaltırız?",
@@ -13,7 +14,7 @@ const ORNEKLER = [
   "Proje teslimlerini nasıl hızlandırırız?",
 ];
 
-type Sekme = "ajanlar" | "agac" | "islemler";
+type Sekme = "ajanlar" | "agac" | "islemler" | "geribesleme";
 
 export default function Sayfa() {
   const [soru, setSoru] = useState("");
@@ -131,9 +132,13 @@ export default function Sayfa() {
           disabled={!agac} onClick={() => setSekme("agac")}>Hedef ağacı</button>
         <button type="button" className={sekme === "islemler" ? "aktif" : ""}
           onClick={() => setSekme("islemler")}>İşlemler</button>
+        <button type="button" className={sekme === "geribesleme" ? "aktif" : ""}
+          onClick={() => setSekme("geribesleme")}>Geri besleme</button>
       </div>
 
       {sekme === "islemler" && <Islemler />}
+
+      {sekme === "geribesleme" && <GeriBesleme />}
 
       {sekme === "agac" && agac && <HedefAgaci agac={agac} />}
 
