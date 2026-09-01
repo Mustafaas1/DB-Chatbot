@@ -64,6 +64,11 @@ export class GroqSaglayici implements Saglayici {
         ...(istek.akilYurutmeGayreti
           ? { reasoning_effort: istek.akilYurutmeGayreti }
           : {}),
+        // Yapisal cikti: model serbest metin yerine JSON dondurur.
+        // Arac cagrisiyla BIRLIKTE kullanilamaz; arac varsa atlanir.
+        ...(istek.jsonCikti && !istek.araclar?.length
+          ? { response_format: { type: "json_object" as const } }
+          : {}),
         ...(istek.araclar?.length
           ? {
               tools: istek.araclar.map((a) => ({

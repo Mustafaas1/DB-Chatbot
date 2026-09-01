@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
+import { yapisalIste } from "../llm/yapisal";
 import { dugumMetni, genisletmeIstemi, ornekler, sonrakiTur } from "./istem";
 import type { Agac, AgacKullanimi, DugumTuru, HedefDugumu } from "./tipler";
 
@@ -22,21 +23,6 @@ export interface AgacSecenekleri {
   /** Kompakt veri ozeti (bkz. veriOzeti.ts). Verilmezse model olmayan
    *  tablo ve kolonlar uyduruyor. */
   veriOzetiMetni?: string;
-}
-
-/**
- * Modelin JSON'unu ayiklar.
- *
- * Model kod blogu ya da aciklama ekleyebiliyor; ilk [ ile son ] arasini
- * aliyoruz. Bu, planlayicida ogrenilen bir ders: ham JSON.parse tek
- * basina cok kirilgan.
- */
-function jsonAyikla(ham: string): unknown {
-  const metin = ham.trim().replace(/^```[a-zA-Z]*/, "").replace(/```$/, "").trim();
-  const bas = metin.indexOf("[");
-  const son = metin.lastIndexOf("]");
-  if (bas === -1 || son <= bas) throw new Error("JSON dizi bulunamadi");
-  return JSON.parse(metin.slice(bas, son + 1));
 }
 
 function dugumYap(
@@ -111,31 +97,29 @@ async function genislet(
     { rol: "asistan" as const, metin: o.cikti },
   ]);
 
-  // Bir kez tekrar denenir: bu modelde ilk cikti bazen kirpik geliyor.
-  let sonHata = "";
-  for (let deneme = 0; deneme < 2; deneme++) {
-    const yanit = await saglayici.konus({
+  // Yapisal cikti + tek retry yapisalIste icinde; burada tekrar
+  // uygulanmiyor ki iki katmanli retry olusmasin.
+  const { deger, kullanim: k } = await yapisalIste({
+    saglayici,
+    istek: {
       mesajlar: [
         { rol: "sistem", metin: genisletmeIstemi(cocukTuru, veriOzetiMetni) },
         ...ornekMesajlari,
         { rol: "kullanici", metin: dugumMetni(dugum, asilSoru) },
       ],
       akilYurutmeGayreti: "low",
-      azamiCiktiTokeni: deneme === 0 ? 700 : 1100,
-    });
+      azamiCiktiTokeni: 700,
+    },
+    sema: z.union([
+      CocukListesi,
+      z.object({ cocuklar: CocukListesi }).transform((o) => o.cocuklar),
+    ]),
+  });
 
-    kullanim.girdiTokeni += yanit.kullanim.girdiTokeni;
-    kullanim.ciktiTokeni += yanit.kullanim.ciktiTokeni;
-    kullanim.cagriSayisi += 1;
-
-    if (yanit.bitisSebebi === "uzunluk") { sonHata = "cikti kirpildi"; continue; }
-
-    try {
-      return CocukListesi.parse(jsonAyikla(yanit.metin));
-    } catch (e) {
-      sonHata = e instanceof Error ? e.message : String(e);
-    }
-  }
-
-  throw new Error(`Dugum genisletilemedi (${dugum.baslik}): ${sonHata}`);
+  kullanim.girdiTokeni += k.girdiTokeni;
+  kullanim.ciktiTokeni += k.ciktiTokeni;
+  kullanim.cagriSayisi += 1;
+  return deger;
 }
+
+

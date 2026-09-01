@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
+import { yapisalIste } from "../llm/yapisal";
 import type { OlcumSonucu } from "../ajan/olcum";
 import type { Teshis } from "./teshis";
 import { ISLEMLER } from "../yaz/islemler";
@@ -76,14 +77,6 @@ function istem(islemKodlari: string[]): string {
   ].join("\n");
 }
 
-function jsonAyikla(ham: string): unknown {
-  const m = ham.trim().replace(/^```[a-zA-Z]*/, "").replace(/```$/, "").trim();
-  const bas = m.indexOf("[");
-  const son = m.lastIndexOf("]");
-  if (bas === -1 || son <= bas) throw new Error("JSON dizi bulunamadi");
-  return JSON.parse(m.slice(bas, son + 1));
-}
-
 function girdiMetni(sonuc: OlcumSonucu, teshis: Teshis, hedef: string): string {
   const satirlar = sonuc.satirlar.slice(0, 8)
     .map((r) => r.map((h) => (h === null || h === undefined ? "-" : String(h))).join(" | "));
@@ -122,16 +115,25 @@ export async function planUret(
   const gecerliKodlar = new Set(kodlar);
 
   try {
-    const y = await saglayici.konus({
-      mesajlar: [
-        { rol: "sistem", metin: istem(kodlar) },
-        { rol: "kullanici", metin: girdiMetni(sonuc, teshis, hedef) },
-      ],
-      akilYurutmeGayreti: "low",
-      azamiCiktiTokeni: 800,
+    // Model JSON dizi dondurmesi gerekiyor ama response_format nesne
+    // istiyor; diziyi "planlar" alaninda sariyoruz.
+    const { deger, kullanim } = await yapisalIste({
+      saglayici,
+      istek: {
+        mesajlar: [
+          { rol: "sistem", metin: istem(kodlar) },
+          { rol: "kullanici", metin: girdiMetni(sonuc, teshis, hedef) },
+        ],
+        akilYurutmeGayreti: "low",
+        azamiCiktiTokeni: 800,
+      },
+      sema: z.union([
+        z.array(PlanSemasi).min(1).max(5),
+        z.object({ planlar: z.array(PlanSemasi).min(1).max(5) }).transform((o) => o.planlar),
+      ]),
     });
-
-    const ham = z.array(PlanSemasi).min(1).max(5).parse(jsonAyikla(y.metin));
+    const ham = deger;
+    const y = { kullanim };
 
     const planlar: Plan[] = ham.map((p, i) => {
       // Model olmayan islem kodu uydurabiliyor; beyaz listeye karsi

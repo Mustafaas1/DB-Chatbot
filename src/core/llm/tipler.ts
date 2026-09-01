@@ -34,6 +34,14 @@ export interface KonusmaIstegi {
   azamiCiktiTokeni?: number;
   /** gpt-oss modellerinde dusuk tutmak yapisal cikti icin belirgin fark yaratiyor. */
   akilYurutmeGayreti?: "low" | "medium" | "high";
+  /**
+   * YAPISAL CIKTI. true ise saglayici modele JSON dondurmesini zorlar.
+   *
+   * Serbest metinden JSON ayiklamak (metin icinde ilk "[" ile son "]"
+   * arasini almak) kirilgan: model aciklama ekleyince ya da kod blogu
+   * kullaninca kirilir. Saglayici seviyesinde zorlamak daha saglam.
+   */
+  jsonCikti?: boolean;
 }
 
 export interface Kullanim {

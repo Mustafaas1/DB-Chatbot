@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
+import { yapisalIste } from "../llm/yapisal";
 
 /**
  * S0 - INTENT
@@ -72,14 +73,6 @@ const ORNEKLER: { soru: string; niyet: Niyet }[] = [
   },
 ];
 
-function jsonAyikla(ham: string): unknown {
-  const m = ham.trim().replace(/^```[a-zA-Z]*/, "").replace(/```$/, "").trim();
-  const bas = m.indexOf("{");
-  const son = m.lastIndexOf("}");
-  if (bas === -1 || son <= bas) throw new Error("JSON bulunamadi");
-  return JSON.parse(m.slice(bas, son + 1));
-}
-
 export interface NiyetSonucu {
   niyet: Niyet;
   kullanim: { girdiTokeni: number; ciktiTokeni: number };
@@ -103,18 +96,20 @@ export async function niyetCikar(
   ]);
 
   try {
-    const y = await saglayici.konus({
-      mesajlar: [
-        { rol: "sistem", metin: ISTEM },
-        ...ornekMesajlari,
-        { rol: "kullanici", metin: soru },
-      ],
-      akilYurutmeGayreti: "low",
-      azamiCiktiTokeni: 400,
+    const { deger, kullanim } = await yapisalIste({
+      saglayici,
+      istek: {
+        mesajlar: [
+          { rol: "sistem", metin: ISTEM },
+          ...ornekMesajlari,
+          { rol: "kullanici", metin: soru },
+        ],
+        akilYurutmeGayreti: "low",
+        azamiCiktiTokeni: 400,
+      },
+      sema: NiyetSemasi,
     });
-
-    const niyet = NiyetSemasi.parse(jsonAyikla(y.metin));
-    return { niyet, kullanim: y.kullanim, geriDusuldu: false };
+    return { niyet: deger, kullanim, geriDusuldu: false };
   } catch (e) {
     if (e instanceof LlmHatasi && e.kod === "kota") throw e;
     return {
