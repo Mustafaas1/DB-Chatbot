@@ -340,3 +340,16 @@ button.kucuk { padding: 4px 10px; font-size: 12px; background: var(--soluk); }
   background: #f0fdf4; border-radius: 5px; padding: 4px 8px; display: inline-block;
 }
 .dugum-kanit.tahmin { color: #92400e; background: #fffbeb; }
+
+.plan-aksiyon-baslik { font-size: 11.5px; font-weight: 650; text-transform: uppercase;
+  letter-spacing: 0.04em; margin-bottom: 6px; }
+.plan-aksiyon { font-size: 12.5px; padding: 4px 0; display: flex; flex-wrap: wrap;
+  gap: 7px; align-items: center; }
+.plan-aksiyon code { background: #d1fae5; padding: 1px 6px; border-radius: 4px; font-size: 11.5px; }
+.plan-aksiyon .risk { font-size: 11px; padding: 1px 7px; border-radius: 999px; }
+.r-low { background: #dcfce7; color: #166534; }
+.r-medium { background: #fef3c7; color: #92400e; }
+.r-high { background: #fee2e2; color: #991b1b; }
+.onay-gerek, .geri-alinamaz { font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  background: #e0e7ff; color: #3730a3; }
+.geri-alinamaz { background: #fee2e2; color: #991b1b; }

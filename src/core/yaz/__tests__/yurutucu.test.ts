@@ -13,7 +13,7 @@ const provaDolu: Prova = {
 const provaBos: Prova = { ozet: "degismiyor", etkilenen: 0, degisiklikler: [], uyarilar: [] };
 
 const sahteIslem: IslemTanimi<{ biletNo: string; kisi: string }> = {
-  kod: "bilet_ata", ad: "Bileti kisiye ata", aciklama: "test",
+  kod: "bilet_ata", ad: "Bileti kisiye ata", aciklama: "test", risk: "low",
   hedefTablo: "TicketRecords",
   parametreSemasi: z.object({ biletNo: z.string().min(1), kisi: z.string().min(1) }),
   async prova(p) { return p.biletNo === "YOK" ? provaBos : provaDolu; },

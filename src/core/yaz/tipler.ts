@@ -41,6 +41,11 @@ export interface IslemTanimi<P = unknown> {
   kod: string;
   ad: string;
   aciklama: string;
+  /**
+   * Islemin risk seviyesi. MODELE SORULMAZ: islemin kendi ozelligi.
+   * Modelin "risk: low" deyip gecmesi mumkun; bu alan kodda sabit.
+   */
+  risk: "low" | "medium" | "high";
   /** Hangi tabloyu etkiliyor; denetim kaydinda ve onay ekraninda gosterilir. */
   hedefTablo: string;
   parametreSemasi: z.ZodType<P>;

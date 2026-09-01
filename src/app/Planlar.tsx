@@ -1,21 +1,38 @@
 "use client";
 
+export interface Aksiyon {
+  id: string;
+  title: string;
+  tool: string;
+  risk: "low" | "medium" | "high";
+  reversible: boolean;
+  requiresApproval: boolean;
+  dryRunSupported: boolean;
+  expectedOutcome: string;
+}
+
 export interface Plan {
   id: string;
-  dugumId: string;
-  ajanKod: string;
+  agent: string;
+  title: string;
+  rationale: string;
+  goalNodeIds: string[];
+  impact: number;
+  effort: number;
+  confidence: number;
+  timeframe: string;
+  kpi: string;
+  actions: Aksiyon[];
+  /** Görünüm için ek alanlar. */
   ajanAd: string;
   renk: string;
-  baslik: string;
-  aciklama: string;
-  etki: number;
-  caba: number;
-  guven: number;
   skor: number;
-  islemKodu: string;
-  yurutulebilir: boolean;
   uyari: string;
 }
+
+const RISK_ETIKET: Record<string, string> = {
+  low: "düşük risk", medium: "orta risk", high: "yüksek risk",
+};
 
 /** 1-5 arasi degeri nokta dizisiyle gosterir; sayidan hizli okunuyor. */
 function Olcek({ deger, ters }: { deger: number; ters?: boolean }) {
@@ -45,24 +62,35 @@ export function Planlar({ planlar }: { planlar: Plan[] }) {
       {sirali.map((p) => (
         <div key={p.id} className="plan-kart" style={{ borderLeftColor: p.renk }}>
           <div className="plan-ust">
-            <span className="plan-baslik">{p.baslik}</span>
+            <span className="plan-baslik">{p.title}</span>
             <span className="plan-skor" title="etki × güven ÷ çaba">{p.skor.toFixed(2)}</span>
           </div>
-          {p.aciklama && <div className="plan-aciklama">{p.aciklama}</div>}
+          {p.rationale && <div className="plan-aciklama">{p.rationale}</div>}
 
           <div className="plan-olcekler">
-            <span><b>etki</b> <Olcek deger={p.etki} /></span>
-            <span><b>çaba</b> <Olcek deger={p.caba} ters /></span>
-            <span><b>güven</b> %{Math.round(p.guven * 100)}</span>
+            <span><b>etki</b> <Olcek deger={p.impact} /></span>
+            <span><b>çaba</b> <Olcek deger={p.effort} ters /></span>
+            <span><b>güven</b> %{Math.round(p.confidence * 100)}</span>
+            {p.timeframe && <span><b>süre</b> {p.timeframe}</span>}
+            {p.kpi && <span><b>kpi</b> {p.kpi}</span>}
             <span className="plan-ajan">
               <i className="ajan-nokta" style={{ background: p.renk }} /> {p.ajanAd}
             </span>
           </div>
 
-          {p.yurutulebilir ? (
+          {p.actions.length > 0 ? (
             <div className="plan-yurut">
-              Bu plan sistemde tanımlı bir işlemle uygulanabilir
-              {" "}(<code>{p.islemKodu}</code>). İşlemler sekmesinden onaya sunun.
+              <div className="plan-aksiyon-baslik">
+                {p.actions.length} uygulanabilir aksiyon
+              </div>
+              {p.actions.map((a) => (
+                <div key={a.id} className="plan-aksiyon">
+                  <code>{a.tool}</code> {a.title}
+                  <span className={`risk r-${a.risk}`}>{RISK_ETIKET[a.risk]}</span>
+                  {a.requiresApproval && <span className="onay-gerek">onay gerekir</span>}
+                  {!a.reversible && <span className="geri-alinamaz">geri alınamaz</span>}
+                </div>
+              ))}
             </div>
           ) : p.uyari ? (
             <div className="plan-uyari">

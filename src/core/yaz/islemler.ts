@@ -89,6 +89,8 @@ export const biletAta: IslemTanimi<BiletAtaP> = {
   kod: "bilet_ata",
   ad: "Bileti kişiye ata",
   aciklama: "Bir destek biletinin atanan kişisini değiştirir.",
+  // Tek alan, geri alinabilir, tek kayit: dusuk risk.
+  risk: "low",
   hedefTablo: "TicketRecords",
   parametreSemasi: BiletAtaP,
 
@@ -115,6 +117,8 @@ export const biletAsamaDegistir: IslemTanimi<BiletAsamaP> = {
   kod: "bilet_asama_degistir",
   ad: "Bilet aşamasını değiştir",
   aciklama: "Bir destek biletinin aşamasını değiştirir (Beklemede / İşlemde / Tamamlandı).",
+  // Asama degisimi is akisini etkiliyor (SLA, raporlama): orta risk.
+  risk: "medium",
   hedefTablo: "TicketRecords",
   parametreSemasi: BiletAsamaP,
 

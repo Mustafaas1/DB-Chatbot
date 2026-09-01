@@ -83,3 +83,48 @@ Kanonik `GoalNode` bozulmadan bırakıldı; `GoalNodeGenis` onu genişletiyor:
 Arayüz de düz ağacı okuyor ve **kanıt kaynağını gösteriyor**: bir düğümün değeri
 yalnızca `llm-inference` kanıtına dayanıyorsa *"yalnızca model tahmini — veriyle
 doğrulanmadı"* yazıyor.
+
+
+## Plan ve Action taşındı
+
+`Plan` artık kanonik: `title`, `rationale`, `goalNodeIds`, `impact`, `effort`,
+`confidence`, `timeframe`, `kpi`, `actions[]`. Görünüm alanları (`ajanAd`,
+`renk`, `skor`, `uyari`) `PlanGenis` ile ayrı tutuluyor.
+
+### Action alanları modelden alınmıyor
+
+`risk`, `reversible`, `dryRunSupported`, `rollback` işlemin **kendi
+özellikleri**; modele sorulsa `"risk": "low", "requiresApproval": false` deyip
+geçmesi mümkün ve kimse fark etmez. Kod türetiyor:
+
+| Alan | Nereden |
+|---|---|
+| `risk` | İşlem tanımındaki sabit (`bilet_ata`=low, `bilet_asama_degistir`=medium) |
+| `reversible` | İşlemin `geriAl()` fonksiyonu var mı |
+| `dryRunSupported` | `prova()` fonksiyonu var mı |
+| `rollback` | Geri alınabiliyorsa aynı işlem, önceki değerle |
+| `requiresApproval` | `onayZorunlulugunuUygula()` — geri alınamayan ya da yüksek riskli **her zaman** onay ister |
+
+Modelden yalnızca **ne** yapılacağı (`tool` + `params`) ve **neden**
+(`expectedOutcome`) alınıyor.
+
+## Gerçek koşuda çıkan boşluk
+
+6 plan üretildi, tüm alanlar doldu — ama **hiçbir aksiyon yürütülebilir olmadı**.
+Hepsi aynı sebeple düşürüldü:
+
+```
+Gecersiz parametre: biletNo: expected string, received undefined
+```
+
+Model **toplu** aksiyon öneriyor ("düşük öncelikli tüm biletleri İşlemde yap"),
+beyaz liste ise **tek bilet** üzerinde çalışıyor. Reddetme doğru davranış —
+uydurma bir `biletNo` ile çalışmaktansa düşmesi iyi. Ama şu an planlar pratikte
+yürütülemiyor.
+
+Çözüm için iki yol var, ikisi de karar gerektiriyor:
+
+1. **Toplu işlem eklemek** — `biletleri_toplu_ata(filtre, kisi)` gibi. Güçlü ama
+   riskli: tek onayla yüzlerce kayıt değişir.
+2. **Planı bilete bağlamak** — plan üretilirken ölçümün döndürdüğü satırlardan
+   somut bilet numaraları geçirmek. Daha güvenli, daha dar.
