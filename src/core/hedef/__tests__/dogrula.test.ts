@@ -4,7 +4,7 @@ import type { Tablo } from "../../db/sema";
 import type { KolonDegerleri } from "../../db/degerler";
 
 const tablolar: Tablo[] = [{
-  sema: "dbo", ad: "TicketRecords", satirSayisi: 6938,
+  sema: "dbo", ad: "TicketRecords", satirSayisi: 5000,
   kolonlar: [
     { ad: "BiletNo", tip: "nvarchar", bosOlabilir: false },
     { ad: "Asama", tip: "nvarchar", bosOlabilir: true },

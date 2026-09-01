@@ -11,9 +11,9 @@ from pybot.orkestra import OZET_AZAMI_HARF, _ilk_cumle
 
 
 def test_ikinci_cumle_atilir():
-    uzun = ('151 teklif var; TRY 44.580.647,07 TL, USD 7.026,70 USD. '
+    uzun = ('200 teklif var; TRY 12.345.678,90 TL, USD 9.876,50 USD. '
             'TRY tarafinda en yuksek tutar Gonderildi durumunda.')
-    assert _ilk_cumle(uzun) == '151 teklif var; TRY 44.580.647,07 TL, USD 7.026,70 USD.'
+    assert _ilk_cumle(uzun) == '200 teklif var; TRY 12.345.678,90 TL, USD 9.876,50 USD.'
 
 
 def test_tek_cumle_dokunulmaz():
@@ -42,9 +42,9 @@ def test_soru_ve_unlem_de_cumle_sonu():
 
 
 def test_ondalik_sayi_cumle_sonu_sanilmaz():
-    """44.580.647,07 icindeki noktalar cumleyi bolmemeli."""
-    c = _ilk_cumle('Toplam 44.580.647,07 TL tutarinda teklif var. Ikinci cumle.')
-    assert c == 'Toplam 44.580.647,07 TL tutarinda teklif var.'
+    """12.345.678,90 icindeki noktalar cumleyi bolmemeli."""
+    c = _ilk_cumle('Toplam 12.345.678,90 TL tutarinda teklif var. Ikinci cumle.')
+    assert c == 'Toplam 12.345.678,90 TL tutarinda teklif var.'
 
 
 def test_bos_ve_none():
@@ -79,9 +79,9 @@ TEK_BIRIM = SahteSonuc(
 
 
 def test_tutar_dokumu_karsilastirmaya_cevrilir():
-    """Istenen bicim: '151 teklif var; TRY, USD'ye gore oldukca fazla.'"""
-    ham = "151 teklif var; TRY 44.580.647,07 TL, USD 7.026,70 USD."
-    assert _rakam_yigilmasini_at(ham, KARISIK) == "151 teklif var; TRY, USD'ye göre oldukça fazla."
+    """Istenen bicim: '200 teklif var; TRY, USD'ye gore oldukca fazla.'"""
+    ham = "200 teklif var; TRY 12.345.678,90 TL, USD 9.876,50 USD."
+    assert _rakam_yigilmasini_at(ham, KARISIK) == "200 teklif var; TRY, USD'ye göre oldukça fazla."
 
 
 def test_tek_sayili_cumle_korunur():
@@ -104,5 +104,5 @@ def test_birim_kolonu_yoksa_bos_doner():
 
 
 def test_sonuc_yoksa_cumle_bozulmaz():
-    ham = "Toplam 151 teklif bulunuyor."
+    ham = "Toplam 200 teklif bulunuyor."
     assert _rakam_yigilmasini_at(ham, None) == ham

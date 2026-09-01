@@ -180,7 +180,7 @@ def _kod_cumlesi(sonuc) -> str:
 def _rakam_yigilmasini_at(cumle: str, sonuc) -> str:
     """Cumleden rakam dokumunu ayiklar.
 
-    Model "151 teklif var; TRY'de 44.580.647,07 TL, USD'de 7.026,70 USD."
+    Model "200 teklif var; TRY'de 12.345.678,90 TL, USD'de 9.876,50 USD."
     gibi yaziyordu; tutarlar zaten grafikte ve tabloda. Noktali virgulle
     ayrilmis parcalardan yalnizca EN FAZLA BIR sayi icerenler tutulur,
     karisik para birimi varsa yerine niteliksel karsilastirma eklenir.

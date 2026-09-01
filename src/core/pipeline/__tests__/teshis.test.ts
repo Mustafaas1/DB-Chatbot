@@ -16,13 +16,13 @@ const turler = (s: ReturnType<typeof teshisCikar>) => s.bulgular.map((b) => b.tu
 
 describe("yigilma", () => {
   it("tek grup baskin oldugunda yakalanir", () => {
-    // Tamamlandi 6801 / toplam 6860 = %99
+    // 4900 / toplam 4959 = %98
     const t = teshisCikar(sonuc(["Asama", "Adet"],
-      [["Tamamlandı", 6801], ["Beklemede", 47], ["İşlemde", 12]]));
+      [["Tamamlandı", 4900], ["Beklemede", 47], ["İşlemde", 12]]));
     expect(turler(t)).toContain("yigilma");
     expect(t.bulgular[0]?.etiket).toBe("Tamamlandı");
     expect(t.bulgular[0]?.oran).toBeGreaterThan(0.9);
-    expect(t.toplam).toBe(6860);
+    expect(t.toplam).toBe(4959);
   });
 
   it("esigin altinda yigilma denmez", () => {
@@ -89,7 +89,7 @@ describe("kenar durumlar", () => {
 
 describe("teshisMetni", () => {
   it("bulgulari tek metne cevirir", () => {
-    const t = teshisCikar(sonuc(["Asama", "Adet"], [["Tamamlandı", 6801], ["Beklemede", 47]]));
+    const t = teshisCikar(sonuc(["Asama", "Adet"], [["Tamamlandı", 4900], ["Beklemede", 47]]));
     expect(teshisMetni([t])).toContain("Tamamlandı");
   });
 });

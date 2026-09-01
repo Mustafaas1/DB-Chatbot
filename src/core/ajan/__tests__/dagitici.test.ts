@@ -11,7 +11,7 @@ function dugum(baslik: string, olcumSorusu = "", gerekce = ""): HedefDugumu {
 }
 
 const tablolar: Tablo[] = [
-  { sema: "dbo", ad: "TicketRecords", satirSayisi: 6938, kolonlar: [
+  { sema: "dbo", ad: "TicketRecords", satirSayisi: 5000, kolonlar: [
     { ad: "AtananKisi", tip: "nvarchar", bosOlabilir: true },
     { ad: "Kanal", tip: "nvarchar", bosOlabilir: true },
   ]},

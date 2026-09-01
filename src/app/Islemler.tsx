@@ -77,7 +77,7 @@ export function Islemler() {
         <select value={secili} onChange={(e) => { setSecili(e.target.value); setOneri(null); }}>
           {islemler.map((i) => <option key={i.kod} value={i.kod}>{i.ad}</option>)}
         </select>
-        <input type="text" placeholder="Bilet no (örn. HT24508)"
+        <input type="text" placeholder="Bilet no"
           value={biletNo} onChange={(e) => setBiletNo(e.target.value)} />
         {asamaMi ? (
           <select value={deger} onChange={(e) => setDeger(e.target.value)}>

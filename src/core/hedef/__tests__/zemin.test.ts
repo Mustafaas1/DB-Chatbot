@@ -3,7 +3,7 @@ import { semaSozlugu, zeminKontrol } from "../zemin";
 import type { Tablo } from "../../db/sema";
 
 const tablolar: Tablo[] = [
-  { sema: "dbo", ad: "TicketRecords", satirSayisi: 6938, kolonlar: [
+  { sema: "dbo", ad: "TicketRecords", satirSayisi: 5000, kolonlar: [
     { ad: "BiletNo", tip: "nvarchar", bosOlabilir: false },
     { ad: "Asama", tip: "nvarchar", bosOlabilir: true },
     { ad: "Oncelik", tip: "int", bosOlabilir: false },

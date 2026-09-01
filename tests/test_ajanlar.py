@@ -517,10 +517,10 @@ def test_ilk_parca_kalinca_model_cumlesi_korunur():
         sql="",
         duration_ms=1,
     )
-    cumle = "151 teklif var; 103 gönderildi, 32 kazanıldı, 14 reddedildi."
+    cumle = "200 teklif var; 103 gönderildi, 32 kazanıldı, 14 reddedildi."
     cikti = _rakam_yigilmasini_at(cumle, sonuc)
 
-    assert cikti.startswith("151 teklif var")
+    assert cikti.startswith("200 teklif var")
 
 
 # --- Madde numarasi cumle sonu degildir ---------------------------------

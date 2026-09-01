@@ -19,3 +19,6 @@ tsconfig.tsbuildinfo
 
 # F5 denetim veritabani
 veri/
+
+# Sema dokumu: sirket tablo/kolon yapisini icerir
+schema.txt

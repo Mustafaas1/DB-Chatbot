@@ -134,7 +134,7 @@ ORNEKLER = [
     (
         "ASIL SORU: Bu ceyrek cironuzu nasil artirirsiniz?\n"
         "BITEN ADIM: satis -- Teklifleri durumlarina gore say\n"
-        "BULGU: 151 teklifin 103'u Gonderildi, 32'si Kazanildi.\n"
+        "BULGU: 200 teklifin 103'u Gonderildi, 32'si Kazanildi.\n"
         "Durum | Adet\nGonderildi | 103\nKazanildi | 32\n"
         "DAHA ONCE CALISAN AJANLAR: satis",
         {

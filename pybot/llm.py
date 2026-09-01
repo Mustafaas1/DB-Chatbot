@@ -118,7 +118,7 @@ OZET_TALIMATI = """Turkce bir veri asistanisin. Sorgu calisti; isin donen tabloy
   kullan; KENDIN TOPLAMA. (O satir kodda hesaplanir, dogrudur.)
   Birim bazinda verilmisse birimleri karistirmadan aktar.
   IYI  : "Teklif tutarinin neredeyse tamami TRY cinsinden; USD tarafi cok kucuk."
-  KOTU : "Toplamda tekliflerin tutari 44.580.647,07 TRY ve 7.026,70 USD
+  KOTU : "Toplamda tekliflerin tutari 12.345.678,90 TRY ve 9.876,50 USD
           olarak iki para biriminde goruluyor; TRY tutari cok daha yuksek."
 - Kac grup/kalem oldugunu soylemek gerekiyorsa arac sonucundaki "N satir dondu"
   bilgisinden al; bir hucredeki sayiyi satir sayisi ya da toplam SANMA.
