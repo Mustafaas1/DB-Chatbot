@@ -1,5 +1,5 @@
-import type { Ajan } from "./ajanlar";
-import { AJANLAR } from "./ajanlar";
+import type { AjanTanimi } from "../../agents/tipler";
+import { PLANLAMA_AJANLARI } from "../../agents/index";
 import type { HedefDugumu } from "../hedef/tipler";
 import type { Tablo } from "../db/sema";
 
@@ -13,11 +13,13 @@ import type { Tablo } from "../db/sema";
 
 /** Turkce terimleri ajan koduna baglar. */
 const IPUCLARI: Record<string, string[]> = {
-  satis: ["teklif", "firsat", "musteri", "urun", "satis", "kazan", "kaybed", "temsilci"],
-  destek: ["bilet", "destek", "ticket", "asama", "kanal", "cozum suresi", "atanan"],
-  finans: ["fatura", "tutar", "para birimi", "ciro", "gelir", "sozlesme", "odeme", "maliyet"],
-  proje: ["proje", "gorev", "kanban", "is paketi", "teslim", "milestone"],
-  ik: ["izin", "personel", "calisan", "mesai", "devam", "vardiya", "takvim", "egitim"],
+  "acquisition": ["teklif", "firsat", "musteri", "kazan", "kaybed", "temsilci", "huni"],
+  "experience": ["bilet", "destek", "ticket", "asama", "kanal", "cozum suresi", "atanan"],
+  "retention": ["sozlesme", "yenile", "fatura", "odeme", "kayip", "surekli", "abonelik"],
+  "product-pricing": ["urun", "fiyat", "paket", "kalem", "capraz", "katalog"],
+  "delivery": ["proje", "gorev", "kanban", "is paketi", "teslim", "milestone"],
+  "people": ["izin", "personel", "calisan", "mesai", "devam", "vardiya", "takvim", "kapasite"],
+  "data-analyst": [],
 };
 
 function normalize(metin: string): string {
@@ -27,7 +29,7 @@ function normalize(metin: string): string {
     .replace(/[üÜ]/g, "u").replace(/[öÖ]/g, "o").replace(/[çÇ]/g, "c");
 }
 
-function puanla(ajan: Ajan, metin: string, kolonlar?: Map<string, string[]>): number {
+function puanla(ajan: AjanTanimi, metin: string, kolonlar?: Map<string, string[]>): number {
   let p = 0;
 
   // 1) Tablo adi dogrudan geciyorsa en guclu sinyal: olcum sorusu cogu
@@ -58,8 +60,13 @@ function kolonSozlugu(tablolar: Tablo[]): Map<string, string[]> {
   const harita = new Map<string, string[]>();
 
   // Birden fazla ajanda gecen kolonlar ayirt edici degil (Id, Durum...).
+  //
+  // data-analyst SAYIMA KATILMAZ: kesitsel oldugu icin bircok tabloyu
+  // paylasiyor ve katilirsa diger ajanlarin butun kolonlarini "ayirt
+  // edici degil" yapip sinyali tamamen yok ediyor.
+  const sayilanlar = PLANLAMA_AJANLARI.filter((a) => a.kod !== "data-analyst");
   const sayac = new Map<string, number>();
-  for (const a of AJANLAR) {
+  for (const a of sayilanlar) {
     const kume = new Set<string>();
     for (const ad of a.tablolar) {
       for (const k of tabloHarita.get(ad)?.kolonlar ?? []) {
@@ -70,7 +77,7 @@ function kolonSozlugu(tablolar: Tablo[]): Map<string, string[]> {
     for (const k of kume) sayac.set(k, (sayac.get(k) ?? 0) + 1);
   }
 
-  for (const a of AJANLAR) {
+  for (const a of PLANLAMA_AJANLARI) {
     const kume = new Set<string>();
     for (const ad of a.tablolar) {
       for (const k of tabloHarita.get(ad)?.kolonlar ?? []) {
@@ -85,7 +92,7 @@ function kolonSozlugu(tablolar: Tablo[]): Map<string, string[]> {
 
 export interface Atama {
   dugum: HedefDugumu;
-  ajan: Ajan;
+  ajan: AjanTanimi;
   /** 0 ise hicbir sinyal yok; varsayilan ajana dusuldu. */
   puan: number;
   /**
@@ -98,7 +105,15 @@ export interface Atama {
 }
 
 /** Varsayilan: hicbir ipucu yoksa destek (en kalabalik veri kumesi). */
-const VARSAYILAN = AJANLAR.find((a) => a.kod === "destek") ?? AJANLAR[0]!;
+/**
+ * Hicbir ipucu yoksa dusulen ajan.
+ *
+ * data-analyst: kesitsel sorulari goren ve en genis tablo erisimi olan
+ * ajan. Onceden "destek"e dusuluyordu; bolume ozgu bir ajana dusmek
+ * kapsam disi soruyu yanlis dar kapsamda birakiyordu.
+ */
+const VARSAYILAN = PLANLAMA_AJANLARI.find((a) => a.kod === "data-analyst")
+  ?? PLANLAMA_AJANLARI[0]!;
 
 export function dagit(dugumler: HedefDugumu[], tablolar?: Tablo[]): Atama[] {
   const kolonlar = tablolar?.length ? kolonSozlugu(tablolar) : undefined;
@@ -113,7 +128,7 @@ export function dagit(dugumler: HedefDugumu[], tablolar?: Tablo[]): Atama[] {
     let enIyi = VARSAYILAN;
     let enYuksek = 0;
 
-    for (const a of AJANLAR) {
+    for (const a of PLANLAMA_AJANLARI) {
       const p = puanla(a, metin, kolonlar);
       if (p > enYuksek) { enYuksek = p; enIyi = a; }
     }

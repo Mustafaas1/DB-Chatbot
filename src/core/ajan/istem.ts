@@ -12,7 +12,9 @@ import { degerlerMetni, durumDegerleri } from "../db/degerler";
 export async function sistemIstemi(
   soru: string,
   /** Bolum ajaninin kapsami. Verilirse soruya gore secim yapilmaz. */
-  sadeceTablolar?: readonly string[]
+  sadeceTablolar?: readonly string[],
+  /** Ajanin kimligi. Tanimlarda yaziyor ama kullanilmazsa sus olurdu. */
+  rolPromptu?: string
 ): Promise<string> {
   const tablolar = await semaGetir();
   // Tum semayi gondermek Groq ucretsiz katmaninin 8.000 TPM sinirini tek
@@ -28,7 +30,7 @@ export async function sistemIstemi(
   const sema = semaMetni(tablolar, new Set(secilen.map((t) => t.ad)));
 
   return [
-    "Turkce bir veri asistanisin. Kullanicilar SQL bilmez.",
+    rolPromptu?.trim() || "Turkce bir veri asistanisin. Kullanicilar SQL bilmez.",
     "",
     "CALISMA",
     "- Veri gerektiren sorularda veri_sorgula aracini kullan; yalnizca aracin",

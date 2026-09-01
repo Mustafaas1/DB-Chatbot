@@ -54,12 +54,26 @@ describe("tanim butunlugu", () => {
 });
 
 describe("gercek kayit", () => {
-  it("spec'teki 7 ajan tanimli", () => {
-    expect(AJAN_TANIMLARI).toHaveLength(7);
+  it("spec'teki 7 ajan + proje/IK icin eklenen 2 ajan tanimli", () => {
+    expect(AJAN_TANIMLARI).toHaveLength(9);
     for (const kod of [
       "orchestrator", "data-analyst", "acquisition", "retention",
       "experience", "product-pricing", "ops-executor",
+      // Spec'te yok; bu CRM'de proje ve IK verisi oldugu icin eklendi.
+      "delivery", "people",
     ]) expect(ajanTanimiBul(kod), kod).toBeTruthy();
+  });
+
+  it("her tablo TEK ajana ait (data-analyst haric)", () => {
+    const sahip = new Map<string, string[]>();
+    for (const a of PLANLAMA_AJANLARI) {
+      if (a.kod === "data-analyst") continue;  // kesitsel, ortak gorur
+      for (const t of a.tablolar) sahip.set(t, [...(sahip.get(t) ?? []), a.kod]);
+    }
+    const cakisan = [...sahip.entries()].filter(([, v]) => v.length > 1);
+    // Products ve Teklifler bilincli olarak paylasilir (kazanim + fiyat).
+    const beklenen = new Set(["Products", "Teklifler", "TeklifKalemleri", "Contacts", "CustomerProducts", "InvoiceKalemleri"]);
+    for (const [tablo] of cakisan) expect(beklenen.has(tablo), tablo).toBe(true);
   });
 
   it("HICBIR planlama ajaninda yazma araci yok", () => {

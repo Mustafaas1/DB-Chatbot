@@ -4,7 +4,7 @@ import { AracKaydi } from "../../tools/kayit";
 import type { Saglayici, SaglayiciYaniti } from "../../llm/tipler";
 import { olcumleriCalistir } from "../olcum";
 import type { Atama } from "../dagitici";
-import { AJANLAR } from "../ajanlar";
+import { PLANLAMA_AJANLARI } from "../../../agents/index";
 import type { HedefDugumu } from "../../hedef/tipler";
 import type { OlcumOlayi } from "../olcum";
 
@@ -44,7 +44,7 @@ function atamalar(adet: number): Atama[] {
       id: `d${i}`, baslik: `olcum ${i}`, tur: "olcum", gerekce: "",
       seviye: 2, cocuklar: [], durum: "bekliyor", olcumSorusu: `soru ${i}`,
     };
-    return { dugum: d, ajan: AJANLAR[i % AJANLAR.length]!, puan: 10, belirsiz: false };
+    return { dugum: d, ajan: PLANLAMA_AJANLARI[i % PLANLAMA_AJANLARI.length]!, puan: 10, belirsiz: false };
   });
 }
 

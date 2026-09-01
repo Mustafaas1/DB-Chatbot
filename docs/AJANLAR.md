@@ -12,6 +12,8 @@ tek yerden okunur.
 | `retention` | planlama | `veri_sorgula` | 2/3 | 6 |
 | `experience` | planlama | `veri_sorgula` | 2/3 | 4 |
 | `product-pricing` | planlama | `veri_sorgula` | 2/3 | 5 |
+| `delivery` | planlama | `veri_sorgula` | 2/3 | 7 |
+| `people` | planlama | `veri_sorgula` | 2/3 | 6 |
 | `ops-executor` | **yürütme** | `veri_sorgula`, `bilet_ata`, `bilet_asama_degistir` | 1/2 | 1 |
 
 ## Temel kural koda gömülü
@@ -32,13 +34,39 @@ Denetlenen invaryantlar:
 
 12 test bunu doğruluyor.
 
-## Bilinen boşluk
+## Spec'e ek iki ajan
 
-Spec'in 7 ajanı **ticari** (kazanım, elde tutma, fiyatlandırma). Bu CRM'de
-ayrıca **proje** (`Projects`, `ProjectTasks`, `KanbanTasks`) ve **İK**
-(`LeaveRequests`, `AttendanceRecords`, `CalendarEvents`) verisi var; bunlar
-7 ajanın hiçbirine ait değil.
+Spec'in 7 ajanı ticari; bu CRM'de ayrıca proje ve İK verisi var ve hiçbirine
+ait değildi. `delivery` (teslim) ve `people` (kapasite) bu boşluğu kapatıyor.
 
-Şimdilik `data-analyst` bu tabloları da görüyor, yani veri erişilebilir kalıyor —
-ama bu tablolar için uzman bir bakış açısı yok. Ayrı `delivery` ve `people`
-ajanları eklenebilir; karar verilmedi.
+`people` ajanının rol promptunda açık bir sınır var: **performans
+değerlendirmesi yapmaz**, kişi kıyaslaması değil yük dağılımı konuşur.
+
+## Tanımlar gerçekten kullanılıyor
+
+Tanımda yazıp uygulamamak süs olurdu:
+
+| Alan | Nerede kullanılıyor |
+|---|---|
+| `rolPromptu` | Sistem isteminin ilk satırı |
+| `araclar` | `AracKaydi.altKume()` — ajan listede olmayan aracı **göremez**, şeması bile LLM'e gitmez |
+| `limitler.azamiTur` | Araç çağrısı döngüsünün tur sınırı |
+| `tablolar` | Şema kapsamı |
+
+## Yönlendirme doğrulaması
+
+Sekiz gerçek ölçüm, sekiz doğru ajan:
+
+| Ölçüm | Ajan |
+|---|---|
+| Durumlarına göre teklif sayısı | Kazanım |
+| Aşamalarına göre açık destek biletleri | Deneyim |
+| Bu yıl bitecek sözleşmeler | Elde Tutma |
+| Ürüne göre teklif kalemi sayısı | Ürün ve Fiyat |
+| Tamamlanmamış proje görevleri | Teslim |
+| İzin türlerine göre talep sayısı | Kapasite |
+| Para birimine göre faturalanacak tutar | Elde Tutma |
+
+`data-analyst` kolon ayırt ediciliği sayımına **katılmaz**: kesitsel olduğu
+için birçok tabloyu paylaşıyor ve katılırsa diğer ajanların bütün kolonlarını
+"ayırt edici değil" yapıp sinyali yok ediyor.

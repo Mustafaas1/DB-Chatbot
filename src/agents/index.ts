@@ -4,6 +4,8 @@ import { acquisition } from "./acquisition";
 import { retention } from "./retention";
 import { experience } from "./experience";
 import { productPricing } from "./product-pricing";
+import { delivery } from "./delivery";
+import { people } from "./people";
 import { opsExecutor } from "./ops-executor";
 import { tanimlariDenetle, type AjanTanimi } from "./tipler";
 
@@ -21,6 +23,8 @@ export const AJAN_TANIMLARI: readonly AjanTanimi[] = [
   retention,
   experience,
   productPricing,
+  delivery,
+  people,
   opsExecutor,
 ];
 
@@ -39,5 +43,5 @@ export function ajanTanimiBul(kod: string): AjanTanimi | undefined {
 export * from "./tipler";
 export {
   orchestrator, dataAnalyst, acquisition, retention,
-  experience, productPricing, opsExecutor,
+  experience, productPricing, delivery, people, opsExecutor,
 };

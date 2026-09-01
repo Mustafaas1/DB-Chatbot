@@ -28,7 +28,7 @@ describe("GEREKCE yonlendirmeye katilmaz", () => {
       "Otomatik kapanış sonrası geri bildirim sayısı", "",
       "Müşteri memnuniyeti teklif kazanma oranını etkiler."
     )]);
-    expect(a?.ajan.kod).not.toBe("satis");
+    expect(a?.ajan.kod).not.toBe("acquisition");
   });
 
   it("gerekce dogru yonlendirmeyi de bozmaz", () => {
@@ -36,7 +36,7 @@ describe("GEREKCE yonlendirmeye katilmaz", () => {
       "Durumlarına göre teklif sayısı", "",
       "Destek biletleri yoğunluğu nedeniyle bakıyoruz."
     )]);
-    expect(a?.ajan.kod).toBe("satis");
+    expect(a?.ajan.kod).toBe("acquisition");
   });
 });
 
@@ -45,12 +45,22 @@ describe("kolon adlariyla puanlama", () => {
     const sema = dagit([dugum("AtananKisi bazında açık bilet dağılımı")], tablolar);
     const semasiz = dagit([dugum("AtananKisi bazında açık bilet dağılımı")]);
     expect(sema[0]!.puan).toBeGreaterThan(semasiz[0]!.puan);
-    expect(sema[0]!.ajan.kod).toBe("destek");
+    expect(sema[0]!.ajan.kod).toBe("experience");
   });
 
-  it("ParaBirimi finansa yonlendirir", () => {
+  it("PAYLASILAN kolon yanlis sinyal uretmez", () => {
+    // ParaBirimi Teklifler'de, Teklifler ise acquisition ve
+    // product-pricing'de ortak. Kolon iki ajani ayirt etmiyor, dolayisiyla
+    // puan uretmemeli: uretirse rastgele birine gider ve kullanici bunu
+    // kesin bir yonlendirme sanir.
     const [a] = dagit([dugum("ParaBirimi bazında toplam tutar")], tablolar);
-    expect(a?.ajan.kod).toBe("finans");
+    expect(a?.puan).toBe(0);
+    expect(a?.belirsiz).toBe(true);
+  });
+
+  it("data-analyst kesitsel oldugu icin varsayilandir", () => {
+    const [a] = dagit([dugum("filanca falanca")], tablolar);
+    expect(a?.ajan.kod).toBe("data-analyst");
   });
 });
 
@@ -70,20 +80,20 @@ describe("belirsizlik gorunur", () => {
 describe("dagitici", () => {
   it("tablo adi en guclu sinyal", () => {
     const [a] = dagit([dugum("X", "TicketRecords tablosunda kac kayit var")]);
-    expect(a?.ajan.kod).toBe("destek");
+    expect(a?.ajan.kod).toBe("experience");
   });
 
   it("terim ipucuyla dogru ajana gider", () => {
-    expect(dagit([dugum("Durumlarina gore teklif sayisi")])[0]?.ajan.kod).toBe("satis");
-    expect(dagit([dugum("Para birimine gore fatura tutari")])[0]?.ajan.kod).toBe("finans");
-    expect(dagit([dugum("Izin turlerine gore talep sayisi")])[0]?.ajan.kod).toBe("ik");
-    expect(dagit([dugum("Tamamlanmamis proje gorevleri")])[0]?.ajan.kod).toBe("proje");
+    expect(dagit([dugum("Durumlarina gore teklif sayisi")])[0]?.ajan.kod).toBe("acquisition");
+    expect(dagit([dugum("Para birimine gore fatura tutari")])[0]?.ajan.kod).toBe("retention");
+    expect(dagit([dugum("Izin turlerine gore talep sayisi")])[0]?.ajan.kod).toBe("people");
+    expect(dagit([dugum("Tamamlanmamis proje gorevleri")])[0]?.ajan.kod).toBe("delivery");
   });
 
   it("Turkce karakter normalize edilir", () => {
     // "İşlemde", "Aşama" gibi kelimeler eslesmeli.
     const [a] = dagit([dugum("Aşamalarına göre açık destek biletleri")]);
-    expect(a?.ajan.kod).toBe("destek");
+    expect(a?.ajan.kod).toBe("experience");
     expect(a?.puan).toBeGreaterThan(0);
   });
 

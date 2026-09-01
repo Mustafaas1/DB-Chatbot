@@ -152,14 +152,20 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
 
   const t0 = Date.now();
   try {
-    const istem = await sistemIstemi(soru, ajan.tablolar);
+    const istem = await sistemIstemi(soru, ajan.tablolar, ajan.rolPromptu);
+
+    // ARAC ALLOWLIST: ajan yalnizca tanimindaki araclari gorur. Tanimda
+    // yazip uygulamamak allowlist'i sus haline getirirdi.
+    const kayit = s.kayit.altKume(ajan.araclar);
+
     const sonuc = await donguCalistir({
       saglayici: s.saglayici,
-      kayit: s.kayit,
+      kayit,
       baglam: { izId: dugum.id, provaMi: false },
       sistemIstemi: istem,
       soru,
-      azamiTur: 2,
+      // Limitler ajan tanimindan geliyor; sabit 2 degil.
+      azamiTur: ajan.limitler.azamiTur,
     });
 
     const sonAdim = [...sonuc.adimlar].reverse().find((a) => a.ok);

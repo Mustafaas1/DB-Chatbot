@@ -24,7 +24,9 @@ export const dataAnalyst: AjanTanimi = {
   tablolar: [
     "TicketRecords", "TicketActivities", "Teklifler", "TeklifKalemleri",
     "OpportunityRecords", "Contacts", "Products", "Invoices",
-    "ContractRecords", "ProjectTasks", "LeaveRequests",
+    "ContractRecords",
+    // Proje ve IK tablolari artik delivery/people ajanlarinda; sahiplik
+    // tek yerde olsun diye buradan cikarildi.
   ],
   ornekler: ["Aşamalarına göre açık destek biletleri", "Kanal bazında bilet dağılımı"],
 };

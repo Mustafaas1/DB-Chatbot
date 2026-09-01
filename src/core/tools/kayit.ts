@@ -32,6 +32,22 @@ export class AracKaydi {
     return [...this.#araclar.values()].sort((a, b) => a.ad.localeCompare(b.ad));
   }
 
+  /**
+   * Yalnizca verilen adlari tasiyan yeni bir kayit dondurur.
+   *
+   * Ajan allowlist'i icin: ajan tanimda yazmayan bir araci GOREMEZ,
+   * dolayisiyla cagiramaz. Filtrelemeyi cagri aninda yapmak yerine
+   * kaydi daraltmak daha guvenli: arac semalari da LLM'e gitmez.
+   */
+  altKume(adlar: readonly string[]): AracKaydi {
+    const yeni = new AracKaydi();
+    for (const ad of adlar) {
+      const arac = this.#araclar.get(ad);
+      if (arac) yeni.kaydet(arac);
+    }
+    return yeni;
+  }
+
   /** Yalnizca okuma yapan araclar. F5 oncesi tum sistem bunlarla calisir. */
   okumaAraclari(): AracTanimi<any, any>[] {
     return this.liste().filter((a) => a.yanEtki === "okuma");
