@@ -51,7 +51,7 @@ YANLIS_ALARM_OLMAMALI = [
     "SELECT * FROM log WHERE aciklama = 'Guncelleme yapildi'",
     # MSSQL koseli parantez tanimlayicisi
     "SELECT [Deleted], [Update] FROM [Orders]",
-    # MySQL geri tirnak tanimlayicisi
+    # Geri tirnakli tanimlayici
     "SELECT `rename`, `call` FROM `lock`",
     # cift tirnakli tanimlayici
     'SELECT "drop" FROM "create"',
@@ -106,7 +106,7 @@ def test_veri_degistiren_ifadeler_reddedilir(sql):
 SELECT_KILIGINDE = [
     # SELECT ... INTO ile yeni tablo olusturma
     "SELECT * INTO yeni_tablo FROM film",
-    # MySQL dosya yazma / okuma
+    # Dosya yazma / okuma girisimleri
     "SELECT * FROM film INTO OUTFILE '/tmp/c.txt'",
     "SELECT * FROM film INTO DUMPFILE '/tmp/c.bin'",
     "SELECT LOAD_FILE('/etc/passwd')",

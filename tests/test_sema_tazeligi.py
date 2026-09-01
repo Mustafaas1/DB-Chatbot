@@ -38,9 +38,6 @@ def ttl_ayarla(monkeypatch):
 # ------------------------------------------------- sema hatasi tanima
 
 SEMA_HATALARI = [
-    "(1054, \"Unknown column 'musteri_adi' in 'field list'\")",
-    "(1146, \"Table 'sirket.eski_tablo' doesn't exist\")",
-    "(1109, \"Unknown table 'x' in field list\")",
     "[42S22] [Microsoft][ODBC Driver 18] Invalid column name 'Bakiye'.",
     "[42S02] [Microsoft][ODBC Driver 18] Invalid object name 'dbo.Musteriler'.",
 ]
@@ -53,7 +50,7 @@ def test_sema_hatalari_taninir(hata):
 
 SEMA_DISI_HATALAR = [
     "Yasakli SQL ifadesi tespit edildi: DROP",
-    "(2013, 'Lost connection to MySQL server during query')",
+    "Communication link failure",
     "Query execution was interrupted, maximum statement execution time exceeded",
     "(1064, \"You have an error in your SQL syntax\")",
     "",
@@ -92,7 +89,7 @@ def test_bayat_sema_yeniden_taranir(monkeypatch, ttl_ayarla):
 
     def sahte_refresh():
         cagrildi.append(1)
-        return {"database": "x", "db_type": "mysql", "tables": [], "alindi": time.time()}
+        return {"database": "x", "db_type": "mssql", "tables": [], "alindi": time.time()}
 
     monkeypatch.setattr(sema_modulu, "refresh_schema", sahte_refresh)
     monkeypatch.setattr(sema_modulu, "_bellek_onbellegi", {"alindi": time.time() - 99999})

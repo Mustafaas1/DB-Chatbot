@@ -262,8 +262,6 @@ def detay_sql_uret(ozet_sql: str, deger: Any, limit: int) -> str:
     kosullar.append(_deger_kosulu(bolum["group"], deger))
 
     govde = " FROM " + bolum["from"] + " WHERE " + " AND ".join(kosullar)
-    if settings.is_mysql:
-        return "SELECT *" + govde + " LIMIT " + str(int(limit))
     return "SELECT TOP " + str(int(limit)) + " *" + govde
 
 

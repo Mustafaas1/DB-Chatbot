@@ -78,18 +78,6 @@ TARIH IFADELERI (kullanicilar boyle konusur)
 - "gecen ay", "bu yil", "son 3 ayda" ifadelerini DATEADD/DATEDIFF ile hesapla."""
 
 
-MYSQL_TALIMATI = """
-LEHCE: MYSQL 8
-- Satir sinirlama LIMIT 200 (TOP KULLANMA). Tanimlayici tirnagi geri tirnak: `film`.
-- Bugun CURDATE(). Tarih: DATE_ADD/DATE_SUB(t, INTERVAL 1 MONTH), DATEDIFF(a,b), TIMESTAMPDIFF(MONTH,a,b).
-- Birlestirme CONCAT() (+ degil). Bicim DATE_FORMAT(t,'%d.%m.%Y'). Sayfalama LIMIT 20 OFFSET 40.
-- Takma ad: SELECT f.title AS `Film Adi`
-- GROUP BY'da SELECT'teki gruplanmamis kolonlara dikkat (ONLY_FULL_GROUP_BY acik olabilir).
-- "1 ay icinde bitecek" -> t >= CURDATE() AND t < DATE_ADD(CURDATE(), INTERVAL 1 MONTH).
-  "gecen ay", "bu yil", "son 3 ay" ifadelerini DATE_ADD/DATE_SUB ile hesapla.
-- DIKKAT: Veri gecmis tarihli olabilir. "son ay" gibi bir soruda sonuc bos gelirse
-  MAX(tarih) ile veri araligini kontrol et ve bulgunu kullaniciya soyle."""
-
 
 # Onbellekten gelen sorgu icin uydurulan arac cagrisi kimligi (her iki saglayici).
 ONBELLEK_ARAC_ID = "onbellek_0"
@@ -139,9 +127,8 @@ def _ozet_talimati() -> str:
 
 
 def _sistem_talimati() -> str:
-    """Aktif veritabani lehcesine gore sistem talimatini olusturur."""
-    lehce = MYSQL_TALIMATI if settings.is_mysql else MSSQL_TALIMATI
-    return ORTAK_TALIMAT + NL2 + lehce
+    """Sistem talimatini olusturur."""
+    return ORTAK_TALIMAT + NL2 + MSSQL_TALIMATI
 
 
 SQL_ARACI = {

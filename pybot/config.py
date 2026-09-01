@@ -39,7 +39,7 @@ def _liste(name: str, default: list[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Settings:
-    db_type: str            # 'mssql' | 'mysql'
+    db_type: str            # 'mssql'
     llm_provider: str       # 'claude' | 'groq'
 
     anthropic_api_key: str
@@ -61,11 +61,6 @@ class Settings:
     mssql_encrypt: bool
     mssql_trust_cert: bool
 
-    mysql_host: str
-    mysql_port: int
-    mysql_user: str
-    mysql_password: str
-    mysql_database: str
 
     max_rows: int
     # Grafikteki bir gruba tiklandiginda listelenen ham kayit siniri.
@@ -138,25 +133,13 @@ class Settings:
         return bool(self.groq_api_key if self.is_groq else self.anthropic_api_key)
 
     @property
-    def is_mysql(self) -> bool:
-        return self.db_type == "mysql"
-
-    @property
     def database_name(self) -> str:
-        """Aktif veritabaninin adi (lehceden bagimsiz)."""
-        return self.mysql_database if self.is_mysql else self.mssql_database
+        """Aktif veritabaninin adi."""
+        return self.mssql_database
 
     @property
     def safe_connection_info(self) -> dict:
         """Sifre icermeyen, arayuzde gosterilebilir baglanti ozeti."""
-        if self.is_mysql:
-            return {
-                "server": f"{self.mysql_host}:{self.mysql_port}",
-                "database": self.mysql_database,
-                "driver": "MySQL (PyMySQL)",
-                "auth": f"MySQL ({self.mysql_user})",
-                "db_type": "mysql",
-            }
         return {
             "server": self.mssql_server,
             "database": self.mssql_database,
@@ -207,11 +190,6 @@ def load_settings() -> Settings:
         mssql_password=os.getenv("MSSQL_PASSWORD", ""),
         mssql_encrypt=_bool("MSSQL_ENCRYPT", True),
         mssql_trust_cert=_bool("MSSQL_TRUST_SERVER_CERTIFICATE", True),
-        mysql_host=os.getenv("MYSQL_HOST", "localhost").strip(),
-        mysql_port=_int("MYSQL_PORT", 3306),
-        mysql_user=os.getenv("MYSQL_USER", "root").strip(),
-        mysql_password=os.getenv("MYSQL_PASSWORD", ""),
-        mysql_database=os.getenv("MYSQL_DATABASE", "").strip(),
         max_rows=_int("MAX_ROWS", 500),
         detay_max_rows=_int("DETAY_MAX_ROWS", 1000),
         model_row_sample=_int("MODEL_ROW_SAMPLE", 15),

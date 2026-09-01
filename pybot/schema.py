@@ -31,9 +31,6 @@ OTOMATIK_YENILEME_ARALIGI = 60.0
 # Semanin degistigine isaret eden veritabani hatalari. Model olmayan bir
 # kolona sorgu yazdiysa sema onbellegimiz bayat olabilir.
 SEMA_HATA_IZLERI = (
-    "unknown column",        # MySQL 1054
-    "unknown table",         # MySQL 1109
-    "doesn't exist",         # MySQL 1146
     "does not exist",
     "invalid column name",   # MSSQL 207
     "invalid object name",   # MSSQL 208
@@ -137,32 +134,6 @@ JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id 
 ORDER BY ps.name, pt.name
 """
 
-MYSQL_TABLO_SORGUSU = """
-SELECT TABLE_NAME, IFNULL(TABLE_ROWS, 0)
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
-ORDER BY TABLE_NAME
-"""
-
-MYSQL_KOLON_SORGUSU = """
-SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-ORDER BY TABLE_NAME, ORDINAL_POSITION
-"""
-
-MYSQL_FK_SORGUSU = """
-SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
-FROM information_schema.KEY_COLUMN_USAGE
-WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL
-ORDER BY TABLE_NAME
-"""
-
-MYSQL_GORUNUM_SORGUSU = """
-SELECT TABLE_NAME FROM information_schema.VIEWS
-WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME
-"""
-
 GORUNUM_SORGUSU = """
 SELECT s.name AS sema, v.name AS gorunum
 FROM sys.views v
@@ -185,52 +156,6 @@ def _tip_metni(veri_tipi: str, max_length: int, precision: int, scale: int) -> s
     return tip
 
 
-def _mysql_sema(cursor) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    """MySQL semasini information_schema uzerinden okur."""
-    tablolar: dict[str, dict[str, Any]] = {}
-
-    cursor.execute(MYSQL_TABLO_SORGUSU)
-    for tablo, satir_sayisi in cursor.fetchall():
-        tablolar[tablo] = {
-            "schema": "",
-            "name": tablo,
-            "row_count": int(satir_sayisi or 0),
-            "columns": [],
-            "primary_key": [],
-            "foreign_keys": [],
-        }
-
-    cursor.execute(MYSQL_KOLON_SORGUSU)
-    for tablo, kolon, kolon_tipi, nullable, anahtar in cursor.fetchall():
-        if tablo not in tablolar:
-            continue
-        tablolar[tablo]["columns"].append(
-            {
-                "name": kolon,
-                # COLUMN_TYPE tam tipi verir: enum('G','PG','R'), decimal(5,2), int unsigned...
-                "type": kolon_tipi,
-                "nullable": nullable == "YES",
-            }
-        )
-        if anahtar == "PRI":
-            tablolar[tablo]["primary_key"].append(kolon)
-
-    cursor.execute(MYSQL_FK_SORGUSU)
-    for tablo, kolon, hedef_tablo, hedef_kolon in cursor.fetchall():
-        if tablo in tablolar:
-            tablolar[tablo]["foreign_keys"].append(
-                {
-                    "column": kolon,
-                    "references": hedef_tablo,
-                    "referenced_column": hedef_kolon,
-                }
-            )
-
-    cursor.execute(MYSQL_GORUNUM_SORGUSU)
-    gorunumler = [r[0] for r in cursor.fetchall()]
-    return tablolar, gorunumler
-
-
 def refresh_schema() -> dict[str, Any]:
     """Veritabanini tarar, onbellege yazar ve sema sozlugunu dondurur."""
     global _bellek_onbellegi
@@ -238,16 +163,6 @@ def refresh_schema() -> dict[str, Any]:
     conn = get_connection()
     try:
         cursor = conn.cursor()
-
-        if settings.is_mysql:
-            tablolar, gorunumler = _mysql_sema(cursor)
-            sema = {
-                "database": settings.database_name,
-                "db_type": "mysql",
-                "tables": list(tablolar.values()),
-                "views": gorunumler,
-            }
-            return _sema_kaydet(sema)
 
         tablolar: dict[str, dict[str, Any]] = {}
         for sema, tablo, satir_sayisi in cursor.execute(TABLO_SORGUSU).fetchall():
@@ -400,7 +315,7 @@ def _kompakt_tablo(tablo: dict[str, Any]) -> str:
 def schema_to_prompt(sema: dict[str, Any] | None = None, ek_sozluk: str = "", sadece: set[str] | None = None) -> str:
     """Semayi, sistem mesajina gomulecek kompakt metne cevirir."""
     sema = sema or get_schema()
-    lehce = "MySQL 8" if sema.get("db_type") == "mysql" else "MS SQL Server"
+    lehce = "MS SQL Server"
     satirlar: list[str] = [f"Veritabani: {sema['database']}  ({lehce})", ""]
 
     haric = {a.lower() for a in settings.schema_exclude}

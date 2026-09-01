@@ -20,7 +20,8 @@ YASAKLI_KELIMELER = {
     "create", "grant", "revoke", "deny", "exec", "execute", "sp_executesql",
     "backup", "restore", "shutdown", "reconfigure", "openrowset", "opendatasource",
     "openquery", "bulk", "waitfor", "kill", "dbcc", "into",
-    # MySQL'e ozgu tehlikeli ifadeler
+    # Diger lehcelerden gelebilecek tehlikeli ifadeler; savunma derinligi
+    # icin listede tutuluyor.
     "load", "outfile", "dumpfile", "load_file", "benchmark", "sleep",
     "handler", "lock", "unlock", "rename", "call", "do", "prepare",
 }
@@ -28,7 +29,7 @@ YASAKLI_KELIMELER = {
 # Tehlikeli uzantili sistem prosedurleri (xp_cmdshell gibi).
 YASAKLI_ONEKLER = ("xp_", "sp_oa", "sys.sp_")
 
-# MySQL tanimlayici tirnagi: `tablo_adi`
+# Geri tirnakli tanimlayici: `tablo_adi`
 GERI_TIRNAK_TANIMLAYICI = re.compile(r"`[^`]*`")
 
 YORUM_BLOK = re.compile(r"/\*.*?\*/", re.DOTALL)

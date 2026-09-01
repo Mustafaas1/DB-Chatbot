@@ -7,7 +7,6 @@ import decimal
 import uuid
 from typing import Any
 
-import pymysql
 import pyodbc
 
 from .config import settings
@@ -47,28 +46,11 @@ class QueryResult:
 
 
 def get_connection():
-    """Yeni bir veritabani baglantisi acar (MS SQL Server veya MySQL).
+    """Yeni bir MS SQL Server baglantisi acar.
 
     autocommit=False: her sorgu bir islem icinde calisir ve sonunda geri alinir.
     Salt-okunur guard'a ek bir emniyet katmanidir.
     """
-    if settings.is_mysql:
-        conn = pymysql.connect(
-            host=settings.mysql_host,
-            port=settings.mysql_port,
-            user=settings.mysql_user,
-            password=settings.mysql_password,
-            database=settings.mysql_database,
-            charset="utf8mb4",
-            autocommit=False,
-            connect_timeout=10,
-            read_timeout=settings.query_timeout + 5,
-        )
-        with conn.cursor() as cur:
-            # Sunucu tarafinda sorgu suresini sinirlar (yalnizca SELECT'leri etkiler).
-            cur.execute("SET SESSION MAX_EXECUTION_TIME = %s", (settings.query_timeout * 1000,))
-        return conn
-
     conn = pyodbc.connect(settings.connection_string, timeout=10, autocommit=False)
     conn.timeout = settings.query_timeout
     return conn
@@ -141,10 +123,7 @@ def test_connection() -> dict:
         conn = get_connection()
         try:
             cursor = conn.cursor()
-            if settings.is_mysql:
-                cursor.execute("SELECT DATABASE(), VERSION()")
-            else:
-                cursor.execute("SELECT DB_NAME(), @@VERSION")
+            cursor.execute("SELECT DB_NAME(), @@VERSION")
             db_adi, surum = cursor.fetchone()
         finally:
             conn.rollback()
@@ -152,7 +131,7 @@ def test_connection() -> dict:
         return {
             "ok": True,
             "database": db_adi,
-            "version": ("MySQL " + str(surum)) if settings.is_mysql else str(surum).splitlines()[0].strip(),
+            "version": str(surum).splitlines()[0].strip(),
             **settings.safe_connection_info,
         }
     except Exception as exc:  # noqa: BLE001 - kullaniciya ham hatayi gostermek istiyoruz

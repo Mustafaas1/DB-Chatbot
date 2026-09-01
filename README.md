@@ -9,7 +9,7 @@ sonucu özetler.
 Şirket portalınızın **sağ alt köşesinde yuvarlak bir buton** olarak durur; tıklanınca
 sohbet paneli açılır. Tek `<script>` etiketiyle herhangi bir sayfaya eklenir.
 
-**Yığın:** MS SQL Server *veya* MySQL · Claude *veya* Groq · FastAPI · saf JavaScript (derleme adımı yok)
+**Yığın:** MS SQL Server · Claude *veya* Groq · FastAPI · saf JavaScript (derleme adımı yok)
 
 Veritabanı ve yapay zeka sağlayıcısı `.env` üzerinden değiştirilir; kod değişmez.
 
@@ -99,32 +99,11 @@ ALTER ROLE db_datareader ADD MEMBER chatbot_okuyucu;   -- sadece okuma
 
 ```ini
 DB_TYPE=mssql    # MS SQL Server (şirketin gerçek veritabanı)
-DB_TYPE=mysql    # MySQL (Sakila örnek veritabanı)
 ```
 
 Şema tarama, SQL güvenlik katmanı ve yapay zekaya verilen sözdizimi kuralları
-seçime göre otomatik değişir (T-SQL `TOP`/`GETDATE()` ↔ MySQL `LIMIT`/`CURDATE()`).
+T-SQL lehçesini kullanır (`TOP`, `GETDATE()`).
 
-### Sakila örnek veritabanını yükleme
-
-```bash
-mysql -u root -p < "C:/Users/Mustafa/Downloads/sakila-db/sakila-db/sakila-schema.sql"
-```
-
-```bash
-mysql -u root -p < "C:/Users/Mustafa/Downloads/sakila-db/sakila-db/sakila-data.sql"
-```
-
-Sonra `.env` içinde:
-
-```ini
-DB_TYPE=mysql
-MYSQL_USER=root
-MYSQL_PASSWORD=parolanız
-MYSQL_DATABASE=sakila
-```
-
-Uygulamayı yeniden başlatın; şema otomatik taranır.
 
 ### Terim sözlüğü dosyaları
 
@@ -132,7 +111,6 @@ Yapay zekaya gönderilen iş kuralları veritabanına göre seçilir:
 
 | Dosya | Ne zaman kullanılır |
 |---|---|
-| `schema_notes.sakila.md` | `MYSQL_DATABASE=sakila` iken |
 | `schema_notes.SirketDemo.md` | `MSSQL_DATABASE=SirketDemo` iken |
 | `schema_notes.md` | Yukarıdakiler yoksa (yedek) |
 
@@ -164,7 +142,7 @@ Anahtarı <https://console.groq.com/keys> adresinden alın.
 
 ### Ölçülen gecikme (Groq ücretsiz katman)
 
-Sakila şemasıyla (~2.600 token sistem mesajı), soru başına 4 örnek:
+Ölçüm (soru başına 4 örnek):
 
 | Model | Medyan | Aralık | Araç çağırma |
 |---|---|---|---|
@@ -432,7 +410,7 @@ doğrular.
 app/
   config.py     .env okuma, bağlantı dizesi üretimi
   sqlguard.py   SQL güvenlik doğrulaması (salt-okunur zorlaması)
-  db.py         MSSQL/MySQL bağlantısı, sorgu çalıştırma, tip dönüşümleri
+  db.py         MS SQL Server bağlantısı, sorgu çalıştırma, tip dönüşümleri
   schema.py     Şema tarama + önbellek + yapay zekaya gidecek metin
   llm.py        Claude/Groq çağrısı, araç döngüsü, lehçeye göre sistem talimatı
   ajanlar.py    Bölüm ajanları (satış/destek/finans/proje/İK) ve tablo kapsamları
@@ -470,7 +448,7 @@ schema_notes.*.md      Veritabanına özel terim sözlüğü (yapay zekaya gönd
 
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `DB_TYPE` | `mssql` | `mssql` veya `mysql` |
+| `DB_TYPE` | `mssql` | Yalnızca `mssql` |
 | `LLM_PROVIDER` | `claude` | `claude` veya `groq` |
 | `CLAUDE_MODEL` | `claude-opus-5` | Claude modeli |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq modeli (araç çağırmayı desteklemeli) |
