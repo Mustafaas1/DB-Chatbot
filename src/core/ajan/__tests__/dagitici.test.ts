@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ajanaGoreGrupla, dagit } from "../dagitici";
-import type { HedefDugumu } from "../../hedef/tipler";
+import type { GoalNodeGenis } from "../../hedef/tipler";
 import type { Tablo } from "../../db/sema";
 
-function dugum(baslik: string, olcumSorusu = "", gerekce = ""): HedefDugumu {
+function dugum(baslik: string, olcumSorusu = "", gerekce = ""): GoalNodeGenis {
   return {
-    id: baslik, baslik, tur: "olcum", gerekce, seviye: 2,
-    cocuklar: [], durum: "bekliyor", olcumSorusu,
+    id: baslik, parentId: "kok", statement: baslik, type: "metric",
+    rationale: gerekce, measurementQuery: olcumSorusu,
+    evidence: [], children: [], status: "pending",
   };
 }
 

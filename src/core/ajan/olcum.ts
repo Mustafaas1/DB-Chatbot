@@ -75,7 +75,7 @@ export async function* olcumleriCalistir(
 
   for (const a of s.atamalar) {
     if (!s.tablolar?.length) { gecerliler.push(a); continue; }
-    const metin = `${a.dugum.baslik} ${a.dugum.olcumSorusu ?? ""}`;
+    const metin = `${a.dugum.statement} ${a.dugum.measurementQuery ?? ""}`;
     const sebepler: string[] = [];
 
     // 1) ZEMIN: veride hic karsiligi olmayan kavram var mi
@@ -95,8 +95,8 @@ export async function* olcumleriCalistir(
 
     if (!sebepler.length) gecerliler.push(a);
     else gecersizOlaylar.push({
-      tur: "gecersiz", dugumId: a.dugum.id, baslik: a.dugum.baslik,
-      soru: a.dugum.olcumSorusu ?? a.dugum.baslik,
+      tur: "gecersiz", dugumId: a.dugum.id, baslik: a.dugum.statement,
+      soru: a.dugum.measurementQuery ?? a.dugum.statement,
       sebepler,
     });
   }
@@ -107,7 +107,7 @@ export async function* olcumleriCalistir(
     yield {
       tur: "atlandi",
       dugumId: atlanan.dugum.id,
-      baslik: atlanan.dugum.baslik,
+      baslik: atlanan.dugum.statement,
       sebep: `Butce: ilk ${azami} olcum calistirildi`,
     };
   }
@@ -143,10 +143,10 @@ export async function* olcumleriCalistir(
 
 async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]> {
   const { dugum, ajan } = atama;
-  const soru = dugum.olcumSorusu || dugum.baslik;
+  const soru = dugum.measurementQuery || dugum.statement;
   const baslangic: OlcumOlayi = {
     tur: "basladi", dugumId: dugum.id, ajanKod: ajan.kod,
-    ajanAd: ajan.ad, renk: ajan.renk, baslik: dugum.baslik,
+    ajanAd: ajan.ad, renk: ajan.renk, baslik: dugum.statement,
     belirsiz: atama.belirsiz,
   };
 
@@ -185,7 +185,7 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
       tur: "bitti",
       sonuc: {
         dugumId: dugum.id, ajanKod: ajan.kod, ajanAd: ajan.ad, renk: ajan.renk,
-        baslik: dugum.baslik, soru, cevap: sonuc.cevap, sql,
+        baslik: dugum.statement, soru, cevap: sonuc.cevap, sql,
         kolonlar, satirlar, satirSayisi: satirlar.length,
         bosMu: satirlar.length === 0,
         belirsiz: atama.belirsiz,
@@ -195,7 +195,7 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
     }];
   } catch (e) {
     return [baslangic, {
-      tur: "hata", dugumId: dugum.id, ajanKod: ajan.kod, baslik: dugum.baslik,
+      tur: "hata", dugumId: dugum.id, ajanKod: ajan.kod, baslik: dugum.statement,
       mesaj: e instanceof Error ? e.message : String(e),
     }];
   }

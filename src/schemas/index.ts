@@ -70,6 +70,62 @@ export const GoalNode = z.object({
 });
 export type GoalNode = z.infer<typeof GoalNode>;
 
+/**
+ * Calisma zamani alanlariyla genisletilmis dugum.
+ *
+ * Kanonik GoalNode BOZULMADAN kaliyor; bunlar acikca EK alanlar:
+ *
+ *   rationale         Dugumun ust dugumden NEDEN turedigi. Spec'te yok ama
+ *                     zihinsel modelin merkezi: "her icgoru bir sonraki
+ *                     neden/nasil katmanina inmek zorunda". Bu alan
+ *                     olmadan agac bir baslik listesine donuyor.
+ *   measurementQuery  Olculmeden once veriye sorulacak soru. Olculdukten
+ *                     sonra evidence[].query'ye de yaziliyor; ama oncesinde
+ *                     kanit olmadigi icin ayri bir yere ihtiyac var.
+ *   status            Olcum durumu. Sema degil surec bilgisi.
+ */
+export const DugumDurumu = z.enum(["pending", "measuring", "measured", "failed"]);
+export type DugumDurumu = z.infer<typeof DugumDurumu>;
+
+export const GoalNodeGenis = GoalNode.extend({
+  rationale: z.string().default(""),
+  measurementQuery: z.string().optional(),
+  status: DugumDurumu.default("pending"),
+});
+export type GoalNodeGenis = z.infer<typeof GoalNodeGenis>;
+
+/** Duz agac: kimlik -> dugum. */
+export type Agac = GoalNodeGenis[];
+
+/** Kok dugum: parentId'si null olan. */
+export function kokDugum(agac: Agac): GoalNodeGenis | undefined {
+  return agac.find((d) => d.parentId === null);
+}
+
+/** Olculebilir dugumler; olcum sorusu olanlar. */
+export function olcumDugumleri(agac: Agac): GoalNodeGenis[] {
+  return agac.filter((d) => d.type === "metric" && d.measurementQuery);
+}
+
+/** Dugumu kokten baslayarak derinlik sirasiyla gezer. */
+export function derinlikSirasi(agac: Agac): { dugum: GoalNodeGenis; derinlik: number }[] {
+  const harita = new Map(agac.map((d) => [d.id, d]));
+  const cikti: { dugum: GoalNodeGenis; derinlik: number }[] = [];
+
+  const gez = (id: string, derinlik: number, gorulen: Set<string>) => {
+    if (gorulen.has(id)) return;   // dongu korumasi
+    gorulen.add(id);
+    const d = harita.get(id);
+    if (!d) return;
+    cikti.push({ dugum: d, derinlik });
+    for (const c of d.children) gez(c, derinlik + 1, gorulen);
+  };
+
+  const kok = kokDugum(agac);
+  if (kok) gez(kok.id, 0, new Set());
+  return cikti;
+}
+
 // ---------------------------------------------------------------------------
 // Action -- yurutulebilir aksiyon
 // ---------------------------------------------------------------------------

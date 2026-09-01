@@ -1,6 +1,6 @@
 import type { AjanTanimi } from "../../agents/tipler";
 import { PLANLAMA_AJANLARI } from "../../agents/index";
-import type { HedefDugumu } from "../hedef/tipler";
+import type { GoalNodeGenis } from "../hedef/tipler";
 import type { Tablo } from "../db/sema";
 
 /**
@@ -91,7 +91,7 @@ function kolonSozlugu(tablolar: Tablo[]): Map<string, string[]> {
 }
 
 export interface Atama {
-  dugum: HedefDugumu;
+  dugum: GoalNodeGenis;
   ajan: AjanTanimi;
   /** 0 ise hicbir sinyal yok; varsayilan ajana dusuldu. */
   puan: number;
@@ -115,7 +115,7 @@ export interface Atama {
 const VARSAYILAN = PLANLAMA_AJANLARI.find((a) => a.kod === "data-analyst")
   ?? PLANLAMA_AJANLARI[0]!;
 
-export function dagit(dugumler: HedefDugumu[], tablolar?: Tablo[]): Atama[] {
+export function dagit(dugumler: GoalNodeGenis[], tablolar?: Tablo[]): Atama[] {
   const kolonlar = tablolar?.length ? kolonSozlugu(tablolar) : undefined;
 
   return dugumler.map((d) => {
@@ -124,7 +124,7 @@ export function dagit(dugumler: HedefDugumu[], tablolar?: Tablo[]): Atama[] {
     // anlatiyor; yonlendirmeyi yanlis ajana cekiyordu. Ornek: destek
     // biletiyle ilgili bir olcum, gerekcesinde "teklif kazanma orani"
     // gectigi icin Satis Ajanina gidiyordu.
-    const metin = normalize(`${d.baslik} ${d.olcumSorusu ?? ""}`);
+    const metin = normalize(`${d.statement} ${d.measurementQuery ?? ""}`);
     let enIyi = VARSAYILAN;
     let enYuksek = 0;
 

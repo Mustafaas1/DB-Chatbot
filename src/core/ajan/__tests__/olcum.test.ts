@@ -5,7 +5,7 @@ import type { Saglayici, SaglayiciYaniti } from "../../llm/tipler";
 import { olcumleriCalistir } from "../olcum";
 import type { Atama } from "../dagitici";
 import { PLANLAMA_AJANLARI } from "../../../agents/index";
-import type { HedefDugumu } from "../../hedef/tipler";
+import type { GoalNodeGenis } from "../../hedef/tipler";
 import type { OlcumOlayi } from "../olcum";
 
 vi.mock("../istem", () => ({ sistemIstemi: async () => "sistem" }));
@@ -40,9 +40,10 @@ function kayit(): AracKaydi {
 
 function atamalar(adet: number): Atama[] {
   return Array.from({ length: adet }, (_, i) => {
-    const d: HedefDugumu = {
-      id: `d${i}`, baslik: `olcum ${i}`, tur: "olcum", gerekce: "",
-      seviye: 2, cocuklar: [], durum: "bekliyor", olcumSorusu: `soru ${i}`,
+    const d: GoalNodeGenis = {
+      id: `d${i}`, parentId: "kok", statement: `olcum ${i}`, type: "metric",
+      rationale: "", measurementQuery: `soru ${i}`,
+      evidence: [], children: [], status: "pending",
     };
     return { dugum: d, ajan: PLANLAMA_AJANLARI[i % PLANLAMA_AJANLARI.length]!, puan: 10, belirsiz: false };
   });

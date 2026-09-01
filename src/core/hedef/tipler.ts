@@ -1,26 +1,17 @@
+import type { Agac, GoalNodeGenis } from "../../schemas/index";
+import { derinlikSirasi, kokDugum, olcumDugumleri } from "../../schemas/index";
+
 /**
- * Hedef agaci ("Sampiyonluk Agaci").
+ * Hedef agaci tipleri.
  *
- * Bir soru dogrudan cevaplanmaz; once bir HEDEF AGACINA cevrilir.
- * Her dugum bir ust dugumun "neden/nasil" katmanidir:
- *
- *   Ciro artisi                      (hedef)
- *     Musteri sayisi                 (surucu)
- *       Yeni musteri kazanimi        (olcum)  -> veriyle olculebilir
- *         Kanal bazli kampanya       (aksiyon)
+ * Agac artik DUZ: kanonik GoalNode semasi (spec bolum 5) children'i id
+ * listesi olarak tutuyor. Ic ice nesne yapisi birakildi cunku ayni dugume
+ * iki yerden atif yapilamiyor ve kismi guncelleme butun agaci dolasmayi
+ * gerektiriyordu.
  */
 
-export type DugumTuru =
-  /** Kok: kullanicinin asil amaci. */
-  | "hedef"
-  /** Hedefi belirleyen bilesen; matematiksel ya da nedensel. */
-  | "surucu"
-  /** Veriyle OLCULEBILIR soru. Bunlar veri adimina donusur. */
-  | "olcum"
-  /** Somut, uygulanabilir aksiyon. F5'te yurutulecek. */
-  | "aksiyon";
-
-export type DugumDurumu = "bekliyor" | "olculuyor" | "olculdu" | "basarisiz";
+export type { Agac, GoalNodeGenis };
+export { derinlikSirasi, kokDugum, olcumDugumleri };
 
 export interface Bulgu {
   ozet: string;
@@ -29,46 +20,16 @@ export interface Bulgu {
   sql?: string;
 }
 
-export interface HedefDugumu {
-  id: string;
-  baslik: string;
-  tur: DugumTuru;
-  /** Bu dugum ust dugumden NEDEN turedi. Agacin okunabilirligi buna bagli. */
-  gerekce: string;
-  seviye: number;
-  cocuklar: HedefDugumu[];
-  /** Yalnizca "olcum" dugumlerinde: veriye sorulacak soru. */
-  olcumSorusu?: string;
-  durum: DugumDurumu;
-  bulgu?: Bulgu;
-  /** F6: geri besleme dongusunun olctugu etki raporu. */
-  etki?: {
-    onceki: Bulgu;
-    sonraki: Bulgu;
-    satirDegisimi: { onceki: number; sonraki: number; fark: number; yon: string };
-    kolonEtkileri: { kolon: string; fark: number | null; yuzde: number | null; yon: string }[];
-  };
-}
-
 export interface AgacKullanimi {
   girdiTokeni: number;
   ciktiTokeni: number;
   cagriSayisi: number;
 }
 
-export interface Agac {
-  kok: HedefDugumu;
+export interface AgacSonucu {
+  /** Duz dugum listesi. Kok parentId === null olan. */
+  dugumler: Agac;
   kullanim: AgacKullanimi;
   /** Butce ya da derinlik yuzunden genisletilemeyen dugum sayisi. */
   genisletilmeyen: number;
-}
-
-/** Agaci duz listeye acar (gorsellestirme ve olcum sirasi icin). */
-export function duzles(dugum: HedefDugumu): HedefDugumu[] {
-  return [dugum, ...dugum.cocuklar.flatMap(duzles)];
-}
-
-/** Veriyle olculebilir dugumler; F4 bunlari ajanlara dagitacak. */
-export function olcumDugumleri(kok: HedefDugumu): HedefDugumu[] {
-  return duzles(kok).filter((d) => d.tur === "olcum" && d.olcumSorusu);
 }

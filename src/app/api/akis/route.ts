@@ -53,11 +53,11 @@ export async function POST(istek: Request) {
         });
         yolla({ tur: "agac", agac });
 
-        const atamalar = dagit(olcumDugumleri(agac.kok), tablolar);
+        const atamalar = dagit(olcumDugumleri(agac.dugumler), tablolar);
         yolla({
           tur: "plan",
           atamalar: atamalar.map((a) => ({
-            dugumId: a.dugum.id, baslik: a.dugum.baslik,
+            dugumId: a.dugum.id, baslik: a.dugum.statement,
             ajanKod: a.ajan.kod, ajanAd: a.ajan.ad, renk: a.ajan.renk,
             belirsiz: a.belirsiz,
           })),

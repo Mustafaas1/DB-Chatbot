@@ -1,4 +1,5 @@
-import type { DugumTuru, HedefDugumu } from "./tipler";
+import type { DugumTuru } from "../../schemas/index";
+import type { GoalNodeGenis } from "./tipler";
 
 /**
  * Genisletme istemi.
@@ -11,18 +12,23 @@ import type { DugumTuru, HedefDugumu } from "./tipler";
 /** Bir sonraki katmanin turu. Aksiyondan sonra dallanma biter. */
 export function sonrakiTur(tur: DugumTuru): DugumTuru | null {
   switch (tur) {
-    case "hedef": return "surucu";
-    case "surucu": return "olcum";
-    case "olcum": return "aksiyon";
-    case "aksiyon": return null;
+    case "goal": return "lever";       // hedefi hareket ettiren kaldiraclar
+    case "lever": return "metric";     // kaldiracin olculebilir gostergeleri
+    case "metric": return "action";    // olcume dayanan somut aksiyon
+    case "action": return null;
+    // "resource" agac kurucusu tarafindan uretilmiyor; kaldiraci
+    // kullanmak icin gereken kisiti isaretlemek uzere sema duzeyinde
+    // tanimli ve elle eklenebiliyor.
+    case "resource": return null;
   }
 }
 
 const TUR_ACIKLAMA: Record<DugumTuru, string> = {
-  hedef: "kullanicinin asil amaci",
-  surucu: "hedefi belirleyen bilesen (nedensel ya da matematiksel)",
-  olcum: "VERITABANINDAN OLCULEBILIR somut soru",
-  aksiyon: "bulguya dayanan somut, uygulanabilir aksiyon",
+  goal: "kullanicinin asil amaci",
+  lever: "hedefi hareket ettiren kaldirac (nedensel ya da matematiksel)",
+  metric: "VERITABANINDAN OLCULEBILIR somut soru",
+  action: "bulguya dayanan somut, uygulanabilir aksiyon",
+  resource: "kaldiraci kullanmak icin gereken kaynak ya da kisit",
 };
 
 export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): string {
@@ -33,7 +39,7 @@ export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): 
   // Yalnizca tablo ADI vermek yetmedi: model dogru tabloyu secip icindeki
   // kolonlari uyduruyordu. Kolon adlari da veriliyor.
   const veriKisiti =
-    veriOzetiMetni && (hedefTur === "olcum" || hedefTur === "surucu")
+    veriOzetiMetni && (hedefTur === "metric" || hedefTur === "lever")
       ? [
           "",
           "ELDEKI VERI (yalnizca bunlar var; tablo: kolonlar):",
@@ -55,7 +61,7 @@ export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): 
     "- Her cocuk ust dugumden MANTIKEN turemeli; 'gerekce' bu bagi tek",
     "  cumleyle kurmali.",
     "- Cocuklar birbirinden FARKLI olmali; ayni seyi iki kez yazma.",
-    hedefTur === "olcum"
+    hedefTur === "metric"
       ? "- Her cocuk icin 'olcumSorusu' yaz: veritabanina sorulabilecek, tek ve net bir soru."
       : "- 'olcumSorusu' alanini bos birak.",
     "",
@@ -68,9 +74,9 @@ export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): 
 
 /** Ornekler kurallardan baskin; her tur icin bir tane. */
 export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[] {
-  if (hedefTur === "surucu") {
+  if (hedefTur === "lever") {
     return [{
-      girdi: "DUGUM (hedef): Destek yukumuzu azaltmak",
+      girdi: "DUGUM (goal): Destek yukumuzu azaltmak",
       cikti: JSON.stringify([
         { baslik: "Gelen bilet sayisini dusurmek", gerekce: "Yuk once hacimden gelir; hic acilmayan bilet en ucuzudur.", olcumSorusu: "" },
         { baslik: "Bilet cozum suresini kisaltmak", gerekce: "Ayni hacim daha hizli kapanirsa birikme olusmaz.", olcumSorusu: "" },
@@ -79,9 +85,9 @@ export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[
     }];
   }
 
-  if (hedefTur === "olcum") {
+  if (hedefTur === "metric") {
     return [{
-      girdi: "DUGUM (surucu): Gelen bilet sayisini dusurmek",
+      girdi: "DUGUM (lever): Gelen bilet sayisini dusurmek",
       cikti: JSON.stringify([
         { baslik: "Biletlerin konu dagilimi", gerekce: "Hacmi hangi konularin urettigini bilmeden azaltilamaz.", olcumSorusu: "Destek biletlerini kategorilerine gore say" },
         { baslik: "Acik biletlerin asama dagilimi", gerekce: "Biletlerin nerede takildigini gosterir.", olcumSorusu: "Asamalarina gore acik destek biletleri" },
@@ -90,7 +96,7 @@ export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[
   }
 
   return [{
-    girdi: "DUGUM (olcum): Acik biletlerin asama dagilimi\nBULGU: 59 acik biletin 47'si Beklemede.",
+    girdi: "DUGUM (metric): Acik biletlerin asama dagilimi\nBULGU: 59 acik biletin 47'si Beklemede.",
     cikti: JSON.stringify([
       { baslik: "Beklemede takilan biletlere sahip atamak", gerekce: "Biletlerin %80'i beklemede; sahipsizlik en olasi sebep.", olcumSorusu: "" },
       { baslik: "Bekleme suresi icin esik ve uyari kurmak", gerekce: "Esik asildiginda uyari, birikmeyi erken yakalar.", olcumSorusu: "" },
@@ -99,12 +105,13 @@ export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[
 }
 
 /** Genisletilecek dugumu ve gerekiyorsa bulgusunu anlatir. */
-export function dugumMetni(dugum: HedefDugumu, asilSoru: string): string {
+export function dugumMetni(dugum: GoalNodeGenis, asilSoru: string): string {
   const parcalar = [
     "ASIL SORU: " + asilSoru,
-    `DUGUM (${dugum.tur}): ${dugum.baslik}`,
+    `DUGUM (${dugum.type}): ${dugum.statement}`,
   ];
-  if (dugum.gerekce) parcalar.push("BU DUGUMUN GEREKCESI: " + dugum.gerekce);
-  if (dugum.bulgu?.ozet) parcalar.push("BULGU: " + dugum.bulgu.ozet);
+  if (dugum.rationale) parcalar.push("BU DUGUMUN GEREKCESI: " + dugum.rationale);
+  // Olculduyse deger de veriliyor: aksiyon katmani bulguya dayanmali.
+  if (dugum.currentValue != null) parcalar.push("OLCULEN DEGER: " + dugum.currentValue);
   return parcalar.join("\n");
 }

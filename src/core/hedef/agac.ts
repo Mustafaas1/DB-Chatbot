@@ -4,10 +4,11 @@ import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
 import { yapisalIste } from "../llm/yapisal";
 import { dugumMetni, genisletmeIstemi, ornekler, sonrakiTur } from "./istem";
-import type { Agac, AgacKullanimi, DugumTuru, HedefDugumu } from "./tipler";
+import type { Agac, AgacKullanimi, AgacSonucu, GoalNodeGenis } from "./tipler";
+import { GoalNodeGenis as GoalNodeGenisSemasi, type DugumTuru } from "../../schemas/index";
 
 const CocukSemasi = z.object({
-  baslik: z.string().min(1).max(120),
+  baslik: z.string().min(1).max(200),
   gerekce: z.string().default(""),
   olcumSorusu: z.string().default(""),
 });
@@ -16,50 +17,59 @@ const CocukListesi = z.array(CocukSemasi).min(1).max(5);
 export interface AgacSecenekleri {
   saglayici: Saglayici;
   soru: string;
-  /** Kok 0. sayilir; 3 demek aksiyon katmanina kadar inmek demek. */
+  /** Kok 0. sayilir. */
   azamiDerinlik?: number;
   /** Toplam LLM cagrisi tavani. Ucretsiz katmanda asil koruma bu. */
   azamiCagri?: number;
-  /** Kompakt veri ozeti (bkz. veriOzeti.ts). Verilmezse model olmayan
-   *  tablo ve kolonlar uyduruyor. */
+  /** Olcum katmanini gercek veriye baglar. */
   veriOzetiMetni?: string;
 }
 
 function dugumYap(
-  baslik: string, tur: DugumTuru, gerekce: string, seviye: number, olcumSorusu?: string
-): HedefDugumu {
-  return {
-    id: randomUUID(), baslik, tur, gerekce, seviye,
-    cocuklar: [], durum: "bekliyor",
-    ...(olcumSorusu ? { olcumSorusu } : {}),
-  };
+  statement: string, type: DugumTuru, rationale: string,
+  parentId: string | null, measurementQuery?: string
+): GoalNodeGenis {
+  return GoalNodeGenisSemasi.parse({
+    id: randomUUID(),
+    parentId,
+    statement,
+    type,
+    rationale,
+    ...(measurementQuery ? { measurementQuery } : {}),
+    evidence: [],
+    children: [],
+    status: "pending",
+  });
 }
 
 /**
- * Hedef agacini KATMAN KATMAN kurar.
+ * Hedef agacini KATMAN KATMAN kurar ve DUZ liste dondurur.
  *
- * Tek seferde butun agaci istemek bu modelde yarim JSON uretiyordu.
- * Her genisletme ayri, kucuk ve sematiksiz bir cagri: agac kurmak icin
+ * Tek seferde butun agaci istemek bu modelde yarim JSON uretiyordu. Her
+ * genisletme ayri, kucuk ve sematiksiz bir cagri: agac kurmak icin
  * veritabani semasi gerekmiyor, bu da maliyeti dusuk tutuyor.
  */
-export async function agacKur(s: AgacSecenekleri): Promise<Agac> {
+export async function agacKur(s: AgacSecenekleri): Promise<AgacSonucu> {
   const azamiDerinlik = s.azamiDerinlik ?? 3;
   const azamiCagri = s.azamiCagri ?? 6;
 
-  const kok = dugumYap(s.soru, "hedef", "", 0);
+  const kok = dugumYap(s.soru, "goal", "", null);
+  const dugumler: Agac = [kok];
+  const derinlik = new Map<string, number>([[kok.id, 0]]);
+
   const kullanim: AgacKullanimi = { girdiTokeni: 0, ciktiTokeni: 0, cagriSayisi: 0 };
   let genisletilmeyen = 0;
 
-  // Genislikte arama: ust katmanlar once tamamlansin. Butce biterse
-  // agac dar kalir ama DENGELI kalir; derinlemesine gidip tek dal
-  // sismiyor.
-  const kuyruk: HedefDugumu[] = [kok];
+  // Genislikte arama: butce biterse agac dar kalir ama DENGELI kalir;
+  // derinlemesine gidip tek dal sismiyor.
+  const kuyruk: GoalNodeGenis[] = [kok];
 
   while (kuyruk.length) {
     const dugum = kuyruk.shift()!;
-    const cocukTuru = sonrakiTur(dugum.tur);
+    const cocukTuru = sonrakiTur(dugum.type);
+    const d = derinlik.get(dugum.id) ?? 0;
 
-    if (!cocukTuru || dugum.seviye >= azamiDerinlik) continue;
+    if (!cocukTuru || d >= azamiDerinlik) continue;
     if (kullanim.cagriSayisi >= azamiCagri) { genisletilmeyen++; continue; }
 
     let cocuklar: z.infer<typeof CocukListesi>;
@@ -73,20 +83,22 @@ export async function agacKur(s: AgacSecenekleri): Promise<Agac> {
 
     for (const c of cocuklar) {
       const yeni = dugumYap(
-        c.baslik, cocukTuru, c.gerekce, dugum.seviye + 1,
-        cocukTuru === "olcum" ? c.olcumSorusu || c.baslik : undefined
+        c.baslik, cocukTuru, c.gerekce, dugum.id,
+        cocukTuru === "metric" ? c.olcumSorusu || c.baslik : undefined
       );
-      dugum.cocuklar.push(yeni);
+      dugumler.push(yeni);
+      dugum.children.push(yeni.id);
+      derinlik.set(yeni.id, d + 1);
       kuyruk.push(yeni);
     }
   }
 
-  return { kok, kullanim, genisletilmeyen };
+  return { dugumler, kullanim, genisletilmeyen };
 }
 
 async function genislet(
   saglayici: Saglayici,
-  dugum: HedefDugumu,
+  dugum: GoalNodeGenis,
   asilSoru: string,
   cocukTuru: DugumTuru,
   kullanim: AgacKullanimi,
@@ -97,8 +109,7 @@ async function genislet(
     { rol: "asistan" as const, metin: o.cikti },
   ]);
 
-  // Yapisal cikti + tek retry yapisalIste icinde; burada tekrar
-  // uygulanmiyor ki iki katmanli retry olusmasin.
+  // Yapisal cikti + tek retry yapisalIste icinde.
   const { deger, kullanim: k } = await yapisalIste({
     saglayici,
     istek: {
@@ -121,5 +132,3 @@ async function genislet(
   kullanim.cagriSayisi += 1;
   return deger;
 }
-
-

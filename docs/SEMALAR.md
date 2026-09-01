@@ -50,8 +50,36 @@ Geri düşüş korunuyor: model kod bloğu ya da açıklama eklerse metin içind
 - 21 şema testi + 12 yapısal çıktı testi
 - Gerçek modelde ilk denemede temiz JSON: 141+90 token, 585 ms
 
-## Henüz yapılmadı
+## Taşıma tamamlandı
 
-Mevcut `HedefDugumu` ve `Plan` tipleri kanonik şemalara **taşınmadı**. İç yapı
-hâlâ iç içe ağaç ve eski alan adlarını kullanıyor. Şemalar sözleşme olarak
-tanımlı ve test edilmiş durumda; taşıma ayrı adım.
+`HedefDugumu` kaldırıldı; ağaç artık kanonik `GoalNode` şeması üzerinde ve **düz**.
+
+| Eski | Yeni |
+|---|---|
+| `baslik` | `statement` |
+| `tur: hedef/surucu/olcum/aksiyon` | `type: goal/lever/metric/action` |
+| `cocuklar: HedefDugumu[]` (iç içe) | `children: string[]` (id listesi) |
+| `olcumSorusu` | `measurementQuery` |
+| `gerekce` | `rationale` |
+| `durum` | `status` |
+| — | `evidence[]`, `currentValue`, `targetValue` |
+
+### Çalışma zamanı alanları ayrı tutuldu
+
+Spec'in `GoalNode`'unda **gerekçe alanı yok**, ama gerekçe ağacın okunabilirliğinin
+tamamı: *"her içgörü bir sonraki neden/nasıl katmanına inmek zorunda."* Bu alan
+olmadan ağaç bir başlık listesine dönüyor.
+
+Kanonik `GoalNode` bozulmadan bırakıldı; `GoalNodeGenis` onu genişletiyor:
+`rationale`, `measurementQuery`, `status`. Üçü de açıkça **ek** olarak işaretli.
+
+### Doğrulama (gerçek koşu)
+
+- 13 düğüm, dağılım `goal:1, lever:3, metric:9`
+- `children` gerçekten id listesi, iç içe nesne değil
+- Her düğümde `evidence` alanı var
+- 4 çağrı, 5.647 token
+
+Arayüz de düz ağacı okuyor ve **kanıt kaynağını gösteriyor**: bir düğümün değeri
+yalnızca `llm-inference` kanıtına dayanıyorsa *"yalnızca model tahmini — veriyle
+doğrulanmadı"* yazıyor.
