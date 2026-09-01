@@ -122,9 +122,28 @@ beyaz liste ise **tek bilet** üzerinde çalışıyor. Reddetme doğru davranı�
 uydurma bir `biletNo` ile çalışmaktansa düşmesi iyi. Ama şu an planlar pratikte
 yürütülemiyor.
 
-Çözüm için iki yol var, ikisi de karar gerektiriyor:
+**Seçilen çözüm: planı somut biletlere bağlamak** (toplu işlem değil — o tek
+onayla yüzlerce kaydı değiştirirdi).
 
-1. **Toplu işlem eklemek** — `biletleri_toplu_ata(filtre, kisi)` gibi. Güçlü ama
-   riskli: tek onayla yüzlerce kayıt değişir.
-2. **Planı bilete bağlamak** — plan üretilirken ölçümün döndürdüğü satırlardan
-   somut bilet numaraları geçirmek. Daha güvenli, daha dar.
+`src/core/pipeline/somutKayit.ts` ölçümün işaret ettiği gerçek kayıtları çekiyor.
+Sorgu **kod tarafından, parametreli** yazılıyor; modele SQL yazdırılmıyor. Tablo
+adı ölçüm SQL'inden çıkarılıp **şemaya karşı doğrulanıyor**, filtre değeri
+parametre olarak gidiyor.
+
+### Üç aşamada düzeldi
+
+| Verilen | Sonuç |
+|---|---|
+| Hiçbir şey | `biletNo: expected string, received undefined` — 0 aksiyon |
+| Somut bilet listesi | Gerçek biletler geldi ama `asama: "Kapalı"` uyduruldu |
+| + parametre şeması (izinli enum) | Geçerli aşamalar, ama `INC123456` ve `AutoResponderBot` uyduruldu |
+| + kod tarafında kimlik doğrulaması | **Tamamı gerçek** |
+
+Son durum: `bilet_ata {biletNo: "HT21615", kisi: "Furkan Aydın"}` — bilet de kişi
+de veritabanından.
+
+### İzinli değerler koddan gelir
+
+`aksiyonUret(oneri, izinliDegerler)` — model gerçek kayıtlar verilse bile kimlik
+uyduruyor. İstem bunu engellemiyor, kod engelliyor: `biletNo` çekilen kayıtlardan,
+`kisi` tablodaki gerçek atananlardan biri olmak zorunda.

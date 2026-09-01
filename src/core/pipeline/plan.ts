@@ -10,6 +10,7 @@ import { aksiyonUret, islemKatalogu } from "../yaz/aksiyon";
 import { olcumuDogrula } from "../hedef/dogrula";
 import type { Tablo } from "../db/sema";
 import type { KolonDegerleri } from "../db/degerler";
+import { somutKayitlariGetir, somutKayitMetni } from "./somutKayit";
 
 /**
  * S4 - PLAN
@@ -63,12 +64,18 @@ function istem(katalog: ReturnType<typeof islemKatalogu>): string {
     "",
     "SISTEMIN UYGULAYABILECEGI ISLEMLER:",
     ...(katalog.length
-      ? katalog.map((k) => `  ${k.tool} -- ${k.aciklama} (risk: ${k.risk})`)
+      ? katalog.flatMap((k) => [
+          `  ${k.tool} -- ${k.aciklama} (risk: ${k.risk})`,
+          k.params ? `      params: ${k.params}` : "",
+        ]).filter(Boolean)
       : ["  (yok)"]),
     "Plan bunlardan biriyle yapilabiliyorsa 'actions' dizisine",
     '{"tool":"...","params":{...},"expectedOutcome":"..."} ekle.',
     "Yapilamiyorsa actions BOS kalsin. Listede olmayan tool UYDURMA.",
+    "Islemler TEK KAYIT uzerinde calisir; toplu aksiyon yazma. Asagida",
+    "verilen ornek kayitlardan birini sec ve kimligini params'a koy.",
     "risk, reversible, requiresApproval alanlarini YAZMA; onlari sistem belirler.",
+    "params degerlerini YUKARIDAKI listeden sec; baska deger UYDURMA.",
     "",
     "YALNIZCA JSON dondur:",
     '{"planlar":[{"title":"...","rationale":"...","impact":3,"effort":2,' +
@@ -76,7 +83,9 @@ function istem(katalog: ReturnType<typeof islemKatalogu>): string {
   ].join("\n");
 }
 
-function girdiMetni(sonuc: OlcumSonucu, teshis: Teshis, hedef: string): string {
+function girdiMetni(
+  sonuc: OlcumSonucu, teshis: Teshis, hedef: string, somutMetin?: string
+): string {
   const satirlar = sonuc.satirlar.slice(0, 8)
     .map((r) => r.map((h) => (h === null || h === undefined ? "-" : String(h))).join(" | "));
   return [
@@ -88,6 +97,8 @@ function girdiMetni(sonuc: OlcumSonucu, teshis: Teshis, hedef: string): string {
     ...satirlar,
     "",
     `TESHIS: ${teshis.bulgular.map((b) => b.metin).join(" ")}`,
+    somutMetin ? "" : "",
+    somutMetin ?? "",
   ].filter(Boolean).join("\n");
 }
 
@@ -105,13 +116,22 @@ export async function planUret(
 ): Promise<PlanSonucu> {
   const katalog = islemKatalogu();
 
+  // Olcumun isaret ettigi SOMUT kayitlari cek. Model toplu aksiyon
+  // onerdiginde parametreler bos kaliyor ve aksiyon dusuyordu; gercek
+  // kimlikler verilince aksiyonlar baglanabiliyor.
+  const somut = await somutKayitlariGetir(sonuc, teshis);
+  const somutMetin = somut ? somutKayitMetni(somut) : undefined;
+  const izinliDegerler = somut
+    ? { biletNo: somut.kayitlar.map((k) => k.kimlik), kisi: somut.atananlar }
+    : undefined;
+
   try {
     const { deger, kullanim } = await yapisalIste({
       saglayici,
       istek: {
         mesajlar: [
           { rol: "sistem", metin: istem(katalog) },
-          { rol: "kullanici", metin: girdiMetni(sonuc, teshis, hedef) },
+          { rol: "kullanici", metin: girdiMetni(sonuc, teshis, hedef, somutMetin) },
         ],
         akilYurutmeGayreti: "low",
         azamiCiktiTokeni: 900,
@@ -129,7 +149,10 @@ export async function planUret(
       for (const a of p.actions) {
         if (!a.tool) continue;
         try {
-          actions.push(aksiyonUret(a));
+          // Izinli kimlikler KODDAN geliyor: model gercek kayitlar
+          // verilse bile INC123456 gibi bilet ya da AutoResponderBot gibi
+          // kisi uyduruyordu.
+          actions.push(aksiyonUret(a, izinliDegerler));
         } catch (e) {
           // Model olmayan islem ya da gecersiz parametre onerdiyse aksiyon
           // dusurulur; plan kalir ama yurutulemez.
