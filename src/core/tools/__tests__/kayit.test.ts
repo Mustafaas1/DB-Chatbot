@@ -14,6 +14,7 @@ function sahteArac(
     aciklama: `${ad} araci`,
     kaynak: "yerel",
     yanEtki,
+    risk: "low",
     girdiSemasi: z.object({ x: z.number().int() }),
     async calistir(girdi) { return girdi.x * 2; },
   };
@@ -75,7 +76,7 @@ describe("calistir", () => {
 
 describe("yazma araclari onay kapisi", () => {
   // F5 gelene kadar KAPALI kalmali; yarim kalmis yol sessizce acilmasin.
-  it("yazma araci onaysiz calismaz", async () => {
+  it("yazma araci onaylayan olmadan calismaz", async () => {
     let calisti = false;
     const k = new AracKaydi();
     k.kaydet({ ...sahteArac("yaz", "yazma"), async calistir() { calisti = true; return 0; } });

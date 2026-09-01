@@ -31,7 +31,7 @@ class SayanSaglayici implements Saglayici {
 function kayit(): AracKaydi {
   const k = new AracKaydi();
   k.kaydet({
-    ad: "veri_sorgula", aciklama: "t", kaynak: "yerel", yanEtki: "okuma",
+    ad: "veri_sorgula", aciklama: "t", kaynak: "yerel", yanEtki: "okuma", risk: "low",
     girdiSemasi: z.object({ sorgu: z.string() }),
     async calistir() { return { kolonlar: ["a"], satirlar: [[1]] }; },
   });
@@ -104,7 +104,7 @@ describe("olcumleriCalistir", () => {
   it("bos sonuc isaretlenir", async () => {
     const k = new AracKaydi();
     k.kaydet({
-      ad: "veri_sorgula", aciklama: "t", kaynak: "yerel", yanEtki: "okuma",
+      ad: "veri_sorgula", aciklama: "t", kaynak: "yerel", yanEtki: "okuma", risk: "low",
       girdiSemasi: z.object({ sorgu: z.string() }),
       async calistir() { return { kolonlar: ["a"], satirlar: [] }; },
     });

@@ -29,7 +29,7 @@ class SahteSaglayici implements Saglayici {
 
 function sayacAraci(sonuc: unknown = { adet: 59 }): AracTanimi<{ sorgu: string }, unknown> {
   return {
-    ad: "veri_sorgula", aciklama: "test", kaynak: "yerel", yanEtki: "okuma",
+    ad: "veri_sorgula", aciklama: "test", kaynak: "yerel", yanEtki: "okuma", risk: "low",
     girdiSemasi: z.object({ sorgu: z.string() }),
     async calistir() { return sonuc; },
   };

@@ -71,6 +71,10 @@ export class McpYoneticisi {
           aciklama: t.description ?? `${ad} sunucusundan ${t.name}`,
           kaynak: "mcp",
           yanEtki: saltOkunur ? "okuma" : "yazma",
+          // Disaridan gelen aracin riskini bilmiyoruz; salt okunur
+          // degilse yuksek sayiyoruz. Bilinmeyeni dusuk saymak, tanimadigimiz
+          // bir aracin sessizce calismasina izin verirdi.
+          risk: saltOkunur ? "low" : "high",
           // MCP girdi semasi JSON Schema; sunucu kendi dogrulamasini yapar.
           // Burada yalnizca "nesne olmali" sarti konuyor.
           girdiSemasi: z.record(z.string(), z.unknown()),

@@ -42,6 +42,10 @@ export const veriSorgulaAraci: AracTanimi<SorguGirdisi, SorguSonucu> = {
     "Yalnizca SELECT ve WITH kabul edilir; yazma ifadeleri reddedilir.",
   kaynak: "yerel",
   yanEtki: "okuma",
+  // Salt okunur: uc katmanli guard var, veri degistiremez.
+  risk: "low",
+  // Groq ucretsiz katmanini korur; bir soruda 20 sorgu makul ust sinir.
+  hizSiniri: { pencereMs: 60_000, azamiCagri: 20 },
   girdiSemasi: SorguGirdisi,
 
   async calistir(girdi, baglam): Promise<SorguSonucu> {

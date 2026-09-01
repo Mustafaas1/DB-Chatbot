@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { AracHataKodu, AracSonucu, AracTanimi, Baglam } from "./tipler";
+import * as idem from "./idempotency";
+import { IdempotencyCakismasi } from "./idempotency";
 
 /** Anthropic tool-use bicimindeki arac semasi. */
 export interface AnthropicArac {
@@ -16,6 +18,22 @@ export interface AnthropicArac {
  */
 export class AracKaydi {
   readonly #araclar = new Map<string, AracTanimi<any, any>>();
+  /** Arac adi -> son cagri zamanlari. Hiz siniri icin. */
+  readonly #cagriZamanlari = new Map<string, number[]>();
+
+  /** Pencere icindeki cagri sayisi sinirin altinda mi. */
+  #hizSiniriUygun(arac: AracTanimi<any, any>): boolean {
+    const s = arac.hizSiniri;
+    if (!s) return true;
+    const simdi = Date.now();
+    const gecmis = (this.#cagriZamanlari.get(arac.ad) ?? []).filter((t) => simdi - t < s.pencereMs);
+    this.#cagriZamanlari.set(arac.ad, gecmis);
+    return gecmis.length < s.azamiCagri;
+  }
+
+  #cagriKaydet(ad: string): void {
+    this.#cagriZamanlari.set(ad, [...(this.#cagriZamanlari.get(ad) ?? []), Date.now()]);
+  }
 
   kaydet<G, C>(arac: AracTanimi<G, C>): void {
     if (this.#araclar.has(arac.ad)) {
@@ -85,17 +103,75 @@ export class AracKaydi {
       return basarisiz("gecersiz_girdi", ayrinti);
     }
 
-    // Yazma araclari prova disinda onay kapisindan gecmek zorunda.
-    // Onay katmani F5'te geliyor; o gelene kadar KAPALI kaliyor ki
-    // yarim kalmis bir yol sessizce acik kalmasin.
-    if (arac.yanEtki === "yazma" && !baglam.provaMi) {
-      return basarisiz("onay_gerekli", `"${ad}" yazma yapiyor; onay katmani (F5) henuz yok.`);
+    if (!this.#hizSiniriUygun(arac)) {
+      const s = arac.hizSiniri!;
+      return basarisiz(
+        "hiz_siniri",
+        `"${ad}" icin hiz siniri asildi: ${s.pencereMs / 1000} saniyede ${s.azamiCagri} cagri.`
+      );
     }
+
+    // Yan etkili araclar ONAY olmadan calistirilamaz. F5'teki yurutucu
+    // de ayni sarti koyuyor; burada tekrar zorlanmasi savunma derinligi.
+    if (arac.yanEtki === "yazma" && !baglam.provaMi && !baglam.onaylayan?.trim()) {
+      return basarisiz(
+        "onay_gerekli",
+        `"${ad}" yan etkili bir arac; onaylayan belirtilmeden calistirilamaz.`
+      );
+    }
+
+    // Yan etkili araclar IDEMPOTENCY ANAHTARI olmadan calistirilamaz.
+    // Zorunlu tutmazsak "gecen sefer unutulmus" bir cagri iki kez
+    // uygulanir ve kimse fark etmez.
+    if (arac.yanEtki === "yazma" && !baglam.provaMi && !baglam.idempotencyAnahtari) {
+      return basarisiz(
+        "idempotency_gerekli",
+        `"${ad}" yan etkili bir arac; idempotency anahtari olmadan calistirilamaz.`
+      );
+    }
+
+    // Prova yolu: yan etki yok, tekrar korumasi da gerekmiyor.
+    if (baglam.provaMi && arac.prova) {
+      try {
+        const deger = await arac.prova(dogrulama.data, baglam);
+        return { ok: true, deger, sureMs: Date.now() - t0 };
+      } catch (e) {
+        return basarisiz("calistirma_hatasi", e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    const anahtar =
+      arac.yanEtki === "yazma" && !baglam.provaMi ? baglam.idempotencyAnahtari! : null;
+
+    if (anahtar) {
+      let onceki: idem.OncekiCagri | null;
+      try {
+        onceki = idem.baslat(anahtar, ad, dogrulama.data);
+      } catch (e) {
+        if (e instanceof IdempotencyCakismasi) {
+          return basarisiz("gecersiz_girdi", e.message);
+        }
+        throw e;
+      }
+
+      // Ayni anahtarla ikinci cagri: arac TEKRAR CALISTIRILMAZ.
+      if (onceki) {
+        return {
+          ok: true, deger: onceki.sonuc, sureMs: Date.now() - t0, tekrarMi: true,
+        };
+      }
+    }
+
+    this.#cagriKaydet(ad);
 
     try {
       const deger = await arac.calistir(dogrulama.data, baglam);
+      if (anahtar) idem.tamamla(anahtar, deger);
       return { ok: true, deger, sureMs: Date.now() - t0 };
     } catch (e) {
+      // Basarisiz cagri kayittan DUSURULUR: gecici bir hatadan sonra
+      // aksiyonun bir daha hic denenememesi olmaz.
+      if (anahtar) idem.basarisiz(anahtar);
       return basarisiz("calistirma_hatasi", e instanceof Error ? e.message : String(e));
     }
   }
