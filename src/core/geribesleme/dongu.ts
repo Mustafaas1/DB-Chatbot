@@ -1,8 +1,7 @@
 import * as denetim from "../yaz/denetim";
+import { olcumuTekrarla } from "./olcumTekrar";
 import * as depo from "./depo";
 import { etkiHesapla } from "./etki";
-import { donguCalistir } from "../ajan/dongu";
-import { sistemIstemi } from "../ajan/istem";
 import type { AracKaydi } from "../tools/kayit";
 import type { Saglayici } from "../llm/tipler";
 import type { GeriBeslemeOlayi, OlcumBaglami, OlcumSnapshot } from "./tipler";
@@ -116,51 +115,16 @@ export async function* geriBeslemeCalistir(
   yield { tur: "bitti", toplamSure: Date.now() - t0 };
 }
 
-/** Ölçümü çalıştırır ve snapshot olarak kaydeder. */
+/**
+ * Ölçümü çalıştırır ve snapshot olarak kaydeder.
+ *
+ * Saklanan sorguyu AYNEN çalıştırır; modele yeniden yazdırmaz.
+ * Gerekçe olcumTekrar.ts icinde.
+ */
 async function olcumCalistirVeKaydet(
   s: GeriBeslemeDonguSecenekleri,
   baglam: OlcumBaglami,
   tur: "once" | "sonra"
 ): Promise<OlcumSnapshot | null> {
-  const istem = await sistemIstemi(baglam.soru, baglam.tablolar);
-  const sonuc = await donguCalistir({
-    saglayici: s.saglayici,
-    kayit: s.kayit,
-    baglam: { izId: baglam.dugumId, provaMi: false },
-    sistemIstemi: istem,
-    soru: baglam.soru,
-    azamiTur: 2,
-  });
-
-  const sonAdim = [...sonuc.adimlar].reverse().find((a) => a.ok);
-  let kolonlar: string[] = [];
-  let satirlar: unknown[][] = [];
-  let sql = "";
-  if (sonAdim) {
-    sql = (sonAdim.girdi as { sorgu?: string })?.sorgu ?? "";
-    try {
-      const c = JSON.parse(sonAdim.ozet);
-      if (Array.isArray(c?.kolonlar)) kolonlar = c.kolonlar;
-      if (Array.isArray(c?.satirlar)) satirlar = c.satirlar;
-    } catch { /* tablo yoksa sorun değil */ }
-  }
-
-  const snapshotId = depo.snapshotKaydet(
-    s.denetimId, baglam.dugumId, baglam.ajanKod,
-    baglam.soru, sql, kolonlar, satirlar, tur
-  );
-
-  return {
-    id: snapshotId,
-    denetimId: s.denetimId,
-    dugumId: baglam.dugumId,
-    ajanKod: baglam.ajanKod,
-    soru: baglam.soru,
-    sqlSorgu: sql,
-    kolonlar,
-    satirlar,
-    satirSayisi: satirlar.length,
-    tur,
-    olusturma: new Date().toISOString(),
-  };
+  return olcumuTekrarla(s.denetimId, baglam, tur);
 }

@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Tablo } from "../../db/sema";
+import type { KolonDegerleri } from "../../db/degerler";
+import type { AksiyonOnerisi } from "../../yaz/aksiyon";
 import type { KonusmaIstegi, Saglayici, SaglayiciYaniti } from "../../llm/tipler";
 import { LlmHatasi } from "../../llm/tipler";
-import { planUret, planSkoru } from "../plan";
+import { buildPlans, planSkoru } from "../plan";
+import { aksiyonUret } from "../../yaz/aksiyon";
 import type { OlcumSonucu } from "../../ajan/olcum";
-import type { Teshis } from "../teshis";
+import type { Diagnosis } from "../teshis";
 
 class Sahte implements Saglayici {
   readonly ad = "sahte"; readonly model = "s1";
@@ -27,9 +31,9 @@ const sonuc: OlcumSonucu = {
   kullanim: { girdiTokeni: 0, ciktiTokeni: 0 },
 };
 
-const teshis: Teshis = {
-  dugumId: "d1", baslik: "Aşama dağılımı", toplam: 59, grupSayisi: 2,
-  bulgular: [{ tur: "yigilma", metin: "Beklemede toplamin %80'i", etiket: "Beklemede", oran: 0.8 }],
+const teshis: Diagnosis = {
+  dugumId: "d1", baslik: "Aşama dağılımı", toplam: 59, groupCount: 2,
+  findings: [{ tur: "yigilma", metin: "Beklemede toplamin %80'i", etiket: "Beklemede", oran: 0.8 }],
 };
 
 const plan = (ek: Record<string, unknown> = {}) => JSON.stringify({
@@ -40,8 +44,11 @@ const plan = (ek: Record<string, unknown> = {}) => JSON.stringify({
   }],
 });
 
-const uret = (y: string | Error, dogrulama?: any) =>
-  planUret(new Sahte([y]), sonuc, teshis, "Destek yukunu azaltmak", dogrulama);
+const uret = (
+  y: string | Error,
+  dogrulama?: { tablolar: Tablo[]; degerler: KolonDegerleri[] }
+) =>
+  buildPlans(new Sahte([y]), sonuc, teshis, "Destek yukunu azaltmak", dogrulama);
 
 describe("kanonik Plan alanlari", () => {
   it("spec alanlari doldurulur", async () => {
@@ -69,7 +76,7 @@ describe("kanonik Plan alanlari", () => {
   });
 
   it("planlar skora gore siralanir", async () => {
-    const r = await planUret(new Sahte([JSON.stringify({ planlar: [
+    const r = await buildPlans(new Sahte([JSON.stringify({ planlar: [
       { title: "Zayif", rationale: "", impact: 2, effort: 4, confidence: 0.3, timeframe: "", kpi: "", actions: [] },
       { title: "Guclu", rationale: "", impact: 5, effort: 1, confidence: 0.9, timeframe: "", kpi: "", actions: [] },
     ] })]), sonuc, teshis, "hedef");
@@ -78,33 +85,57 @@ describe("kanonik Plan alanlari", () => {
 });
 
 describe("Action KODDAN turetilir", () => {
-  const aksiyonlu = plan({ actions: [{
-    tool: "bilet_ata", params: { biletNo: "HT1", kisi: "Ad Soyad" },
-    title: "Ata", expectedOutcome: "atanir",
-  }] });
+  // Bu testler aksiyonUret'i DOGRUDAN cagiriyor: planUret somut kayitlari
+  // veritabanindan cekiyor ve test ortaminda baglanti yok. Dogrulanan sey
+  // zaten Action'in ISLEM TANIMINDAN turetilmesi.
+  const izinli = { biletNo: ["HT1"], kisi: ["Ad Soyad"] };
 
-  it("risk islem tanimindan gelir, modelden degil", async () => {
-    const r = await uret(aksiyonlu);
-    const a = r.planlar[0]!.actions[0]!;
+  it("risk islem tanimindan gelir, modelden degil", () => {
+    const a = aksiyonUret(
+      { tool: "bilet_ata", params: { biletNo: "HT1", kisi: "Ad Soyad" },
+        title: "Ata", expectedOutcome: "atanir" },
+      izinli
+    );
     expect(a.risk).toBe("low");          // bilet_ata tanimindaki sabit
     expect(a.tool).toBe("bilet_ata");
   });
 
-  it("reversible ve dryRunSupported koddan turetilir", async () => {
-    const a = (await uret(aksiyonlu)).planlar[0]!.actions[0]!;
-    expect(a.reversible).toBe(true);     // geriAl() var
+  it("reversible ve dryRunSupported koddan turetilir", () => {
+    const a = aksiyonUret(
+      { tool: "bilet_ata", params: { biletNo: "HT1", kisi: "Ad Soyad" } },
+      izinli
+    );
+    expect(a.reversible).toBe(true);      // geriAl() var
     expect(a.dryRunSupported).toBe(true); // prova() var
     expect(a.rollback?.tool).toBe("bilet_ata");
   });
 
-  it("model risk/requiresApproval yazsa bile KODUN degeri gecerli", async () => {
-    const r = await uret(plan({ actions: [{
-      tool: "bilet_asama_degistir",
-      params: { biletNo: "HT1", asama: "Beklemede" },
-      risk: "low", requiresApproval: false, reversible: true,
-    }] }));
+  it("model risk/requiresApproval yazsa bile KODUN degeri gecerli", () => {
+    const a = aksiyonUret(
+      { tool: "bilet_asama_degistir", params: { biletNo: "HT1", asama: "Beklemede" },
+        risk: "low", requiresApproval: false, reversible: true } as AksiyonOnerisi,
+      { biletNo: ["HT1"] }
+    );
     // bilet_asama_degistir tanimda "medium"; modelin "low" demesi gecersiz.
-    expect(r.planlar[0]!.actions[0]!.risk).toBe("medium");
+    expect(a.risk).toBe("medium");
+    expect(a.requiresApproval).toBe(true);
+  });
+
+  it("SOMUT KAYIT YOKSA aksiyon uretilmez", () => {
+    // Kabul kosusunda model "EXAMPLE_TEklif_001" / "AliYilmaz" uydurdu ve
+    // izinli liste olmadigi icin dogrulama tamamen atlaniyordu.
+    expect(() => aksiyonUret(
+      { tool: "teklif_temsilci_ata",
+        params: { teklifNo: "EXAMPLE_TEklif_001", temsilci: "AliYilmaz" } }
+    )).toThrow(/gercek bir kayda baglanamadi/);
+  });
+
+  it("UYDURULAN kimlik izinli listede yoksa reddedilir", () => {
+    expect(() => aksiyonUret(
+      { tool: "teklif_temsilci_ata",
+        params: { teklifNo: "UYDURMA", temsilci: "Sitran Çelik" } },
+      { teklifNo: ["2026_00585_R1"], temsilci: ["Sitran Çelik"] }
+    )).toThrow(/gecerli degil/);
   });
 
   it("UYDURULAN islem dusurulur, plan kalir", async () => {
@@ -132,5 +163,31 @@ describe("dayaniklilik", () => {
 
   it("KOTA hatasi yukari firlatilir", async () => {
     await expect(uret(new LlmHatasi("429", "kota"))).rejects.toThrow(LlmHatasi);
+  });
+});
+
+describe("izinli kimlikler olcum sonucundan da gelir", () => {
+  const izinli = {
+    teklifNo: ["2026_00585_R1", "2026_00685"],
+    temsilci: ["Sitran Çelik"],
+  };
+
+  it("olcum ciktisinda gorulen kimlik kabul edilir", () => {
+    // Model istemde gordugu numarayi kullaniyor; dogrulama yalnizca ayri
+    // sorgudan gelen listeye bakarken gercek numara reddediliyordu.
+    const a = aksiyonUret(
+      { tool: "teklif_temsilci_ata",
+        params: { teklifNo: "2026_00685", temsilci: "Sitran Çelik" } },
+      izinli
+    );
+    expect(a.params.teklifNo).toBe("2026_00685");
+  });
+
+  it("iki kaynakta da olmayan kimlik yine reddedilir", () => {
+    expect(() => aksiyonUret(
+      { tool: "teklif_temsilci_ata",
+        params: { teklifNo: "UYDURMA_001", temsilci: "Sitran Çelik" } },
+      izinli
+    )).toThrow(/gecerli degil/);
   });
 });

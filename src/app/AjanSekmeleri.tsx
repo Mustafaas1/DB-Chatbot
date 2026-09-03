@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 export interface OlcumSonucu {
   dugumId: string;
   ajanKod: string;
@@ -43,7 +41,7 @@ function sayisalKolonlar(kolonlar: string[], satirlar: unknown[][]): boolean[] {
 function SonucKarti({ s }: { s: OlcumSonucu }) {
   const sayisal = sayisalKolonlar(s.kolonlar, s.satirlar);
   return (
-    <div className="kart olcum-kart" style={{ borderLeftColor: s.renk }}>
+    <div className="kart olcum-kart" style={{ borderLeftColor: "#0891b2" }}>
       <div className="olcum-ust">
         <span className="olcum-baslik">{s.baslik}</span>
         <span className="alt-bilgi">{s.sureMs} ms</span>
@@ -59,8 +57,7 @@ function SonucKarti({ s }: { s: OlcumSonucu }) {
 
       {s.bosMu ? (
         <div className="olcum-bos">
-          Bu ölçüm <strong>0 satır</strong> döndürdü — hedef ağacındaki bu dal
-          veride karşılığı olmayan bir şeye işaret ediyor olabilir.
+          Kriterlere uygun veri bulunamadı.
         </div>
       ) : (
         <>
@@ -83,8 +80,6 @@ function SonucKarti({ s }: { s: OlcumSonucu }) {
           )}
         </>
       )}
-
-      {s.sql && <pre className="sql">{s.sql}</pre>}
     </div>
   );
 }
@@ -96,47 +91,28 @@ export function AjanSekmeleri({
   calisanlar: CalisanOlcum[];
   hatalar: OlcumHatasi[];
 }) {
-  const ajanlar = new Map<string, { ad: string; renk: string }>();
-  for (const s of sonuclar) ajanlar.set(s.ajanKod, { ad: s.ajanAd, renk: s.renk });
-  for (const c of calisanlar) if (!ajanlar.has(c.ajanKod)) ajanlar.set(c.ajanKod, { ad: c.ajanAd, renk: c.renk });
-
-  const kodlar = [...ajanlar.keys()];
-  const [aktif, setAktif] = useState<string | null>(null);
-  const secili = aktif && kodlar.includes(aktif) ? aktif : kodlar[0] ?? null;
-
-  if (!kodlar.length) return null;
-
-  const bitenler = sonuclar.filter((s) => s.ajanKod === secili);
   const surenler = calisanlar.filter(
-    (c) => c.ajanKod === secili && !sonuclar.some((s) => s.dugumId === c.dugumId)
+    (c) => !sonuclar.some((s) => s.dugumId === c.dugumId)
       && !hatalar.some((h) => h.dugumId === c.dugumId)
   );
-  const hatalilar = hatalar.filter((h) => h.ajanKod === secili);
+
+  if (!sonuclar.length && !surenler.length && !hatalar.length) return null;
 
   return (
     <>
-      <div className="sekmeler ajan-sekmeler">
-        {kodlar.map((k) => {
-          const a = ajanlar.get(k)!;
-          const adet = sonuclar.filter((s) => s.ajanKod === k).length;
-          const suruyor = calisanlar.some(
-            (c) => c.ajanKod === k && !sonuclar.some((s) => s.dugumId === c.dugumId)
-          );
-          return (
-            <button key={k} type="button" className={secili === k ? "aktif" : ""}
-              onClick={() => setAktif(k)}>
-              <span className="ajan-nokta" style={{ background: a.renk }} />
-              {a.ad}{adet > 0 ? ` (${adet})` : ""}{suruyor ? " …" : ""}
-            </button>
-          );
-        })}
+      <div className="kart veri-analisti-baslik">
+        <div className="bolum-baslik">
+          <span className="ajan-nokta" style={{ background: "#0891b2", marginRight: 8 }} />
+          Veri Analisti
+          {sonuclar.length > 0 && <span className="veri-analisti-adet"> — {sonuclar.length} ölçüm</span>}
+        </div>
       </div>
 
       {surenler.map((c) => (
-        <div key={c.dugumId} className="kart bekliyor">{c.ajanAd} çalışıyor: {c.baslik}</div>
+        <div key={c.dugumId} className="kart bekliyor">Analiz ediliyor: {c.baslik}</div>
       ))}
-      {bitenler.map((s) => <SonucKarti key={s.dugumId} s={s} />)}
-      {hatalilar.map((h) => (
+      {sonuclar.map((s) => <SonucKarti key={s.dugumId} s={s} />)}
+      {hatalar.map((h) => (
         <div key={h.dugumId} className="kart hata">{h.baslik}: {h.mesaj}</div>
       ))}
     </>

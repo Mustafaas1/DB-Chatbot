@@ -2,9 +2,9 @@ import type { AracKaydi } from "../tools/kayit";
 import type { Saglayici } from "../llm/tipler";
 import { donguCalistir } from "./dongu";
 import { sistemIstemi } from "./istem";
-import type { Atama } from "./dagitici";
-import { olcumuDogrula } from "../hedef/dogrula";
-import { semaSozlugu, zeminKontrol } from "../hedef/zemin";
+import { cesitlilikSirasi, type Atama } from "./dagitici";
+import { validateMeasurement } from "../hedef/dogrula";
+import { schemaVocabulary, checkGrounding } from "../hedef/zemin";
 import type { Tablo } from "../db/sema";
 import type { KolonDegerleri } from "../db/degerler";
 
@@ -71,7 +71,7 @@ export async function* olcumleriCalistir(
   const gecerliler: Atama[] = [];
   const gecersizOlaylar: OlcumOlayi[] = [];
 
-  const sozluk = s.tablolar?.length ? semaSozlugu(s.tablolar) : null;
+  const sozluk = s.tablolar?.length ? schemaVocabulary(s.tablolar) : null;
 
   for (const a of s.atamalar) {
     if (!s.tablolar?.length) { gecerliler.push(a); continue; }
@@ -82,15 +82,15 @@ export async function* olcumleriCalistir(
     //    ("SSS makale", "chatbot"). Bunlar 22-34 sn harcayip anlamsiz
     //    donuyordu.
     if (sozluk) {
-      const z = zeminKontrol(metin, sozluk);
-      if (!z.zeminli) sebepler.push(z.sebep);
+      const z = checkGrounding(metin, sozluk);
+      if (!z.grounded) sebepler.push(z.sebep);
     }
 
     // 2) DEGER/TIP: olmayan durum degeri ya da sayisal kolon-metin
     //    karsilastirmasi.
     if (s.degerler?.length) {
-      const d = olcumuDogrula(metin, s.tablolar, s.degerler);
-      if (!d.gecerli) sebepler.push(...d.gecersizlikler.map((g) => g.mesaj));
+      const d = validateMeasurement(metin, s.tablolar, s.degerler);
+      if (!d.valid) sebepler.push(...d.invalidities.map((g) => g.mesaj));
     }
 
     if (!sebepler.length) gecerliler.push(a);
@@ -102,8 +102,11 @@ export async function* olcumleriCalistir(
   }
   for (const o of gecersizOlaylar) yield o;
 
-  const calisacak = gecerliler.slice(0, azami);
-  for (const atlanan of gecerliler.slice(azami)) {
+  // Kota kesmeden once ajan cesitliligine gore sirala: ilk N olcum
+  // mumkun oldugunca farkli ajanlardan gelsin.
+  const sirali = cesitlilikSirasi(gecerliler);
+  const calisacak = sirali.slice(0, azami);
+  for (const atlanan of sirali.slice(azami)) {
     yield {
       tur: "atlandi",
       dugumId: atlanan.dugum.id,

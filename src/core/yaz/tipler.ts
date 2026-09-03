@@ -48,6 +48,21 @@ export interface IslemTanimi<P = unknown> {
   risk: "low" | "medium" | "high";
   /** Hangi tabloyu etkiliyor; denetim kaydinda ve onay ekraninda gosterilir. */
   hedefTablo: string;
+  /**
+   * Kaydi tekillestiren parametrenin adi (biletNo, teklifNo, faturaId).
+   * Aksiyon uretiminde bu parametre GERCEK kayitlara karsi dogrulanir;
+   * dogrulanamiyorsa aksiyon uretilmez.
+   */
+  kimlikParametresi: string;
+  /**
+   * Kaydi tekillestiren TABLO KOLONU. Parametre adindan farkli olabilir
+   * (faturaId -> Id). Somut kayit getirirken bu kolon kullanilir; aksi
+   * halde listelenen kimlik (ornegin MikroEvrakNo) islemin bekledigi
+   * kimlige (Id) hic uymuyordu.
+   */
+  kimlikKolonu: string;
+  /** Kisi adi tasiyan parametre varsa adi; gercek kisilere karsi dogrulanir. */
+  kisiParametresi?: string;
   parametreSemasi: z.ZodType<P>;
   /** Calistirmadan once ne olacagini hesaplar. YAN ETKISI YOKTUR. */
   prova(p: P): Promise<Prova>;
@@ -55,6 +70,51 @@ export interface IslemTanimi<P = unknown> {
   uygula(p: P): Promise<{ etkilenen: number; oncekiDurum: unknown }>;
   /** Onceki duruma dondurur. */
   geriAl(oncekiDurum: unknown): Promise<{ etkilenen: number }>;
+}
+
+/**
+ * Parametre tipi SILINMIS islem.
+ *
+ * Beyaz liste farkli parametre tiplerindeki islemleri tek dizide tutuyor;
+ * IslemTanimi<any> ile yazilmisti. `any` yerine silinmis bir arayuz
+ * kullaniyoruz: metotlar `unknown` aliyor ve cagrilmadan ONCE kendi Zod
+ * semasiyla dogruluyor.
+ *
+ * Bu yalnizca tip hilesi degil, ek bir guvenlik katmani: silinmis yoldan
+ * cagrilan her islem parametrelerini yeniden dogruluyor.
+ */
+export interface SilinmisIslem {
+  kod: string;
+  ad: string;
+  aciklama: string;
+  risk: "low" | "medium" | "high";
+  hedefTablo: string;
+  kimlikParametresi: string;
+  kimlikKolonu: string;
+  kisiParametresi?: string;
+  parametreSemasi: z.ZodType<unknown>;
+  prova(p: unknown): Promise<Prova>;
+  uygula(p: unknown): Promise<{ etkilenen: number; oncekiDurum: unknown }>;
+  geriAl(oncekiDurum: unknown): Promise<{ etkilenen: number }>;
+}
+
+/** Tipli islemi silinmis bicime cevirir; parametreler her cagrida dogrulanir. */
+export function islemiSil<P>(i: IslemTanimi<P>): SilinmisIslem {
+  const dogrula = (p: unknown): P => i.parametreSemasi.parse(p);
+  return {
+    kod: i.kod,
+    ad: i.ad,
+    aciklama: i.aciklama,
+    risk: i.risk,
+    hedefTablo: i.hedefTablo,
+    kimlikParametresi: i.kimlikParametresi,
+    kimlikKolonu: i.kimlikKolonu,
+    ...(i.kisiParametresi ? { kisiParametresi: i.kisiParametresi } : {}),
+    parametreSemasi: i.parametreSemasi as z.ZodType<unknown>,
+    prova: (p) => i.prova(dogrula(p)),
+    uygula: (p) => i.uygula(dogrula(p)),
+    geriAl: (o) => i.geriAl(o),
+  };
 }
 
 export interface DenetimKaydi {
@@ -66,8 +126,14 @@ export interface DenetimKaydi {
   durum: IslemDurumu;
   prova: Prova | null;
   oncekiDurum: unknown;
-  /** Onaylayan kisi. Sistem KENDI KENDINI onaylayamaz. */
+  /**
+   * Onaylayan. Insan adi, ya da otonomi karariyla calistiysa
+   * "otomatik:<mod>". Ikisi ayirt edilebilsin diye tek alanda
+   * birlestirilmedi: otonomiModu ayrica yaziliyor.
+   */
   onaylayan: string | null;
+  /** Karar hangi otonomi modunda verildi. Eski kayitlarda null. */
+  otonomiModu: string | null;
   hata: string | null;
   olusturma: string;
   guncelleme: string;

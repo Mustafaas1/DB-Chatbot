@@ -14,10 +14,10 @@ import type { KolonDegerleri } from "../db/degerler";
  * tutmuyorsa kural koda tasinir.
  */
 
-export type GecersizlikTuru = "olmayan_deger" | "tip_uyusmazligi";
+export type InvalidityKind = "olmayan_deger" | "tip_uyusmazligi";
 
-export interface Gecersizlik {
-  tur: GecersizlikTuru;
+export interface Invalidity {
+  tur: InvalidityKind;
   kolon: string;
   yazilan: string;
   /** Gercek degerler ya da beklenen tip. */
@@ -47,9 +47,9 @@ function enYakin(yazilan: string, adaylar: string[]): string | null {
   return enYuksek >= 0.5 ? enIyi : null;
 }
 
-export interface DogrulamaSonucu {
-  gecerli: boolean;
-  gecersizlikler: Gecersizlik[];
+export interface ValidationResult {
+  valid: boolean;
+  invalidities: Invalidity[];
 }
 
 /**
@@ -60,12 +60,12 @@ export interface DogrulamaSonucu {
  * karsilastiriliyorsa. Suphede kaldiginda gecerli sayar -- yanlis pozitif
  * calisan bir olcumu engellerdi.
  */
-export function olcumuDogrula(
+export function validateMeasurement(
   metin: string,
   tablolar: Tablo[],
   degerler: KolonDegerleri[]
-): DogrulamaSonucu {
-  const gecersizlikler: Gecersizlik[] = [];
+): ValidationResult {
+  const invalidities: Invalidity[] = [];
 
   // Ayni kolon adi farkli tablolarda FARKLI degerler tasiyabiliyor
   // (TicketRecords.Asama vs ContractRecords.Asama). Metinde bir tablo adi
@@ -101,7 +101,7 @@ export function olcumuDogrula(
 
     // 1) Sayisal kolon metinle karsilastiriliyor mu?
     if (sayisalKolon.has(anahtar) && !degerHarita.has(anahtar) && !/^-?\d+([.,]\d+)?$/.test(yazilan)) {
-      gecersizlikler.push({
+      invalidities.push({
         tur: "tip_uyusmazligi", kolon, yazilan, beklenen: "sayi",
         mesaj: `${kolon} sayisal bir kolon; '${yazilan}' metniyle karsilastirilamaz.`,
       });
@@ -114,7 +114,7 @@ export function olcumuDogrula(
       const varMi = gercekler.some((g) => normalize(g) === normalize(yazilan));
       if (!varMi) {
         const oneri = enYakin(yazilan, gercekler);
-        gecersizlikler.push({
+        invalidities.push({
           tur: "olmayan_deger", kolon, yazilan,
           beklenen: gercekler.join(", "),
           mesaj:
@@ -126,5 +126,5 @@ export function olcumuDogrula(
     }
   }
 
-  return { gecerli: gecersizlikler.length === 0, gecersizlikler };
+  return { valid: invalidities.length === 0, invalidities };
 }

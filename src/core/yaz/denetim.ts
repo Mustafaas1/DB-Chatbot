@@ -41,6 +41,14 @@ function baglan(): DatabaseSync {
     )
   `);
   db.exec("CREATE INDEX IF NOT EXISTS ix_denetim_zaman ON denetim(olusturma DESC)");
+
+  // Kolon sonradan eklendi. Mevcut denetim kayitlari silinmemeli:
+  // audit log gecmisi kaybedilemez, o yuzden tablo yeniden kurulmuyor.
+  const kolonlar = (db.prepare("PRAGMA table_info(denetim)").all() as { name: string }[])
+    .map((k) => k.name);
+  if (!kolonlar.includes("otonomi_modu")) {
+    db.exec("ALTER TABLE denetim ADD COLUMN otonomi_modu TEXT");
+  }
   return db;
 }
 
@@ -59,6 +67,7 @@ function satiriKayda(s: Record<string, unknown>): DenetimKaydi {
     prova: coz(s.prova) as Prova | null,
     oncekiDurum: coz(s.onceki_durum),
     onaylayan: s.onaylayan == null ? null : String(s.onaylayan),
+    otonomiModu: s.otonomi_modu == null ? null : String(s.otonomi_modu),
     hata: s.hata == null ? null : String(s.hata),
     olusturma: String(s.olusturma),
     guncelleme: String(s.guncelleme),
@@ -82,18 +91,20 @@ export function oneriKaydet(
 
 export function durumGuncelle(
   id: string, durum: IslemDurumu,
-  ek: { onaylayan?: string; oncekiDurum?: unknown; hata?: string } = {}
+  ek: { onaylayan?: string; oncekiDurum?: unknown; hata?: string; otonomiModu?: string } = {}
 ): void {
   const k = getir(id);
   if (!k) throw new Error(`Denetim kaydi yok: ${id}`);
   baglan().prepare(`
-    UPDATE denetim SET durum = ?, onaylayan = ?, onceki_durum = ?, hata = ?, guncelleme = ?
+    UPDATE denetim SET durum = ?, onaylayan = ?, onceki_durum = ?, hata = ?,
+                      otonomi_modu = ?, guncelleme = ?
     WHERE id = ?
   `).run(
     durum,
     ek.onaylayan ?? k.onaylayan,
     ek.oncekiDurum !== undefined ? JSON.stringify(ek.oncekiDurum) : JSON.stringify(k.oncekiDurum),
     ek.hata ?? k.hata,
+    ek.otonomiModu ?? k.otonomiModu,
     new Date().toISOString(),
     id
   );
@@ -120,7 +131,7 @@ export function _testIcinSifirla(): void {
       id TEXT PRIMARY KEY, islem_kodu TEXT NOT NULL, islem_adi TEXT NOT NULL,
       hedef_tablo TEXT NOT NULL, parametreler TEXT NOT NULL, durum TEXT NOT NULL,
       prova TEXT, onceki_durum TEXT, onaylayan TEXT, hata TEXT,
-      olusturma TEXT NOT NULL, guncelleme TEXT NOT NULL
+      olusturma TEXT NOT NULL, guncelleme TEXT NOT NULL, otonomi_modu TEXT
     )
   `);
 }

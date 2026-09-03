@@ -20,16 +20,16 @@ export interface Bulgu {
   sql?: string;
 }
 
-export interface AgacKullanimi {
+export interface TreeUsage {
   girdiTokeni: number;
   ciktiTokeni: number;
   cagriSayisi: number;
 }
 
-export interface AgacSonucu {
+export interface TreeResult {
   /** Duz dugum listesi. Kok parentId === null olan. */
   dugumler: Agac;
-  kullanim: AgacKullanimi;
+  kullanim: TreeUsage;
   /** Butce ya da derinlik yuzunden genisletilemeyen dugum sayisi. */
-  genisletilmeyen: number;
+  notExpanded: number;
 }

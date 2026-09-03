@@ -100,6 +100,7 @@ describe("anthropic semasi", () => {
     const [sema] = k.anthropicSemalari();
     expect(sema?.name).toBe("a");
     expect(sema?.input_schema).toMatchObject({ type: "object" });
-    expect(Object.keys((sema?.input_schema as any).properties)).toEqual(["x"]);
+    const sema_ = sema?.input_schema as { properties: Record<string, unknown> };
+    expect(Object.keys(sema_.properties)).toEqual(["x"]);
   });
 });

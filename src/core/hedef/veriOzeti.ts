@@ -12,7 +12,7 @@ import { degerlerMetni } from "../db/degerler";
  * Tam sema (~5.000 token) burada gereksiz; agac kurmak icin kolon TIPLERI
  * gerekmiyor, yalnizca neyin kaydedildigini bilmek yetiyor.
  */
-export function veriOzeti(
+export function dataOverview(
   tablolar: Tablo[],
   degerler: KolonDegerleri[] = [],
   azamiTablo = 18

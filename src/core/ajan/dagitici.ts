@@ -136,6 +136,40 @@ export function dagit(dugumler: GoalNodeGenis[], tablolar?: Tablo[]): Atama[] {
   });
 }
 
+/**
+ * Atamalari AJAN CESITLILIGINE gore siralar.
+ *
+ * Olcum kotasi (azamiOlcum) ilk N atamayi calistiriyor. Agactan gelen
+ * sira ajanlari kumelendirdiginde ilk N'in tamami tek ajana dusuyor ve
+ * tek sekme aciliyordu -- kabul senaryosu en az 3 ajan bekliyor.
+ *
+ * Round-robin: once her ajandan birer tane, sonra ikinciler... Ajan
+ * SECIMI degismiyor, yalnizca CALISMA SIRASI degisiyor; kota kesince
+ * mumkun olan en cok ajan temsil edilmis oluyor.
+ */
+export function cesitlilikSirasi(atamalar: Atama[]): Atama[] {
+  const kuyruklar = new Map<string, Atama[]>();
+  for (const a of atamalar) {
+    const k = kuyruklar.get(a.ajan.kod);
+    if (k) k.push(a);
+    else kuyruklar.set(a.ajan.kod, [a]);
+  }
+
+  // Her ajanin kendi icinde puani yuksek olan once gelsin.
+  for (const k of kuyruklar.values()) k.sort((x, y) => y.puan - x.puan);
+
+  const sirali: Atama[] = [];
+  let kaldi = true;
+  while (kaldi) {
+    kaldi = false;
+    for (const k of kuyruklar.values()) {
+      const a = k.shift();
+      if (a) { sirali.push(a); kaldi = true; }
+    }
+  }
+  return sirali;
+}
+
 /** Atamalari ajana gore gruplar; sekmeli arayuz bunu kullanir. */
 export function ajanaGoreGrupla(atamalar: Atama[]): Map<string, Atama[]> {
   const harita = new Map<string, Atama[]>();

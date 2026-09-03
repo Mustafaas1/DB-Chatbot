@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ajanaGoreGrupla, dagit } from "../dagitici";
+import type { Atama } from "../dagitici";
+import type { AjanTanimi } from "../../../agents/tipler";
+import { ajanaGoreGrupla, dagit , cesitlilikSirasi } from "../dagitici";
 import type { GoalNodeGenis } from "../../hedef/tipler";
 import type { Tablo } from "../../db/sema";
 
@@ -111,5 +113,48 @@ describe("dagitici", () => {
     const g = ajanaGoreGrupla(atamalar);
     expect([...g.keys()].length).toBeGreaterThanOrEqual(2);
     expect([...g.values()].reduce((t, v) => t + v.length, 0)).toBe(3);
+  });
+});
+
+describe("cesitlilik sirasi", () => {
+  // Kismi fixture: yalnizca siralamanin baktigi alanlar dolduruluyor.
+  const ajan = (kod: string) =>
+    ({ kod, ad: kod, renk: "#000" }) as unknown as AjanTanimi;
+  const at = (kod: string, id: string, puan = 1): Atama =>
+    ({
+      dugum: { id, statement: id } as unknown as GoalNodeGenis,
+      ajan: ajan(kod), puan, belirsiz: false,
+    });
+
+  it("ilk N olcum mumkun oldugunca farkli ajandan gelir", () => {
+    // Agactan gelen sira kumelenmis: ilk 4 hep ayni ajan olurdu.
+    const s = cesitlilikSirasi([
+      at("acquisition", "a1"), at("acquisition", "a2"), at("acquisition", "a3"),
+      at("retention", "r1"), at("experience", "e1"),
+    ]);
+    const ilkUc = s.slice(0, 3).map((x) => x.ajan.kod);
+    expect(new Set(ilkUc).size).toBe(3);
+  });
+
+  it("hicbir atama kaybolmaz", () => {
+    const girdi = [
+      at("acquisition", "a1"), at("acquisition", "a2"),
+      at("retention", "r1"), at("experience", "e1"), at("experience", "e2"),
+    ];
+    const s = cesitlilikSirasi(girdi);
+    expect(s).toHaveLength(girdi.length);
+    expect(new Set(s.map((x) => x.dugum.id)).size).toBe(girdi.length);
+  });
+
+  it("ayni ajan icinde yuksek puanli once gelir", () => {
+    const s = cesitlilikSirasi([
+      at("acquisition", "dusuk", 1), at("acquisition", "yuksek", 9),
+    ]);
+    expect(s[0]?.dugum.id).toBe("yuksek");
+  });
+
+  it("tek ajan varsa sirayi bozmaz", () => {
+    const s = cesitlilikSirasi([at("acquisition", "a1", 5), at("acquisition", "a2", 5)]);
+    expect(s.map((x) => x.dugum.id)).toEqual(["a1", "a2"]);
   });
 });

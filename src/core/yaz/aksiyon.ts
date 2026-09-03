@@ -54,9 +54,25 @@ export function aksiyonUret(oneri: AksiyonOnerisi, izinli?: IzinliDegerler): Act
     throw new AksiyonHatasi(`Gecersiz parametre: ${ayrinti}`);
   }
 
+  const p = dogrulama.data as Record<string, unknown>;
+
+  // KIMLIK ZORUNLU DOGRULANIR.
+  //
+  // Onceden yalnizca `izinli` verildiginde bakiliyordu; verilmediginde
+  // kontrol tamamen atlaniyordu ve model uydurdugu kimlikle aksiyon
+  // uretebiliyordu ("EXAMPLE_TEklif_001", "AliYilmaz"). Gercek kayda
+  // baglanamiyorsa aksiyon URETILMEZ; plan "elle uygulanir" olarak kalir.
+  const kimlikAdi = islem.kimlikParametresi;
+  const kimlikIzinli = izinli?.[kimlikAdi];
+  if (!kimlikIzinli?.length) {
+    throw new AksiyonHatasi(
+      `${kimlikAdi} gercek bir kayda baglanamadi: bu olcum ${islem.hedefTablo} ` +
+      "tablosundan somut kayit uretmiyor. Aksiyon onerilmedi."
+    );
+  }
+
   // Kimlik dogrulamasi: model gercek kayitlar verilse bile uydurabiliyor.
   if (izinli) {
-    const p = dogrulama.data as Record<string, unknown>;
     for (const [ad, degerler] of Object.entries(izinli)) {
       if (!degerler.length || !(ad in p)) continue;
       const deger = String(p[ad]);

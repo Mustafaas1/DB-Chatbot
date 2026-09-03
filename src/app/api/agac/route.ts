@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { agacKur } from "@/core/hedef/agac";
-import { veriOzeti } from "@/core/hedef/veriOzeti";
+import { buildTree } from "@/core/hedef/agac";
+import { dataOverview } from "@/core/hedef/veriOzeti";
 import { semaGetir } from "@/core/db/sema";
 import { durumDegerleri } from "@/core/db/degerler";
 import { havuzKapat } from "@/core/db/havuz";
@@ -22,10 +22,10 @@ export async function POST(istek: Request) {
   try {
     const tablolar = await semaGetir();
     const degerler = await durumDegerleri(tablolar);
-    const agac = await agacKur({
+    const agac = await buildTree({
       saglayici: saglayiciSec(),
       soru,
-      veriOzetiMetni: veriOzeti(tablolar, degerler),
+      veriOzetiMetni: dataOverview(tablolar, degerler),
       azamiDerinlik: 2,
       azamiCagri: 4,
     });

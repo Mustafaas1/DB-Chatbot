@@ -9,6 +9,22 @@ export interface Tablo {
 }
 
 /**
+ * INFORMATION_SCHEMA sorgusunun donen satiri.
+ *
+ * `as any[]` yerine acik tip: kolon adi degisirse derleyici yakalar.
+ */
+interface SemaSatiri {
+  sema: string;
+  tablo: string;
+  kolon: string;
+  tip: string;
+  uzunluk: number | null;
+  bos: string;
+  sira: number;
+  satir: number;
+}
+
+/**
  * Sema onbellegi.
  *
  * Python surumundeki ders: sema onbellegi HIC yenilenmiyordu, bu yuzden
@@ -55,7 +71,7 @@ export async function semaGetir(zorla = false): Promise<Tablo[]> {
   );
 
   const harita = new Map<string, Tablo>();
-  for (const s of yanit.recordset as any[]) {
+  for (const s of yanit.recordset as unknown as SemaSatiri[]) {
     if (yasak.has(String(s.tablo).toLowerCase())) continue;
     const anahtar = `${s.sema}.${s.tablo}`;
     let t = harita.get(anahtar);
@@ -63,7 +79,9 @@ export async function semaGetir(zorla = false): Promise<Tablo[]> {
       t = { sema: s.sema, ad: s.tablo, kolonlar: [], satirSayisi: Number(s.satir) };
       harita.set(anahtar, t);
     }
-    t.kolonlar.push({ ad: s.kolon, tip: kisaTip(s.tip, s.uzunluk), bosOlabilir: s.bos === "YES" });
+    t.kolonlar.push({
+      ad: s.kolon, tip: kisaTip(s.tip, s.uzunluk ?? null), bosOlabilir: s.bos === "YES",
+    });
   }
 
   const tablolar = [...harita.values()].sort((a, b) => a.ad.localeCompare(b.ad));

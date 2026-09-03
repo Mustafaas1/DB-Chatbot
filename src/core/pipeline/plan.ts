@@ -4,13 +4,15 @@ import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
 import { yapisalIste } from "../llm/yapisal";
 import type { OlcumSonucu } from "../ajan/olcum";
-import type { Teshis } from "./teshis";
+import type { Diagnosis } from "./teshis";
 import { Plan as PlanSemasi, planSkoru, type Action, type Plan } from "../../schemas/index";
 import { aksiyonUret, islemKatalogu } from "../yaz/aksiyon";
-import { olcumuDogrula } from "../hedef/dogrula";
+import { validateMeasurement } from "../hedef/dogrula";
 import type { Tablo } from "../db/sema";
 import type { KolonDegerleri } from "../db/degerler";
-import { somutKayitlariGetir, somutKayitMetni } from "./somutKayit";
+import { fetchConcreteRecords, concreteRecordsText } from "./somutKayit";
+import { ISLEMLER } from "../yaz/islemler";
+import { baglamMetni as redBaglami } from "../plan/red";
 
 /**
  * S4 - PLAN
@@ -23,7 +25,7 @@ import { somutKayitlariGetir, somutKayitMetni } from "./somutKayit";
  */
 
 /** Modelin dolduracagi alanlar. Digerleri kodda uretiliyor. */
-const ModelPlani = z.object({
+const ModelPlan = z.object({
   title: z.string().min(1).max(160),
   rationale: z.string().default(""),
   impact: z.number().int().min(1).max(5),
@@ -40,7 +42,7 @@ const ModelPlani = z.object({
 });
 
 /** Gorunum icin ek alanlar; kanonik Plan bozulmuyor. */
-export interface PlanGenis extends Plan {
+export interface PlanView extends Plan {
   ajanAd: string;
   renk: string;
   /** KOD hesaplar: impact x confidence / effort. */
@@ -83,8 +85,8 @@ function istem(katalog: ReturnType<typeof islemKatalogu>): string {
   ].join("\n");
 }
 
-function girdiMetni(
-  sonuc: OlcumSonucu, teshis: Teshis, hedef: string, somutMetin?: string
+function inputText(
+  sonuc: OlcumSonucu, teshis: Diagnosis, hedef: string, somutMetin?: string
 ): string {
   const satirlar = sonuc.satirlar.slice(0, 8)
     .map((r) => r.map((h) => (h === null || h === undefined ? "-" : String(h))).join(" | "));
@@ -96,34 +98,89 @@ function girdiMetni(
     sonuc.kolonlar.length ? sonuc.kolonlar.join(" | ") : "",
     ...satirlar,
     "",
-    `TESHIS: ${teshis.bulgular.map((b) => b.metin).join(" ")}`,
+    `TESHIS: ${teshis.findings.map((b) => b.metin).join(" ")}`,
     somutMetin ? "" : "",
     somutMetin ?? "",
   ].filter(Boolean).join("\n");
 }
 
-export interface PlanSonucu {
-  planlar: PlanGenis[];
+export interface PlanResult {
+  planlar: PlanView[];
   kullanim: { girdiTokeni: number; ciktiTokeni: number };
 }
 
-export async function planUret(
+/** Kolon adlarini karsilastirmak icin sadelestirir: "Teklif No" -> "teklifno". */
+function columnKey(ad: string): string {
+  return ad.toLocaleLowerCase("tr")
+    .replace(/[ıİ]/g, "i").replace(/[şŞ]/g, "s").replace(/[ğĞ]/g, "g")
+    .replace(/[üÜ]/g, "u").replace(/[öÖ]/g, "o").replace(/[çÇ]/g, "c")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Olcum sonucundaki kimlik degerleri.
+ *
+ * Ajan kolonlara Turkce takma ad veriyor ("TeklifNo" -> "Teklif No"),
+ * o yuzden karsilastirma sadelestirilmis adla yapiliyor.
+ */
+function identifiersFromMeasurement(sonuc: OlcumSonucu, kimlikKolonu: string): string[] {
+  const hedef = columnKey(kimlikKolonu);
+  const i = sonuc.kolonlar.findIndex((k) => columnKey(k) === hedef);
+  if (i < 0) return [];
+  return sonuc.satirlar
+    .map((r) => r[i])
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
+
+export async function buildPlans(
   saglayici: Saglayici,
   sonuc: OlcumSonucu,
-  teshis: Teshis,
+  teshis: Diagnosis,
   hedef: string,
   dogrulama?: { tablolar: Tablo[]; degerler: KolonDegerleri[] }
-): Promise<PlanSonucu> {
+): Promise<PlanResult> {
   const katalog = islemKatalogu();
 
   // Olcumun isaret ettigi SOMUT kayitlari cek. Model toplu aksiyon
   // onerdiginde parametreler bos kaliyor ve aksiyon dusuyordu; gercek
   // kimlikler verilince aksiyonlar baglanabiliyor.
-  const somut = await somutKayitlariGetir(sonuc, teshis);
-  const somutMetin = somut ? somutKayitMetni(somut) : undefined;
-  const izinliDegerler = somut
-    ? { biletNo: somut.kayitlar.map((k) => k.kimlik), kisi: somut.atananlar }
+  const somut = await fetchConcreteRecords(sonuc, teshis);
+  const somutMetin = somut ? concreteRecordsText(somut) : undefined;
+  // Izinli degerler ISLEMIN KENDI parametre adlariyla kuruluyor.
+  //
+  // Onceden anahtarlar "biletNo"/"kisi" olarak SABIT yazilmisti; teklif ve
+  // fatura islemleri "teklifNo"/"faturaId" kullandigi icin dogrulama
+  // sessizce atlaniyor ve uydurma kimlikler geciyordu.
+  //
+  // Izinli kimlikler IKI KAYNAKTAN birlesiyor:
+  //   1. somutKayitlariGetir'in ayri sorgusu,
+  //   2. OLCUMUN KENDI satirlari.
+  // Ikisi ayni kayitlar olmayabiliyor. Model, istemde gordugu olcum
+  // ciktisindaki teklif numarasini kullaniyor ama dogrulama yalnizca (1)
+  // ile yapiliyordu; gercek bir numara "gecerli degil" diye reddediliyordu.
+  // Iki kume de veritabanindan geldigi icin birlesim guvenli.
+  const allowedValues = somut
+    ? Object.fromEntries(
+        ISLEMLER
+          .filter((i) => i.hedefTablo.toLowerCase() === somut.tablo.toLowerCase())
+          .flatMap((i) => {
+            const c: [string, readonly string[]][] = [
+              [i.kimlikParametresi, [...new Set([
+                ...somut.kayitlar.map((k) => k.kimlik),
+                ...identifiersFromMeasurement(sonuc, i.kimlikKolonu),
+              ])]],
+            ];
+            if (i.kisiParametresi && somut.atananlar.length) {
+              c.push([i.kisiParametresi, somut.atananlar]);
+            }
+            return c;
+          })
+      )
     : undefined;
+
+  // Daha once reddedilen planlar. Sistemin ogrenen tek parcasi: ayni
+  // oneriyi tekrar tekrar uretmesin.
+  const red = redBaglami(sonuc.ajanKod);
 
   try {
     const { deger, kullanim } = await yapisalIste({
@@ -131,18 +188,19 @@ export async function planUret(
       istek: {
         mesajlar: [
           { rol: "sistem", metin: istem(katalog) },
-          { rol: "kullanici", metin: girdiMetni(sonuc, teshis, hedef, somutMetin) },
+          ...(red ? [{ rol: "sistem" as const, metin: red }] : []),
+          { rol: "kullanici", metin: inputText(sonuc, teshis, hedef, somutMetin) },
         ],
         akilYurutmeGayreti: "low",
         azamiCiktiTokeni: 900,
       },
       sema: z.union([
-        z.array(ModelPlani).min(1).max(5),
-        z.object({ planlar: z.array(ModelPlani).min(1).max(5) }).transform((o) => o.planlar),
+        z.array(ModelPlan).min(1).max(5),
+        z.object({ planlar: z.array(ModelPlan).min(1).max(5) }).transform((o) => o.planlar),
       ]),
     });
 
-    const planlar: PlanGenis[] = deger.map((p) => {
+    const planlar: PlanView[] = deger.map((p) => {
       const uyarilar: string[] = [];
       const actions: Action[] = [];
 
@@ -152,7 +210,7 @@ export async function planUret(
           // Izinli kimlikler KODDAN geliyor: model gercek kayitlar
           // verilse bile INC123456 gibi bilet ya da AutoResponderBot gibi
           // kisi uyduruyordu.
-          actions.push(aksiyonUret(a, izinliDegerler));
+          actions.push(aksiyonUret(a, allowedValues));
         } catch (e) {
           // Model olmayan islem ya da gecersiz parametre onerdiyse aksiyon
           // dusurulur; plan kalir ama yurutulemez.
@@ -164,9 +222,9 @@ export async function planUret(
       // aksiyonlari dusuruyoruz: F5 yordami zaten reddederdi ama arayuzun
       // tutamayacagi soz vermesi de dogru degil.
       if (actions.length && dogrulama) {
-        const d = olcumuDogrula(`${p.title} ${p.rationale}`, dogrulama.tablolar, dogrulama.degerler);
-        if (!d.gecerli) {
-          uyarilar.push(...d.gecersizlikler.map((g) => g.mesaj));
+        const d = validateMeasurement(`${p.title} ${p.rationale}`, dogrulama.tablolar, dogrulama.degerler);
+        if (!d.valid) {
+          uyarilar.push(...d.invalidities.map((g) => g.mesaj));
           actions.length = 0;
         }
       }

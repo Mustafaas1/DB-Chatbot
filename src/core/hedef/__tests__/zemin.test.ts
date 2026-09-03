@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { semaSozlugu, zeminKontrol } from "../zemin";
+import { schemaVocabulary, checkGrounding } from "../zemin";
 import type { Tablo } from "../../db/sema";
 
 const tablolar: Tablo[] = [
@@ -25,8 +25,8 @@ const tablolar: Tablo[] = [
   ]},
 ];
 
-const sozluk = semaSozlugu(tablolar);
-const kontrol = (m: string) => zeminKontrol(m, sozluk);
+const sozluk = schemaVocabulary(tablolar);
+const kontrol = (m: string) => checkGrounding(m, sozluk);
 
 describe("semaSozlugu", () => {
   it("CamelCase tablo ve kolon adlarini boler", () => {
@@ -48,7 +48,7 @@ describe("agacin URETTIGI gercek zeminsiz olcumler", () => {
   ]) {
     it(JSON.stringify(m), () => {
       const r = kontrol(m);
-      expect(r.zeminli).toBe(false);
+      expect(r.grounded).toBe(false);
       expect(r.sebep).toBeTruthy();
     });
   }
@@ -56,7 +56,7 @@ describe("agacin URETTIGI gercek zeminsiz olcumler", () => {
   it("tek bir yok-kavram yuksek ortusmeye ragmen reddeder", () => {
     // "yanit" ve "sure" semada gecse bile chatbot yok.
     const r = kontrol("Chatbotun ortalama yanıt süresi");
-    expect(r.zeminli).toBe(false);
+    expect(r.grounded).toBe(false);
     expect(r.sebep).toContain("chatbot");
   });
 });
@@ -72,16 +72,73 @@ describe("mesru olcumler ENGELLENMEZ", () => {
     "Tamamlanmamış proje görevleri",
     "Para birimine göre teklif tutarı",
   ]) {
-    it(JSON.stringify(m), () => expect(kontrol(m).zeminli).toBe(true));
+    it(JSON.stringify(m), () => expect(kontrol(m).grounded).toBe(true));
   }
 });
 
 describe("muhafazakar davranis", () => {
   it("anlamli kelime yoksa zeminli sayar", () => {
-    expect(kontrol("bu ve su icin").zeminli).toBe(true);
+    expect(kontrol("bu ve su icin").grounded).toBe(true);
   });
 
   it("bos metin zeminli sayar", () => {
-    expect(kontrol("").zeminli).toBe(true);
+    expect(kontrol("").grounded).toBe(true);
+  });
+});
+
+/**
+ * Kabul senaryosu regresyonu.
+ *
+ * "Son 1 ayda satin alim yapan musterileri getir." sorusunda zemin
+ * kontrolu GECERLI olcumlerin tamamini elemisti. Asagidaki metinler o
+ * kosudan birebir alindi.
+ */
+describe("zemin: satin alma olcumleri elenmemeli", () => {
+  const sozluk = schemaVocabulary([
+    {
+      ad: "Invoices",
+      kolonlar: [
+        { ad: "Id" }, { ad: "MusteriAdi" }, { ad: "Tutar" }, { ad: "ParaBirimi" },
+        { ad: "BaslangicTarihi" }, { ad: "CreatedAt" }, { ad: "IsDeleted" },
+      ],
+    },
+    { ad: "TeklifKalemleri", kolonlar: [{ ad: "UrunKodu" }, { ad: "Miktar" }, { ad: "BirimFiyat" }] },
+    { ad: "ServiceForms", kolonlar: [{ ad: "Id" }, { ad: "Durum" }] },
+    { ad: "VehicleTrafficFines", kolonlar: [{ ad: "Id" }, { ad: "Tutar" }] },
+  ] as unknown as Tablo[]);
+
+  it("satin alma olcumleri zeminli sayilir", () => {
+    for (const m of [
+      "Musterilerin son 30 gun icinde yaptigi satin alma sayisi",
+      "Her musterinin ilk satin alma tarihini gosteren kayit",
+      "Bir musterinin son 12 ay icinde kac ayri satin alma islemi gerceklestirdigi",
+      "Invoices tablosunda her 'MusteriAdi' icin en erken 'BaslangicTarihi' sonrasi gerceklesen satir sayisini say",
+      "Son 1 ayda fatura olusturan musterilerin toplam tutari",
+    ]) {
+      const s = checkGrounding(m, sozluk);
+      expect(s.grounded, `${m} -- ${s.sebep}`).toBe(true);
+    }
+  });
+
+  it('"say" fiili "sayfa" sanilmaz', () => {
+    // Cift yonlu onek kontrolu bunu eliyordu.
+    expect(checkGrounding("Fatura satirlarini say", sozluk).grounded).toBe(true);
+  });
+
+  it("yasak liste semayi EZMEZ", () => {
+    // Bu iki terim yasak listedeydi ama tablolari gercekten var.
+    expect(checkGrounding("ServiceForms kayitlarinin durumu", sozluk).grounded).toBe(true);
+    expect(checkGrounding("Arac trafik cezalarinin tutari", sozluk).grounded).toBe(true);
+  });
+
+  it("gercekten olmayan kavramlar hala eleniyor", () => {
+    for (const m of [
+      "Chatbotun ortalama yanit suresi",
+      "SSS makale populerligi",
+      "Self servis portali kullanim orani",
+      "Anket memnuniyet skoru",
+    ]) {
+      expect(checkGrounding(m, sozluk).grounded, m).toBe(false);
+    }
   });
 });

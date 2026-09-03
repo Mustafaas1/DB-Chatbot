@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { GeriBeslemeOlayi } from "@/core/geribesleme/tipler";
 
 interface GBKayit {
   id: string;
@@ -255,7 +256,7 @@ export function GeriBesleme() {
     }
   }
 
-  function olayIsle(k: any) {
+  function olayIsle(k: GeriBeslemeOlayi) {
     switch (k.tur) {
       case "basladi":
         setDurum(`"${k.islemAdi}" için ölçümler çalıştırılıyor…`);

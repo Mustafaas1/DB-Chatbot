@@ -11,7 +11,7 @@ import type { OlcumSonucu } from "../ajan/olcum";
  * hesaplanmis bulguyu YORUMLAR.
  */
 
-export type BulguTuru =
+export type FindingKind =
   | "yigilma"        // tek grup baskin
   | "uzun_kuyruk"    // cok sayida kucuk grup
   | "aykiri"         // ortalamadan cok sapan grup
@@ -19,8 +19,8 @@ export type BulguTuru =
   | "tek_grup"
   | "bos";
 
-export interface Bulgu {
-  tur: BulguTuru;
+export interface Finding {
+  tur: FindingKind;
   /** Insan okuyabilir tek cumle. */
   metin: string;
   /** Varsa ilgili grup etiketi. */
@@ -29,13 +29,13 @@ export interface Bulgu {
   oran?: number;
 }
 
-export interface Teshis {
+export interface Diagnosis {
   dugumId: string;
   baslik: string;
   /** Sayisal kolonun toplami; yoksa satir sayisi. */
   toplam: number;
-  grupSayisi: number;
-  bulgular: Bulgu[];
+  groupCount: number;
+  findings: Finding[];
 }
 
 const YIGILMA_ESIGI = 0.6;      // tek grup toplamin %60'indan fazlasi
@@ -43,7 +43,7 @@ const UZUN_KUYRUK_ESIGI = 0.15; // en kucuk gruplarin toplam payi
 const AYKIRI_KAT = 3;           // ortalamanin bu kati
 
 /** Tum hucreleri sayi olan ilk kolonun indisi. */
-function olcuKolonu(kolonlar: string[], satirlar: unknown[][]): number {
+function measureColumn(kolonlar: string[], satirlar: unknown[][]): number {
   for (let n = 0; n < kolonlar.length; n++) {
     if (satirlar.length > 0 && satirlar.every((s) => typeof s[n] === "number")) return n;
   }
@@ -51,7 +51,7 @@ function olcuKolonu(kolonlar: string[], satirlar: unknown[][]): number {
 }
 
 /** Sayisal olmayan ilk kolon: grup etiketi. */
-function etiketKolonu(kolonlar: string[], satirlar: unknown[][]): number {
+function labelColumn(kolonlar: string[], satirlar: unknown[][]): number {
   for (let n = 0; n < kolonlar.length; n++) {
     if (satirlar.some((s) => typeof s[n] === "string")) return n;
   }
@@ -67,36 +67,36 @@ function bicim(n: number): string {
  *
  * LLM CAGRISI YOK. Tamami aritmetik.
  */
-export function teshisCikar(s: OlcumSonucu): Teshis {
+export function diagnose(s: OlcumSonucu): Diagnosis {
   const { kolonlar, satirlar } = s;
-  const bulgular: Bulgu[] = [];
+  const findings: Finding[] = [];
 
   if (!satirlar.length) {
-    return { dugumId: s.dugumId, baslik: s.baslik, toplam: 0, grupSayisi: 0,
-             bulgular: [{ tur: "bos", metin: "Sonuc bos; yorumlanacak veri yok." }] };
+    return { dugumId: s.dugumId, baslik: s.baslik, toplam: 0, groupCount: 0,
+             findings: [{ tur: "bos", metin: "Sonuc bos; yorumlanacak veri yok." }] };
   }
 
-  const oi = olcuKolonu(kolonlar, satirlar);
-  const ei = etiketKolonu(kolonlar, satirlar);
+  const oi = measureColumn(kolonlar, satirlar);
+  const ei = labelColumn(kolonlar, satirlar);
 
   // Olcu kolonu yoksa satir sayisi uzerinden konusuruz.
   if (oi === -1) {
     return {
       dugumId: s.dugumId, baslik: s.baslik, toplam: satirlar.length,
-      grupSayisi: satirlar.length,
-      bulgular: [{ tur: "dengeli", metin: `${satirlar.length} kayit listelendi; sayisal olcu kolonu yok.` }],
+      groupCount: satirlar.length,
+      findings: [{ tur: "dengeli", metin: `${satirlar.length} kayit listelendi; sayisal olcu kolonu yok.` }],
     };
   }
 
   const degerler = satirlar.map((r) => Number(r[oi]) || 0);
   const toplam = degerler.reduce((t, v) => t + v, 0);
-  const grupSayisi = satirlar.length;
+  const groupCount = satirlar.length;
   const olcuAdi = kolonlar[oi] ?? "deger";
 
-  if (grupSayisi === 1) {
+  if (groupCount === 1) {
     return {
-      dugumId: s.dugumId, baslik: s.baslik, toplam, grupSayisi,
-      bulgular: [{ tur: "tek_grup", metin: `Tek grup: ${olcuAdi} = ${bicim(toplam)}.` }],
+      dugumId: s.dugumId, baslik: s.baslik, toplam, groupCount,
+      findings: [{ tur: "tek_grup", metin: `Tek grup: ${olcuAdi} = ${bicim(toplam)}.` }],
     };
   }
 
@@ -109,7 +109,7 @@ export function teshisCikar(s: OlcumSonucu): Teshis {
 
   // 1) Yigilma
   if (enOran >= YIGILMA_ESIGI) {
-    bulgular.push({
+    findings.push({
       tur: "yigilma", etiket: en.etiket, oran: enOran,
       metin: `"${en.etiket}" tek basina toplamin %${Math.round(enOran * 100)}'ini olusturuyor ` +
              `(${bicim(en.deger)} / ${bicim(toplam)}). Yuk burada yogunlasmis.`,
@@ -117,11 +117,11 @@ export function teshisCikar(s: OlcumSonucu): Teshis {
   }
 
   // 2) Uzun kuyruk
-  if (grupSayisi >= 4) {
-    const altYari = sirali.slice(Math.ceil(grupSayisi / 2));
+  if (groupCount >= 4) {
+    const altYari = sirali.slice(Math.ceil(groupCount / 2));
     const kuyrukPay = toplam > 0 ? altYari.reduce((t, x) => t + x.deger, 0) / toplam : 0;
     if (kuyrukPay <= UZUN_KUYRUK_ESIGI) {
-      bulgular.push({
+      findings.push({
         tur: "uzun_kuyruk", oran: kuyrukPay,
         metin: `Alt yaridaki ${altYari.length} grup toplamin yalnizca ` +
                `%${Math.round(kuyrukPay * 100)}'ini olusturuyor; uzun kuyruk var.`,
@@ -130,28 +130,28 @@ export function teshisCikar(s: OlcumSonucu): Teshis {
   }
 
   // 3) Aykiri deger
-  const ortalama = toplam / grupSayisi;
+  const ortalama = toplam / groupCount;
   if (ortalama > 0 && en.deger >= ortalama * AYKIRI_KAT && enOran < YIGILMA_ESIGI) {
-    bulgular.push({
+    findings.push({
       tur: "aykiri", etiket: en.etiket,
       metin: `"${en.etiket}" ortalamanin ${(en.deger / ortalama).toFixed(1)} kati ` +
              `(${bicim(en.deger)} / ortalama ${bicim(ortalama)}).`,
     });
   }
 
-  if (!bulgular.length) {
-    bulgular.push({
+  if (!findings.length) {
+    findings.push({
       tur: "dengeli",
-      metin: `${grupSayisi} grup arasinda belirgin bir yigilma yok; dagilim dengeli.`,
+      metin: `${groupCount} grup arasinda belirgin bir yigilma yok; dagilim dengeli.`,
     });
   }
 
-  return { dugumId: s.dugumId, baslik: s.baslik, toplam, grupSayisi, bulgular };
+  return { dugumId: s.dugumId, baslik: s.baslik, toplam, groupCount, findings };
 }
 
 /** Teshisleri modele verilecek kompakt metne cevirir. */
-export function teshisMetni(teshisler: Teshis[]): string {
+export function diagnosisText(teshisler: Diagnosis[]): string {
   return teshisler
-    .map((t) => `${t.baslik}: ` + t.bulgular.map((b) => b.metin).join(" "))
+    .map((t) => `${t.baslik}: ` + t.findings.map((b) => b.metin).join(" "))
     .join("\n");
 }

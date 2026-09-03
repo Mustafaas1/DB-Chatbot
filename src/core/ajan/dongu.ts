@@ -1,4 +1,5 @@
 import type { AracKaydi } from "../tools/kayit";
+import { frameAsData } from "../guvenlik/enjeksiyon";
 import type { Baglam } from "../tools/tipler";
 import type { Mesaj, Saglayici, SaglayiciYaniti } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
@@ -100,8 +101,15 @@ export async function donguCalistir(s: DonguSecenekleri): Promise<DonguSonucu> {
         tur: "arac", ad: cagri.ad, girdi: cagri.girdi,
         ok: sonuc.ok, ozet, sureMs: sonuc.sureMs,
       });
+      // Arac ciktisi VERIDIR: sinirlandirarak veriyoruz ki icindeki metin
+      // talimat gibi davranamasin. adimlar[].ozet HAM kaliyor -- olcum.ts
+      // onu JSON olarak ayristiriyor, sinir eklersek bozulur.
+      const { text: guvenli, suspicious } = frameAsData(ozet);
+      if (suspicious) {
+        console.warn(`[guvenlik] "${cagri.ad}" ciktisinda talimat gibi gorunen icerik var.`);
+      }
       // Hata da modele geri verilir: sorguyu duzeltip tekrar deneyebilsin.
-      mesajlar.push({ rol: "arac", cagriId: cagri.id, ad: cagri.ad, icerik: ozet });
+      mesajlar.push({ rol: "arac", cagriId: cagri.id, ad: cagri.ad, icerik: guvenli });
     }
   }
 

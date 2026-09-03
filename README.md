@@ -25,11 +25,11 @@ Veritabanı ve yapay zeka sağlayıcısı `.env` üzerinden değiştirilir; kod 
 ### 1. Bağımlılıklar
 
 ```bash
-pip install -r requirements.txt
+npm install
 ```
 
-Ayrıca **ODBC Driver 18 for SQL Server** kurulu olmalıdır
-([indirme sayfası](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)).
+Node 24+ gerekir. Veritabanına saf JS sürücüsüyle (`mssql`/tedious) bağlanılır;
+ayrıca ODBC sürücüsü kurulmasına gerek yoktur.
 
 ### 2. Yapılandırma
 
@@ -59,10 +59,10 @@ verilerle doldurur (sözleşmelerin bir kısmı bilerek önümüzdeki 30 gün i�
 ### 4. Çalıştırma
 
 ```bash
-python -m uvicorn pybot.main:app --reload
+npm run dev
 ```
 
-Tarayıcıdan <http://localhost:8000/demo> adresini açın — sağ alt köşedeki yuvarlak butona tıklayın.
+Tarayıcıdan <http://localhost:3000> adresini açın.
 
 ---
 
@@ -134,8 +134,7 @@ Groq'ta **araç çağırmayı destekleyen** bir model seçin — aksi halde SQL 
 Groq kataloğu sık değişir; hesabınızda hangileri var görmek için:
 
 ```bash
-python -c "import sys; sys.path.insert(0,'.'); from pybot.llm import get_groq_client; print(*sorted(m.id for m in get_groq_client().models.list().data), sep='
-')"
+curl -s https://api.groq.com/openai/v1/models   -H "Authorization: Bearer $GROQ_API_KEY" | npx --yes json -a data.id
 ```
 
 Anahtarı <https://console.groq.com/keys> adresinden alın.
@@ -351,8 +350,8 @@ Yapay zekanın ürettiği her SQL, çalışmadan önce üç katmandan geçer:
 
 | Katman | Ne yapar |
 |---|---|
-| `pybot/sqlguard.py` | Yalnızca tek bir `SELECT`/`WITH` ifadesine izin verir. `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `EXEC`, `xp_*`, `SELECT ... INTO` gibi ifadeleri reddeder. Noktalı virgülle **ve** noktalı virgülsüz (`SELECT 1 DROP TABLE x`) zincirlemeyi engeller. |
-| `pybot/db.py` | Bağlantı `autocommit=False` açılır ve sorgu bitince **her zaman `rollback`** yapılır. Satır limiti (`MAX_ROWS`) ve zaman aşımı (`QUERY_TIMEOUT`) uygulanır. |
+| `src/core/db/guard.ts` | Yalnızca tek bir `SELECT`/`WITH` ifadesine izin verir. `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `EXEC`, `xp_*`, `SELECT ... INTO` gibi ifadeleri reddeder. Noktalı virgülle **ve** noktalı virgülsüz (`SELECT 1 DROP TABLE x`) zincirlemeyi engeller. |
+| `src/core/db/havuz.ts` | Bağlantı `autocommit=False` açılır ve sorgu bitince **her zaman `rollback`** yapılır. Satır limiti (`MAX_ROWS`) ve zaman aşımı (`QUERY_TIMEOUT`) uygulanır. |
 | Veritabanı | `db_datareader` yetkili kullanıcı (yukarıdaki öneri). |
 
 Metin sabitleri (`WHERE Unvan LIKE '%delete%'`) ve köşeli parantezli kolon adları
@@ -363,7 +362,7 @@ Metin sabitleri (`WHERE Unvan LIKE '%delete%'`) ve köşeli parantezli kolon adl
 `.env` içindeki **`API_TOKEN`** doldurulduğunda tüm `/api/*` uçları anahtar ister:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"   # anahtar üret
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # anahtar üret
 ```
 
 ```
@@ -392,8 +391,7 @@ doğal dil akışını atladığı için yalnızca `ALLOW_RAW_SQL=on` ile açıl
 Bu katman projenin tek kritik güvencesi olduğu için regresyon testleriyle korunur:
 
 ```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest tests/ -q
+npm test
 ```
 
 52 test; `DROP`/`UPDATE`/`TRUNCATE`, `SELECT ... INTO`, `INTO OUTFILE`,
@@ -510,7 +508,8 @@ gidilmediği için token harcamaz. Sorgular 60 saniye önbelleklenir.
 
 Aktif veritabanı için tanım yoksa bölüm boş kalır ve bunu açıkça söyler —
 uydurma rakam gösterilmez. Kendi veritabanınız için tanımları
-[pybot/ozet.py](pybot/ozet.py) içindeki `TANIMLAR` sözlüğüne ekleyin.
+[src/core/pipeline/ozet.ts](src/core/pipeline/ozet.ts) içindeki özet
+hesaplamasına ekleyin.
 
 ---
 
@@ -571,10 +570,9 @@ Tamamen kapatmak için `.env` içinde `SQL_CACHE=off`.
 
 ## Bilinen sınırlar
 
-- **Oturumlar bellekte tutulur.** Uygulama yeniden başlarsa sohbet geçmişi silinir ve
-  birden fazla işçi süreçle (`--workers 2`) çalıştırılamaz. Çok kullanıcılı dağıtımda
-  `pybot/main.py` içindeki `OTURUMLAR` sözlüğü Redis gibi bir depoya taşınmalıdır.
+- **Akış durumu bellekte tutulmaz.** Bütçe dolduğunda devam için gereken ağaç
+  istemciye gönderilir; sunucu turlar arası durum saklamaz.
 - **Kimlik doğrulama yok.** Uygulamayı olduğu gibi internete açmayın; şirket ağı içinde
   veya bir kimlik doğrulama katmanı (reverse proxy / SSO) arkasında çalıştırın.
 - **Çok büyük şemalar.** Yüzlerce tablolu veritabanlarında şema metni uzar ve token
-  maliyetini artırır. Bu durumda `pybot/schema.py` içine tablo filtresi eklenmelidir.
+  maliyetini artırır. Kapsam daraltma `src/core/db/kapsam.ts` içindedir.

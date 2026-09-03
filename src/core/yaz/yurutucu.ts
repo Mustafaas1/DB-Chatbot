@@ -3,8 +3,11 @@ import { AZAMI_ETKI, islemBul } from "./islemler";
 import { yazmaAcikMi } from "./havuzYaz";
 import type { DenetimKaydi, Prova } from "./tipler";
 import * as gbDepo from "../geribesleme/depo";
+import { olcumuTekrarla } from "../geribesleme/olcumTekrar";
+import {
+  currentMode, canRunAutomatically, autoApprover, type AutonomyMode,
+} from "../otonomi/mod";
 import type { OlcumBaglami } from "../geribesleme/tipler";
-import { havuzGetir } from "../db/havuz";
 
 /**
  * Yazma yurutucusu.
@@ -131,6 +134,37 @@ export async function uygula(kayitId: string, onaylayan: string): Promise<Deneti
   return denetim.getir(kayitId)!;
 }
 
+/**
+ * Otonomi moduna gore, INSAN ONAYI OLMADAN uygulamayi dener.
+ *
+ * uygula() zayiflatilmadi: bu yol da sonunda ayni fonksiyonu cagiriyor,
+ * yalnizca onaylayan alanina "otomatik:<mod>" yaziyor. Boylece denetim
+ * kaydinda insan onayi ile otonomi karari birbirinden ayirt edilebiliyor.
+ *
+ * Izin verilmezse yazma YAPILMAZ; cagiran taraf insana sormalidir.
+ */
+export async function otomatikUygula(
+  kayitId: string,
+  mod: AutonomyMode = currentMode()
+): Promise<{ uygulandi: false; sebep: string } | { uygulandi: true; kayit: DenetimKaydi }> {
+  const kayit = denetim.getir(kayitId);
+  if (!kayit) throw new OnayHatasi(`Kayit bulunamadi: ${kayitId}`);
+
+  const islem = islemBul(kayit.islemKodu);
+  if (!islem) throw new OnayHatasi(`Tanimsiz islem: ${kayit.islemKodu}`);
+
+  // Risk ve geri alinabilirlik ISLEM TANIMINDAN okunuyor, cagirandan degil.
+  const karar = canRunAutomatically(
+    { risk: islem.risk, reversible: typeof islem.geriAl === "function" },
+    mod
+  );
+  if (!karar.automatic) return { uygulandi: false, sebep: karar.reason };
+
+  const sonuc = await uygula(kayitId, autoApprover(mod));
+  denetim.durumGuncelle(kayitId, sonuc.durum, { otonomiModu: mod });
+  return { uygulandi: true, kayit: denetim.getir(kayitId)! };
+}
+
 export function reddet(kayitId: string, reddeden: string): DenetimKaydi {
   const kayit = denetim.getir(kayitId);
   if (!kayit) throw new OnayHatasi(`Kayit bulunamadi: ${kayitId}`);
@@ -177,24 +211,22 @@ export async function geriAl(kayitId: string, geriAlan: string): Promise<Denetim
  */
 async function oncekiGoruntuleriAl(kayitId: string): Promise<void> {
   let baglamlar: OlcumBaglami[] = [];
-  try { baglamlar = gbDepo.baglamlariGetir(kayitId); } catch { return; }
+  try { baglamlar = gbDepo.baglamlariGetir(kayitId); }
+  catch (e) {
+    console.error("[F6] olcum baglamlari okunamadi:", e);
+    return;
+  }
   if (!baglamlar.length) return;
 
   for (const b of baglamlar) {
     try {
-      const havuz = await havuzGetir();
-      const istek = havuz.request();
-      istek.arrayRowMode = true;
-      const y = await istek.query(b.sql);
-
-      const ust = y.recordset?.columns ?? {};
-      const kolonlar = Object.values(ust).sort((x, z) => x.index - z.index).map((k) => k.name);
-      const satirlar = (y.recordset as unknown as unknown[][]) ?? [];
-
-      gbDepo.snapshotKaydet(
-        kayitId, b.dugumId, b.ajanKod, b.soru, b.sql, kolonlar, satirlar, "once"
-      );
-    } catch { /* tek olcum alinamazsa digerlerine devam */ }
+      // "sonra" goruntusuyle AYNI yol: ayni sorgu, ayni sekilde.
+      await olcumuTekrarla(kayitId, b, "once");
+    } catch (e) {
+      // Tek olcum alinamazsa digerlerine devam; ama SESSIZ kalma.
+      // Bu catch bir kez "once" goruntusunun hic alinmadigini gizledi.
+      console.error(`[F6] "once" goruntusu alinamadi (${b.soru}):`, e);
+    }
   }
 }
 

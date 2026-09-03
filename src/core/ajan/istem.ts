@@ -1,6 +1,7 @@
 import { semaGetir, semaMetni } from "../db/sema";
 import { kapsamSec } from "../db/kapsam";
 import { degerlerMetni, durumDegerleri } from "../db/degerler";
+import { INJECTION_RULE } from "../guvenlik/enjeksiyon";
 
 /**
  * Sistem istemi.
@@ -31,6 +32,10 @@ export async function sistemIstemi(
 
   return [
     rolPromptu?.trim() || "Turkce bir veri asistanisin. Kullanicilar SQL bilmez.",
+    "",
+    // Bu kural en uste: veriden gelen talimat taklidi her seyden once
+    // reddedilmeli.
+    INJECTION_RULE,
     "",
     "CALISMA",
     "- Veri gerektiren sorularda veri_sorgula aracini kullan; yalnizca aracin",

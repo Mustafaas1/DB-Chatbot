@@ -16,7 +16,10 @@ import type { Tablo } from "../db/sema";
  */
 
 /** Turkce is terimi -> semadaki Ingilizce karsilik. */
-const KARSILIK: Record<string, string[]> = {
+/** Disaridan da kullaniliyor: listeleyici.ts tablo secerken ayni sozlugu
+ *  paylasiyor; iki yerde ayri Turkce-Ingilizce esleme tutmak kaymaya
+ *  acik olurdu. */
+export const KARSILIK: Record<string, string[]> = {
   bilet: ["ticket"], destek: ["ticket"], talep: ["ticket", "leave", "request"],
   teklif: ["teklif", "opportunity"], firsat: ["opportunity"],
   musteri: ["contact", "customer", "company"], kisi: ["contact", "user"],
@@ -25,10 +28,31 @@ const KARSILIK: Record<string, string[]> = {
   calisan: ["employee", "personel", "attendance"], personel: ["employee", "personel"],
   mesai: ["attendance"], vardiya: ["duty", "schedule"], takvim: ["calendar"],
   urun: ["product"], stok: ["product"], oneri: ["suggestion"],
+  satin: ["invoice", "teklif", "product"], alim: ["invoice", "teklif"],
+  alma: ["invoice", "teklif"], satis: ["invoice", "teklif", "satis"],
+  siparis: ["invoice", "teklif"], ciro: ["tutar", "invoice"],
+  gelir: ["tutar", "invoice"], sepet: ["invoice", "teklif"],
+  kalem: ["kalem"], miktar: ["miktar"], fiyat: ["fiyat"],
+  arac: ["vehicle"], trafik: ["traffic"], ceza: ["fine", "traffic"],
+  bakim: ["maintenance"], lastik: ["tire"], sigorta: ["policy", "insurance"],
+  muayene: ["inspection"], zimmet: ["custody"], masraf: ["expense"],
   bildirim: ["notification"], yorum: ["comment"], etkinlik: ["event", "calendar"],
   asama: ["asama"], oncelik: ["oncelik"], durum: ["durum"], kanal: ["kanal"],
   tutar: ["tutar", "invoice", "teklif"], tarih: ["tarih", "date"],
   sayi: [], adet: [], oran: [], ortalama: [], toplam: [],
+  // Finansal / raporlama kavramlari: eskiden semada karsilik bulamiyordu.
+  kar: ["tutar", "invoice", "teklif"], marj: ["tutar", "invoice", "teklif"],
+  brut: ["tutar", "invoice", "teklif"], net: ["tutar", "invoice", "teklif"],
+  yuzde: [], degisim: [], degisimi: [], artis: [], azalis: [],
+  donemsel: [], ceyrek: [], aylik: [], yillik: [], haftalik: [],
+  harcama: ["tutar", "invoice", "teklif"], maliyet: ["tutar", "invoice", "teklif"],
+  performans: [], verimlilik: [], trend: [], karsilastirma: [],
+  basina: [], bazinda: [], bazli: [], birim: [],
+  para: ["tutar", "invoice"], doviz: ["tutar", "invoice"],
+  kategori: [], bolum: [], segment: [], grup: [],
+  zaman: ["tarih", "date"], donem: ["tarih", "date"], serisi: [],
+  dagilim: [], analiz: [], rapor: [],
+  mevcut: [], buyume: [], dusus: [],   // "toplam" yukarida tanimli
 };
 
 /** Olcum metninde gecmesi anlamli olmayan kelimeler. */
@@ -39,6 +63,18 @@ const DOLGU = new Set([
   "ortalama", "toplam", "dagilimi", "listesi", "analizi", "izlenmesi",
   "belirleme", "tespit", "olcumu", "gunluk", "aylik", "yillik", "son",
   "yeni", "eski", "acik", "kapali", "yuksek", "dusuk", "en", "cok", "az",
+  // Fiil/sifat kaliplari. Bunlar alan kavrami degil; paydayi sisirip
+  // gecerli olcumleri esigin altina itiyorlardi.
+  "icinde", "yaptigi", "yapan", "ayri", "gerceklestirdigi", "gerceklesen",
+  "dondur", "goster", "hesapla", "raporla", "getir", "listele", "bul",
+  "benzersiz", "erken", "gec", "ilk", "son", "cesitliligi", "aldigi",
+  "olan", "olusturan", "eslesen", "bazli", "gore", "sonrasi", "oncesi",
+  "say", "sayan", "adedi", "degeri", "kolonu", "alani",
+  // Raporlama / olcum fiil-sifatlari: semada karsilik aramaya gerek yok.
+  "yuzde", "yuzdesini", "degisimi", "degisimini", "artis", "artisi",
+  "azalis", "azalisi", "donemsel", "ceyrek", "ceyrekle", "icindeki",
+  "karsilastir", "karsilastirma", "trend", "trendi",
+  "basina", "bazinda", "birim", "birime",
 ]);
 
 function normalize(s: string): string {
@@ -53,7 +89,7 @@ function kok(k: string): string {
 }
 
 /** Semadan kelime dagarcigi: tablo ve kolon adlari, CamelCase bolunmus. */
-export function semaSozlugu(tablolar: Tablo[]): Set<string> {
+export function schemaVocabulary(tablolar: Tablo[]): Set<string> {
   const s = new Set<string>();
   const ekle = (ad: string) => {
     for (const p of ad.split(/(?=[A-Z])|_/)) {
@@ -81,22 +117,27 @@ export function semaSozlugu(tablolar: Tablo[]): Set<string> {
 const KESIN_YOK = new Set(
   [
     "chatbot", "bot", "sss", "faq", "makale", "makalesi", "bilgi tabani",
-    "portal", "selfservis", "self", "servis", "anket", "memnuniyet",
-    "ziyaretci", "trafik", "web", "sayfa", "sayfasina", "tiklama",
+    // "servis"/"self" cikarildi: ServiceForms tablosu var.
+    // "trafik" cikarildi: VehicleTrafficFines var. Semada karsiligi olan
+    // bir terimi yasaklamak, dogru olcumu eliyordu.
+    "portal", "selfservis", "anket", "memnuniyet",
+    "ziyaretci", "web", "sayfa", "tiklama",
     "egitim", "webinar", "sosyal", "kampanya", "reklam",
     ...(process.env.SCHEMA_ABSENT_TERMS ?? "").split(",").map((x) => x.trim()).filter(Boolean),
   ].map((x) => x.toLowerCase())
 );
 
-/** Oran esigi: gozlemlenen olcumlerde zeminsizler <=0.67, zeminliler 1.00. */
-const ORAN_ESIGI = 0.5;
+/** Oran esigi: cok dusuruld, cunku Turkce ek/fiil kelimeleri paydayi
+ *  sisirip gecerli olcumleri eliyordu. Yalnizca cok dusuk ortusme
+ *  (cogunluk semada yok) reddedilir. */
+const ORAN_ESIGI = 0.25;
 
-export interface ZeminSonucu {
-  zeminli: boolean;
+export interface GroundingResult {
+  grounded: boolean;
   /** Semayla ortusen kelimeler; bos ise zeminsiz. */
-  eslesenler: string[];
+  matched: string[];
   /** Hicbiri eslesmeyen anlamli kelimeler. */
-  yabanci: string[];
+  unmatched: string[];
   /** Zeminsizse sebebi. */
   sebep: string;
 }
@@ -107,14 +148,14 @@ export interface ZeminSonucu {
  * MUHAFAZAKAR: yalnizca HICBIR kelime eslesmiyorsa zeminsiz der. Yanlis
  * pozitif calisan bir olcumu engellerdi; dogrula.ts ile ayni felsefe.
  */
-export function zeminKontrol(metin: string, sozluk: Set<string>): ZeminSonucu {
+export function checkGrounding(metin: string, sozluk: Set<string>): GroundingResult {
   const kelimeler = normalize(metin)
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((k) => k.length >= 3 && !DOLGU.has(k) && !/^\d+$/.test(k));
 
-  const eslesenler: string[] = [];
-  const yabanci: string[] = [];
+  const matched: string[] = [];
+  const unmatched: string[] = [];
 
   for (const k of kelimeler) {
     const s = kok(k);
@@ -138,35 +179,43 @@ export function zeminKontrol(metin: string, sozluk: Set<string>): ZeminSonucu {
       }
     }
 
-    (esletti ? eslesenler : yabanci).push(k);
+    (esletti ? matched : unmatched).push(k);
   }
 
   // Hic anlamli kelime cikmadiysa karar veremeyiz; zeminli say.
-  if (!kelimeler.length) return { zeminli: true, eslesenler, yabanci, sebep: "" };
+  if (!kelimeler.length) return { grounded: true, matched, unmatched, sebep: "" };
 
   // 1) Kesin yok listesi. Oranı yuksek olsa bile reddedilir: tek bir
   //    "chatbot" kelimesi olcumu anlamsiz kilmaya yeter.
-  const yokOlan = kelimeler.filter((k) => {
+  //
+  //    IKI SINIR:
+  //    a) Yalnizca SEMAYLA ESLESMEYEN kelimelere bakilir. Liste semayi
+  //       ezemez: "trafik" listede ama VehicleTrafficFines gercekten var,
+  //       "servis" listede ama ServiceForms var.
+  //    b) Eslesme tek yonlu: olcum kelimesi yasakli terimle BASLAMALI.
+  //       Cift yonlu onek kontrolu "say" kelimesini "sayfa" sanip
+  //       gecerli sayma olcumlerini eliyordu.
+  const yokOlan = unmatched.filter((k) => {
     const s2 = kok(k);
-    for (const y of KESIN_YOK) if (y.startsWith(s2) || s2.startsWith(y)) return true;
+    for (const y of KESIN_YOK) if (s2.startsWith(y) || k.startsWith(y)) return true;
     return false;
   });
   if (yokOlan.length) {
     return {
-      zeminli: false, eslesenler, yabanci,
+      grounded: false, matched, unmatched,
       sebep: `Bu veride karsiligi olmayan kavram: ${[...new Set(yokOlan)].join(", ")}. ` +
              "Boyle bir veri tutulmuyor.",
     };
   }
 
   // 2) Genel ortusme orani.
-  const oran = eslesenler.length / kelimeler.length;
+  const oran = matched.length / kelimeler.length;
   if (oran < ORAN_ESIGI) {
     return {
-      zeminli: false, eslesenler, yabanci,
-      sebep: `Olcumdeki kelimelerin cogu (${yabanci.join(", ")}) semada karsilik bulmuyor.`,
+      grounded: false, matched, unmatched,
+      sebep: `Olcumdeki kelimelerin cogu (${unmatched.join(", ")}) semada karsilik bulmuyor.`,
     };
   }
 
-  return { zeminli: true, eslesenler, yabanci, sebep: "" };
+  return { grounded: true, matched, unmatched, sebep: "" };
 }

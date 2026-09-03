@@ -3,8 +3,8 @@ import { z } from "zod";
 import type { Saglayici } from "../llm/tipler";
 import { LlmHatasi } from "../llm/tipler";
 import { yapisalIste } from "../llm/yapisal";
-import { dugumMetni, genisletmeIstemi, ornekler, sonrakiTur } from "./istem";
-import type { Agac, AgacKullanimi, AgacSonucu, GoalNodeGenis } from "./tipler";
+import { nodeText, expansionPrompt, examples, nextKind } from "./istem";
+import type { Agac, TreeUsage, TreeResult, GoalNodeGenis } from "./tipler";
 import { GoalNodeGenis as GoalNodeGenisSemasi, type DugumTuru } from "../../schemas/index";
 
 const CocukSemasi = z.object({
@@ -14,7 +14,7 @@ const CocukSemasi = z.object({
 });
 const CocukListesi = z.array(CocukSemasi).min(1).max(5);
 
-export interface AgacSecenekleri {
+export interface TreeOptions {
   saglayici: Saglayici;
   soru: string;
   /** Kok 0. sayilir. */
@@ -49,7 +49,7 @@ function dugumYap(
  * genisletme ayri, kucuk ve sematiksiz bir cagri: agac kurmak icin
  * veritabani semasi gerekmiyor, bu da maliyeti dusuk tutuyor.
  */
-export async function agacKur(s: AgacSecenekleri): Promise<AgacSonucu> {
+export async function buildTree(s: TreeOptions): Promise<TreeResult> {
   const azamiDerinlik = s.azamiDerinlik ?? 3;
   const azamiCagri = s.azamiCagri ?? 6;
 
@@ -57,8 +57,8 @@ export async function agacKur(s: AgacSecenekleri): Promise<AgacSonucu> {
   const dugumler: Agac = [kok];
   const derinlik = new Map<string, number>([[kok.id, 0]]);
 
-  const kullanim: AgacKullanimi = { girdiTokeni: 0, ciktiTokeni: 0, cagriSayisi: 0 };
-  let genisletilmeyen = 0;
+  const kullanim: TreeUsage = { girdiTokeni: 0, ciktiTokeni: 0, cagriSayisi: 0 };
+  let notExpanded = 0;
 
   // Genislikte arama: butce biterse agac dar kalir ama DENGELI kalir;
   // derinlemesine gidip tek dal sismiyor.
@@ -66,18 +66,18 @@ export async function agacKur(s: AgacSecenekleri): Promise<AgacSonucu> {
 
   while (kuyruk.length) {
     const dugum = kuyruk.shift()!;
-    const cocukTuru = sonrakiTur(dugum.type);
+    const cocukTuru = nextKind(dugum.type);
     const d = derinlik.get(dugum.id) ?? 0;
 
     if (!cocukTuru || d >= azamiDerinlik) continue;
-    if (kullanim.cagriSayisi >= azamiCagri) { genisletilmeyen++; continue; }
+    if (kullanim.cagriSayisi >= azamiCagri) { notExpanded++; continue; }
 
     let cocuklar: z.infer<typeof CocukListesi>;
     try {
-      cocuklar = await genislet(s.saglayici, dugum, s.soru, cocukTuru, kullanim, s.veriOzetiMetni);
+      cocuklar = await expand(s.saglayici, dugum, s.soru, cocukTuru, kullanim, s.veriOzetiMetni);
     } catch (e) {
-      if (e instanceof LlmHatasi && e.kod === "kota") { genisletilmeyen++; break; }
-      genisletilmeyen++;
+      if (e instanceof LlmHatasi && e.kod === "kota") { notExpanded++; break; }
+      notExpanded++;
       continue;
     }
 
@@ -93,18 +93,18 @@ export async function agacKur(s: AgacSecenekleri): Promise<AgacSonucu> {
     }
   }
 
-  return { dugumler, kullanim, genisletilmeyen };
+  return { dugumler, kullanim, notExpanded };
 }
 
-async function genislet(
+async function expand(
   saglayici: Saglayici,
   dugum: GoalNodeGenis,
   asilSoru: string,
   cocukTuru: DugumTuru,
-  kullanim: AgacKullanimi,
+  kullanim: TreeUsage,
   veriOzetiMetni?: string
 ): Promise<z.infer<typeof CocukListesi>> {
-  const ornekMesajlari = ornekler(cocukTuru).flatMap((o) => [
+  const ornekMesajlari = examples(cocukTuru).flatMap((o) => [
     { rol: "kullanici" as const, metin: o.girdi },
     { rol: "asistan" as const, metin: o.cikti },
   ]);
@@ -114,9 +114,9 @@ async function genislet(
     saglayici,
     istek: {
       mesajlar: [
-        { rol: "sistem", metin: genisletmeIstemi(cocukTuru, veriOzetiMetni) },
+        { rol: "sistem", metin: expansionPrompt(cocukTuru, veriOzetiMetni) },
         ...ornekMesajlari,
-        { rol: "kullanici", metin: dugumMetni(dugum, asilSoru) },
+        { rol: "kullanici", metin: nodeText(dugum, asilSoru) },
       ],
       akilYurutmeGayreti: "low",
       azamiCiktiTokeni: 700,

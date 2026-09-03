@@ -2,7 +2,10 @@ import sql from "mssql";
 import { z } from "zod";
 import { havuzGetir } from "../db/havuz";
 import { yazmaHavuzuGetir } from "./havuzYaz";
-import type { IslemTanimi, Prova } from "./tipler";
+import { islemiSil, type IslemTanimi, type Prova, type SilinmisIslem } from "./tipler";
+import {
+  faturaDurumDegistir, teklifDurumDegistir, teklifTemsilciAta,
+} from "./ticariIslemler";
 
 /**
  * BEYAZ LISTE.
@@ -92,6 +95,9 @@ export const biletAta: IslemTanimi<BiletAtaP> = {
   // Tek alan, geri alinabilir, tek kayit: dusuk risk.
   risk: "low",
   hedefTablo: "TicketRecords",
+  kimlikParametresi: "biletNo",
+  kimlikKolonu: "BiletNo",
+  kisiParametresi: "kisi",
   parametreSemasi: BiletAtaP,
 
   async prova(p) {
@@ -120,6 +126,8 @@ export const biletAsamaDegistir: IslemTanimi<BiletAsamaP> = {
   // Asama degisimi is akisini etkiliyor (SLA, raporlama): orta risk.
   risk: "medium",
   hedefTablo: "TicketRecords",
+  kimlikParametresi: "biletNo",
+  kimlikKolonu: "BiletNo",
   parametreSemasi: BiletAsamaP,
 
   async prova(p) {
@@ -142,9 +150,17 @@ export const biletAsamaDegistir: IslemTanimi<BiletAsamaP> = {
   },
 };
 
-export const ISLEMLER: readonly IslemTanimi<any>[] = [biletAta, biletAsamaDegistir];
+// Her cagri KENDI parametre tipini cikarir; .map(islemiSil) tek bir P
+// cikarmaya calisip birlesim tipinde patliyor.
+export const ISLEMLER: readonly SilinmisIslem[] = [
+  islemiSil(biletAta),
+  islemiSil(biletAsamaDegistir),
+  islemiSil(teklifDurumDegistir),
+  islemiSil(teklifTemsilciAta),
+  islemiSil(faturaDurumDegistir),
+];
 
-export function islemBul(kod: string): IslemTanimi<any> | undefined {
+export function islemBul(kod: string): SilinmisIslem | undefined {
   return ISLEMLER.find((i) => i.kod === kod);
 }
 

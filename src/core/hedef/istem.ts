@@ -10,7 +10,7 @@ import type { GoalNodeGenis } from "./tipler";
  */
 
 /** Bir sonraki katmanin turu. Aksiyondan sonra dallanma biter. */
-export function sonrakiTur(tur: DugumTuru): DugumTuru | null {
+export function nextKind(tur: DugumTuru): DugumTuru | null {
   switch (tur) {
     case "goal": return "lever";       // hedefi hareket ettiren kaldiraclar
     case "lever": return "metric";     // kaldiracin olculebilir gostergeleri
@@ -31,7 +31,7 @@ const TUR_ACIKLAMA: Record<DugumTuru, string> = {
   resource: "kaldiraci kullanmak icin gereken kaynak ya da kisit",
 };
 
-export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): string {
+export function expansionPrompt(hedefTur: DugumTuru, veriOzetiMetni?: string): string {
   // "olcum" katmani VERIYE BAGLANMALI. Tablo listesi verilmedigi ilk
   // denemede model "SSS sayfasi ziyaretci sayisi", "chatbot yanit suresi"
   // gibi bu veritabaninda KARSILIGI OLMAYAN olcumler uretti; sonraki
@@ -73,7 +73,7 @@ export function genisletmeIstemi(hedefTur: DugumTuru, veriOzetiMetni?: string): 
 }
 
 /** Ornekler kurallardan baskin; her tur icin bir tane. */
-export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[] {
+export function examples(hedefTur: DugumTuru): { girdi: string; cikti: string }[] {
   if (hedefTur === "lever") {
     return [{
       girdi: "DUGUM (goal): Destek yukumuzu azaltmak",
@@ -105,7 +105,7 @@ export function ornekler(hedefTur: DugumTuru): { girdi: string; cikti: string }[
 }
 
 /** Genisletilecek dugumu ve gerekiyorsa bulgusunu anlatir. */
-export function dugumMetni(dugum: GoalNodeGenis, asilSoru: string): string {
+export function nodeText(dugum: GoalNodeGenis, asilSoru: string): string {
   const parcalar = [
     "ASIL SORU: " + asilSoru,
     `DUGUM (${dugum.type}): ${dugum.statement}`,
