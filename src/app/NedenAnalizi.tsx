@@ -30,10 +30,6 @@ export function NedenAnalizi({
   return (
     <div className="kart">
       <div className="bolum-baslik">Neden analizi</div>
-      <p className="agac-aciklama">
-        Aya göre değişim ve harcama dilimleri; sorgular kodda üretildi,
-        aritmetik kodda yapıldı.
-      </p>
 
       {donem.length > 0 && (
         <>
@@ -71,12 +67,8 @@ export function NedenAnalizi({
       )}
 
       <div className="analiz-baslik">
-        Harcama dilimleri <span className="turetilmis">türetilmiş</span>
+        Harcama dilimleri
       </div>
-      <p className="ozet-not">
-        Veritabanında segment alanı yok. Dilimler, dönem içindeki harcamanın
-        kendi dağılımından hesaplandı (üst %20 yüksek, ortanca üstü orta).
-      </p>
 
       {segment.tiers.length > 0 ? (
         <table className="analiz-tablo">
@@ -111,7 +103,7 @@ export function NedenAnalizi({
       {yeniMevcut && (
         <>
           <div className="analiz-baslik">
-            Yeni mi, mevcut mu <span className="turetilmis">türetilmiş</span>
+            Yeni mi, mevcut mu
           </div>
           <div className="ozet-serit">
             <span className="ozet-kutu">
@@ -124,9 +116,6 @@ export function NedenAnalizi({
               <b>%{yeniMevcut.newShare}</b><i>yeni oranı</i>
             </span>
           </div>
-          <p className="ozet-not">
-            &quot;Yeni&quot; = bu tablodaki ilk kaydı da bu dönemde olan müşteri.
-          </p>
         </>
       )}
 
@@ -134,14 +123,14 @@ export function NedenAnalizi({
       {kirilimlar.length > 0 && (
         <>
           <div className="analiz-baslik">Kırılımlar</div>
-          <p className="ozet-not">
-            Bunlar <b>edinim kanalı değildir</b> — veritabanı müşterinin nereden
-            geldiğini tutmuyor. Aşağıdakiler veride gerçekten olan kırılımlar.
-          </p>
-          {kirilimlar.map((k) => (
+          {kirilimlar.map((k) => {
+            const baslik = k.column === "SatisTemsilcisi" ? "Satış Temsilcisi" :
+                           k.column === "UrunTipi" ? "Ürün Tipi" :
+                           k.column.replace(/([A-Z])/g, ' $1').trim();
+            return (
             <div key={k.column} className="donem-kutu">
               <div className="donem-ust">
-                {k.column}
+                {baslik}
                 <span className="donem-birim">
                   {k.kind === "attribution" ? "sorumlu kişi" : "kategori"}
                 </span>
@@ -150,7 +139,7 @@ export function NedenAnalizi({
                 <tbody>
                   {k.rows.map((r) => (
                     <tr key={r.value}>
-                      <td className="analiz-etiket">{r.value}</td>
+                      <td className="analiz-etiket">{r.value || "Belirtilmemiş"}</td>
                       <td className="sag">{sayi(r.entities)} müşteri</td>
                       <td className="sag">%{r.share}</td>
                       <td className="sag">{sayi(r.records)} kayıt</td>
@@ -159,7 +148,7 @@ export function NedenAnalizi({
                 </tbody>
               </table>
             </div>
-          ))}
+          )})}
         </>
       )}
 

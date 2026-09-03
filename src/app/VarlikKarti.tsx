@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { EntityInsight } from "@/core/pipeline/varlikCalistir";
 import type { EntityProfile, Signal } from "@/core/pipeline/varlikProfili";
 import type { Advice } from "@/core/pipeline/tavsiye";
+import { agIstegi } from "./istek";
 
 /**
  * Tek varlık hakkındaki cevap: sayı + bağlam + tavsiye.
@@ -56,7 +57,7 @@ export function VarlikKarti({
     if (mesgul) return;
     setMesgul(ad); setHata("");
     try {
-      const r = await fetch("/api/varlik", {
+      const r = await agIstegi("/api/varlik", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tablo: resolution.table, varlik: ad, zamanAraligi }),
@@ -75,7 +76,6 @@ export function VarlikKarti({
     <div className="kart">
       <div className="bolum-baslik">
         Aradığınız kayıt
-        <span className="kaynak-rozet kod">ölçümler kodda üretildi</span>
       </div>
 
       {/* Hangi ada karsilik hangi kayit bulundugu GIZLENMIYOR: soruda
@@ -168,9 +168,6 @@ export function VarlikKarti({
             <div className={`tavsiye ${advice.kaynak}`}>
               <div className="tavsiye-baslik">
                 Yorum
-                <span className={`kaynak-rozet ${advice.kaynak === "model" ? "ajan" : "kod"}`}>
-                  {advice.kaynak === "model" ? "cümleyi model kurdu" : "cümle kodda kuruldu"}
-                </span>
               </div>
               <p className="tavsiye-metin">{advice.text}</p>
 

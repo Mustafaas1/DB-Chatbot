@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { OlcumSonucu } from "./AjanSekmeleri";
-import type { ListSummary } from "@/core/pipeline/ozet";
+import { kolonEtiketi, type ListSummary } from "@/core/pipeline/ozet";
+import { agIstegi } from "./istek";
 
 /**
  * Kullanicinin LITERAL sorusuna cevap.
@@ -10,6 +11,69 @@ import type { ListSummary } from "@/core/pipeline/ozet";
  * Hedef agaci "neden" sorusunu isliyor; bu kart sorulan seyi cevapliyor.
  * Ozetteki sayilar modelden degil, donen satirlardan KODDA hesaplandi.
  */
+interface DetayDurumu {
+  yukleniyor: boolean;
+  kolonlar?: string[];
+  satirlar?: unknown[][];
+  hata?: string;
+}
+
+/** Hucre degeri; bos deger "—" ile gosteriliyor. */
+function hucre(h: unknown): string {
+  if (h == null || h === "") return "Belirtilmemiş";
+  if (typeof h === "number") {
+    return h.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+  }
+  // Tarihler ISO dizgesi olarak geliyor; saat bilgisi gurultu.
+  if (typeof h === "string" && /^\d{4}-\d{2}-\d{2}T/.test(h)) {
+    const t = new Date(h);
+    if (!Number.isNaN(t.getTime())) return t.toLocaleDateString("tr-TR");
+  }
+  return String(h);
+}
+
+/** Bir satirin acilan ayrinti tablosu. */
+function Detay({ durum }: { durum: DetayDurumu | undefined }) {
+  if (!durum || durum.yukleniyor) {
+    return <div className="detay-bekle">Kayıtlar getiriliyor…</div>;
+  }
+  if (durum.hata) return <div className="eksik-boyut">{durum.hata}</div>;
+
+  const kolonlar = durum.kolonlar ?? [];
+  const satirlar = durum.satirlar ?? [];
+  if (!satirlar.length) return <div className="detay-bekle">Kayıt bulunamadı.</div>;
+
+  const sayisal = kolonlar.map((_, n) =>
+    satirlar.every((r) => r[n] == null || typeof r[n] === "number")
+  );
+
+  return (
+    <table className="detay-tablo">
+      <thead>
+        <tr>{kolonlar.map((k, i) => (
+          <th key={i} className={sayisal[i] ? "sag" : ""}>{kolonEtiketi(k)}</th>
+        ))}</tr>
+      </thead>
+      <tbody>
+        {satirlar.map((r, i) => (
+          <tr key={i}>
+            {r.map((h, j) => (
+              <td key={j} className={sayisal[j] ? "sag" : ""}>{hucre(h)}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+const TABLO_ADLARI: Record<string, string> = {
+  "Invoices": "Faturalar",
+  "Teklifler": "Teklifler",
+  "TicketRecords": "Destek Kayıtları",
+  "Customers": "Müşteriler"
+};
+
 export function DogrudanCevap({
   sonuc: ilkSonuc, ozet: ilkOzet, kaynak, tablo, zamanAraligi, adaylar, soru,
   eksikBoyut,
@@ -40,7 +104,7 @@ export function DogrudanCevap({
     if (ad === secili || mesgul) return;
     setMesgul(true); setHata("");
     try {
-      const r = await fetch("/api/dogrudan", {
+      const r = await agIstegi("/api/dogrudan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tablo: ad, soru, zamanAraligi }),
@@ -49,23 +113,72 @@ export function DogrudanCevap({
       if (!r.ok) { setHata(d.hata ?? "Hesaplanamadı."); return; }
       setVeri({ sonuc: d.sonuc, ozet: d.ozet });
       setSecili(ad);
+      // Tablo degisti: onceki tablonun ayrintilari artik gecersiz.
+      setAcikSatir(null); setDetaylar({});
     } catch (e) {
       setHata(e instanceof Error ? e.message : "Sunucuya ulaşılamadı.");
     } finally {
       setMesgul(false);
     }
   }
+  /**
+   * Satir ayrintilari: hangi varlik acik ve o varligin kayitlari.
+   *
+   * Ozet tablosu varlik basina TEK satir gosteriyor ("3 teklif"); bir
+   * sonraki soru hep ayni: "hangi 3 teklif?". Ayri bir soru sormaya
+   * birakmak, cevabi zaten elimizde olan sey icin bir tur harcamak olurdu.
+   *
+   * Bir kez getirilen ayrinti SAKLANIYOR: ayni satiri tekrar acmak
+   * sunucuya gitmiyor.
+   */
+  const [acikSatir, setAcikSatir] = useState<string | null>(null);
+  const [detaylar, setDetaylar] = useState<Record<string, DetayDurumu>>({});
+
+  async function detayAc(ad: string) {
+    if (acikSatir === ad) { setAcikSatir(null); return; }
+    setAcikSatir(ad);
+    if (detaylar[ad]) return;
+
+    setDetaylar((o) => ({ ...o, [ad]: { yukleniyor: true } }));
+    try {
+      const r = await agIstegi("/api/detay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tablo: secili, varlik: ad, zamanAraligi }),
+      });
+      const d = await r.json();
+      setDetaylar((o) => ({
+        ...o,
+        [ad]: r.ok
+          ? { yukleniyor: false, kolonlar: d.kolonlar, satirlar: d.satirlar }
+          : { yukleniyor: false, hata: d.hata ?? "Ayrıntı getirilemedi." },
+      }));
+    } catch (e) {
+      setDetaylar((o) => ({
+        ...o,
+        [ad]: {
+          yukleniyor: false,
+          hata: e instanceof Error ? e.message : "Sunucuya ulaşılamadı.",
+        },
+      }));
+    }
+  }
+
+  // Gosterilen ilk 25 satirdaki bos hucreler; dipnotta aciklaniyor.
+  const eksikHucre = sonuc.satirlar
+    .slice(0, 25)
+    .reduce((t, satir) => t + satir.filter((h) => h == null).length, 0);
+
   const sayisal = sonuc.kolonlar.map((_, n) =>
-    sonuc.satirlar.length > 0 && sonuc.satirlar.every((s) => typeof s[n] === "number")
+    sonuc.satirlar.length > 0 && sonuc.satirlar.every((s) =>
+      typeof s[n] === "number" || s[n] === null || s[n] === undefined
+    ) && sonuc.satirlar.some((s) => typeof s[n] === "number")
   );
 
   return (
     <div className="kart">
       <div className="bolum-baslik">
         Sorunun cevabı
-        <span className={`kaynak-rozet ${kaynak}`}>
-          {kaynak === "kod" ? "sorgu kodda üretildi" : "sorguyu ajan yazdı"}
-        </span>
       </div>
 
       {/* Hangi tablodan hesaplandigi GIZLENMIYOR: "satin alim" hem
@@ -79,7 +192,7 @@ export function DogrudanCevap({
               className={`tablo-dugme ${ad === secili ? "secili" : ""}`}
               disabled={mesgul}
               onClick={() => void tabloDegistir(ad)}
-            >{ad}</button>
+            >{TABLO_ADLARI[ad] || ad}</button>
           ))}
           {mesgul && <span className="tablo-secim-etiket">hesaplanıyor…</span>}
         </div>
@@ -96,7 +209,7 @@ export function DogrudanCevap({
             {ozet.entityColumn && (
               <span className="ozet-kutu">
                 <b>{ozet.uniqueEntities.toLocaleString("tr-TR")}</b>
-                <i>benzersiz {ozet.entityColumn}</i>
+                <i>benzersiz {kolonEtiketi(ozet.entityColumn)}</i>
               </span>
             )}
             {ozet.repeatRate != null && (
@@ -112,12 +225,6 @@ export function DogrudanCevap({
               </span>
             ))}
           </div>
-          <p className="ozet-not">
-            Bu sayılar dönen satırlardan kodda hesaplandı; model tarafından
-            üretilmedi.
-            {kaynak === "ajan" && " Sorgunun kendisi ajan tarafından yazıldı; " +
-              "koşudan koşuya değişebilir."}
-          </p>
         </>
       ) : (
         <p className="ozet-not">{sonuc.cevap || "Sonuç boş."}</p>
@@ -135,19 +242,37 @@ export function DogrudanCevap({
           <table className="sonuc-tablo">
             <thead>
               <tr>{sonuc.kolonlar.map((k, i) => (
-                <th key={i} className={sayisal[i] ? "sag" : ""}>{k}</th>
+                <th key={i} className={sayisal[i] ? "sag" : ""}>{kolonEtiketi(k)}</th>
               ))}</tr>
             </thead>
             <tbody>
-              {sonuc.satirlar.slice(0, 25).map((satir, i) => (
-                <tr key={i}>
-                  {satir.map((h, j) => (
-                    <td key={j} className={sayisal[j] ? "sag" : ""}>
-                      {h == null ? "—" : typeof h === "number" ? h.toLocaleString("tr-TR") : String(h)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {sonuc.satirlar.slice(0, 25).map((satir, i) => {
+                const ad = String(satir[0] ?? "");
+                const acik = acikSatir === ad;
+                return (
+                  <Fragment key={i}>
+                    <tr
+                      className={`tiklanir ${acik ? "acik" : ""}`}
+                      onClick={() => void detayAc(ad)}
+                      title="Kayıtları göster"
+                    >
+                      {satir.map((h, j) => (
+                        <td key={j} className={sayisal[j] ? "sag" : ""}>
+                          {j === 0 && <span className="satir-ok">{acik ? "▾" : "▸"}</span>}
+                          {hucre(h)}
+                        </td>
+                      ))}
+                    </tr>
+                    {acik && (
+                      <tr className="detay-satir">
+                        <td colSpan={sonuc.kolonlar.length}>
+                          <Detay durum={detaylar[ad]} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -155,7 +280,9 @@ export function DogrudanCevap({
       {sonuc.satirlar.length > 25 && (
         <div className="alt-bilgi">İlk 25 satır gösteriliyor ({sonuc.satirlar.length} satır döndü).</div>
       )}
-      {sonuc.sql && <div className="dugum-olcum"><span>sorgu:</span> {sonuc.sql}</div>}
+
+      {/* SQL GOSTERILMIYOR: canli destek botunda musteriye sorgu
+          gostermek gurultu. Sorgu yine denetim kaydinda duruyor. */}
     </div>
   );
 }

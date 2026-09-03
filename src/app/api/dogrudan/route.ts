@@ -37,7 +37,7 @@ export async function POST(istek: Request) {
     return NextResponse.json({ hata: `Tanimsiz tablo: ${tabloAdi}` }, { status: 400 });
   }
 
-  const plan = planDirectAnswer(tablo, zamanAraligi);
+  const plan = planDirectAnswer(tablo, zamanAraligi, soru);
   if (!plan) {
     return NextResponse.json(
       { hata: `${tabloAdi} bu soru sekli icin kullanilamiyor (varlik/tarih kolonu ya da zaman araligi yok).` },

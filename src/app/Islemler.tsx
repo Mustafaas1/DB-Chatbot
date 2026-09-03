@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { agIstegi } from "./istek";
 
 interface Degisiklik { kimlik: string; alan: string; onceki: string; sonraki: string; }
 interface Prova { ozet: string; etkilenen: number; degisiklikler: Degisiklik[]; uyarilar: string[]; }
@@ -32,7 +33,7 @@ export function Islemler() {
   const [mesgul, setMesgul] = useState(false);
 
   async function yukle() {
-    const r = await fetch("/api/islem");
+    const r = await agIstegi("/api/islem");
     const g = await r.json();
     setIslemler(g.islemler); setKayitlar(g.kayitlar); setYazmaAcik(g.yazmaAcik);
     if (!secili && g.islemler[0]) setSecili(g.islemler[0].kod);
@@ -42,7 +43,7 @@ export function Islemler() {
   async function gonder(govde: Record<string, unknown>) {
     setMesgul(true); setHata("");
     try {
-      const r = await fetch("/api/islem", {
+      const r = await agIstegi("/api/islem", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(govde),
       });

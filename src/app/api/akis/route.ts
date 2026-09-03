@@ -1,16 +1,12 @@
 import { buildTree } from "@/core/hedef/agac";
 import { dataOverview } from "@/core/hedef/veriOzeti";
-import { olcumDugumleri } from "@/core/hedef/tipler";
 import type { GoalNodeGenis } from "@/schemas/index";
-import { dagit } from "@/core/ajan/dagitici";
 import { dataAnalyst } from "@/agents/data-analyst";
 import { olcumleriCalistir, type OlcumSonucu } from "@/core/ajan/olcum";
 import { semaGetir, type Tablo } from "@/core/db/sema";
 import { durumDegerleri } from "@/core/db/degerler";
 import { saglayiciSec } from "@/core/llm/index";
 import { extractIntent } from "@/core/pipeline/intent";
-import { diagnose } from "@/core/pipeline/teshis";
-import { buildPlans } from "@/core/pipeline/plan";
 import { sistemKur } from "@/core/kur";
 import { Budget } from "@/core/butce/butce";
 import { buildListingMeasurement, rankTableCandidates } from "@/core/hedef/listeleyici";
@@ -216,7 +212,7 @@ export async function POST(istek: Request) {
           // ajana duser. Ajan yolu kosudan kosuya farkli sorgu yaziyordu
           // -- bir kosu 73 satir, digeri `Tutar IS NOT NULL` ekleyip 33.
           if (niyet.tur === "veri_sorusu" && !varlikCevapladi && !butce.isExceeded()) {
-            const plan = planDirectAnswer(analizTablosu, niyet.zamanAraligi);
+            const plan = planDirectAnswer(analizTablosu, niyet.zamanAraligi, soru);
 
             if (plan) {
               try {
@@ -302,76 +298,25 @@ export async function POST(istek: Request) {
           }
         }
 
-        const atlanacak = new Set(devam?.olculenler ?? []);
-        const olcumler = olcumDugumleri(dugumler).filter((d) => !atlanacak.has(d.id));
-        // Listeleyici olcum AJANA DAGITILMIYOR: SQL'i kod uretti ve
-        // yukarida calistirdi. Kalanlar normal dagitimdan geciyor.
-        const atamalar = dagit(
-          olcumler.filter((d) => d.id !== listeleyiciId), tablolar
-        );
-        yolla({
-          tur: "plan",
-          atamalar: atamalar.map((a) => ({
-            dugumId: a.dugum.id, baslik: a.dugum.statement,
-            ajanKod: a.ajan.kod, ajanAd: a.ajan.ad, renk: a.ajan.renk,
-            belirsiz: a.belirsiz,
-          })),
-        });
-
-        // Agac kurulurken butce bitmis olabilir: olcume hic girmeyelim.
-        if (butceDoldu(atamalar.map((a) => a.dugum.id), hedef, dugumler)) return;
-
         /**
-         * Bir olcum sonucunu teshis + plan asamalarindan gecirir.
+         * AJAN OLCUM ASAMASI KAPALI.
          *
-         * Hem ajan olcumleri hem KOD tarafindan calistirilan listeleyici
-         * olcum ayni yoldan geciyor; iki ayri kod yolu tutmak, birinde
-         * yapilan duzeltmenin digerine gecmemesi demekti.
+         * Olculdu: kart, teshis ve plan bolumleri arayuzden kaldirildiktan
+         * SONRA bu asama hicbir gorunur cikti uretmiyordu. Bir kosuda 130
+         * saniye sonra hala "Elde Tutma Ajani calisiyor" yaziyor, ekranda
+         * ise yalnizca iki kart vardi -- ikisi de saniyeler icinde hazir
+         * olmustu. Kullanici dakikalarca bekleyip karsiliginda hicbir sey
+         * gormuyordu.
+         *
+         * DOGRULUK ACISINDAN DA KAZANC: geriye kalan her sayi KODDA
+         * uretilen SQL'den geliyor (dogrudan cevap, varlik profili, neden
+         * analizi). Ajanin yazdigi sorgu kosudan kosuya degisiyordu; artik
+         * gorunur yolda hic yok.
+         *
+         * `dagit`, `olcumleriCalistir` ve `plan.ts` DURUYOR. Geri acmak
+         * icin bu blogu eski haline getirmek yetiyor; hedef agaci sekmesi
+         * ve yazma katmani bagimsiz calisiyor.
          */
-        const sonucuIsle = async (sonuc: OlcumSonucu) => {
-          butce.spend(sonuc.kullanim);
-          const teshis = diagnose(sonuc);
-          yolla({ tur: "teshis", teshis });
-
-          // S4 - PLAN: bos olcumden plan uretmenin anlami yok; kota
-          // bosa gitmesin.
-          if (!sonuc.bosMu && !butce.isExceeded()) {
-            const { planlar, kullanim } = await buildPlans(
-              saglayici, sonuc, teshis, hedef, { tablolar, degerler }
-            );
-            butce.spend(kullanim);
-            if (planlar.length) yolla({ tur: "planlar", planlar });
-          }
-        };
-
-        // Listeleyici olcum ONCE islensin: aksiyon uretebilen dal o, kota
-        // bittiginde bile plan cikarabilmis olalim.
-        if (listeSonucu) {
-          yolla({ tur: "bitti", sonuc: listeSonucu });
-          await sonucuIsle(listeSonucu);
-        }
-
-        const bekleyen = new Set(atamalar.map((a) => a.dugum.id));
-        for await (const olay of olcumleriCalistir({
-          saglayici, kayit: sistem.kayit, atamalar,
-          esZamanli: 2, azamiOlcum: 8,
-          // Dogrulama: olmayan degere atif yapan olcumler calistirilmadan
-          // elenir, boylece kota bos sorguya harcanmaz.
-          tablolar, degerler,
-        })) {
-          yolla(olay);
-          if ("dugumId" in olay) bekleyen.delete(olay.dugumId);
-
-          // S2 - DIAGNOSE: olcum biter bitmez hesaplanabilir bulgulari
-          // cikar. LLM cagrisi yok, tamami aritmetik.
-          if (olay.tur === "bitti") {
-            bekleyen.delete(olay.sonuc.dugumId);
-            await sonucuIsle(olay.sonuc);
-          }
-
-          // Olcumler arasinda kontrol: siradaki olcume girmeden dur.
-          if (butceDoldu([...bekleyen], hedef, dugumler)) return;
-        }
 
         yolla({ tur: "bitti", butce: butce.state() });
       } catch (e) {

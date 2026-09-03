@@ -45,6 +45,11 @@ const ISTEM = [
   "ORTUK HEDEF en onemli alan: kullanicinin soruyu NEDEN sordugu.",
   "Soruda yazmasa bile cikar. Tek cumle, eyleme donuk olsun.",
   "",
+  "DIL: metin alanlarini DUZGUN TURKCE yaz ve Turkce karakterleri",
+  "kullan (ç ğ ı ö ş ü). Bu metinler kullaniciya oldugu gibi",
+  "gosteriliyor; 'satisi yukseltilmek' gibi devrik ya da ASCII'ye",
+  "dusmus cumle kabul edilmez.",
+  "",
   "varlik: soruda BIR TEK varligin adi geciyorsa yaz, yoksa bos birak.",
   "  Genel bir sozcugu (musteri, urun, bilet) varlik adi SAYMA.",
   "",
@@ -60,38 +65,38 @@ const ISTEM = [
 /** Ornekler kurallardan baskin; bu modelde ozellikle. */
 const ORNEKLER: { soru: string; niyet: Intent }[] = [
   {
-    soru: "Asamalarina gore acik destek biletleri",
+    soru: "Aşamalarına göre açık destek biletleri",
     niyet: {
-      metrik: "acik destek bileti sayisi", zamanAraligi: "", segment: "asamaya gore",
+      metrik: "açık destek bileti sayısı", zamanAraligi: "", segment: "aşamaya göre",
       varlik: "",
-      ortukHedef: "Acik biletlerin nerede biriktigini gorup destek yukunu azaltmak",
+      ortukHedef: "Açık biletlerin nerede biriktiğini görüp destek yükünü azaltmak",
       tur: "veri_sorusu",
     },
   },
   {
-    soru: "Satis performansimizi nasil artiririz?",
+    soru: "Satış performansımızı nasıl artırırız?",
     niyet: {
-      metrik: "kazanilan teklif sayisi ve tutari", zamanAraligi: "", segment: "",
+      metrik: "kazanılan teklif sayısı ve tutarı", zamanAraligi: "", segment: "",
       varlik: "",
-      ortukHedef: "Teklif kazanma oranini yukselterek satis gelirini artirmak",
+      ortukHedef: "Teklif kazanma oranını yükselterek satış gelirini artırmak",
       tur: "amac",
     },
   },
   {
-    soru: "Son 30 gunde kanala gore bilet sayisi",
+    soru: "Son 30 günde kanala göre bilet sayısı",
     niyet: {
-      metrik: "bilet sayisi", zamanAraligi: "son 30 gun", segment: "kanala gore",
+      metrik: "bilet sayısı", zamanAraligi: "son 30 gün", segment: "kanala göre",
       varlik: "",
-      ortukHedef: "Hangi kanalin destek yukunu urettigini bulup o kanali iyilestirmek",
+      ortukHedef: "Hangi kanalın destek yükünü ürettiğini bulup o kanalı iyileştirmek",
       tur: "veri_sorusu",
     },
   },
   {
-    soru: "Fellas diye bir musteriye bu ay kac kere satis yaptik?",
+    soru: "Fellas diye bir müşteriye bu ay kaç kere satış yaptık?",
     niyet: {
-      metrik: "satis adedi", zamanAraligi: "bu ay", segment: "",
+      metrik: "satış adedi", zamanAraligi: "bu ay", segment: "",
       varlik: "Fellas",
-      ortukHedef: "Bu musteriyle calisma sikligini gorup satisi artirmak",
+      ortukHedef: "Bu müşteriyle çalışma sıklığını görüp satışı artırmak",
       tur: "veri_sorusu",
     },
   },

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { OlcumSonucu } from "./AjanSekmeleri";
 import type { DenetimKaydi } from "@/core/yaz/tipler";
+import { agIstegi } from "./istek";
 
 export interface Aksiyon {
   id: string;
@@ -93,7 +94,7 @@ function Olcek({ deger, ters }: { deger: number; ters?: boolean }) {
 
 /** Cagiran taraf donen bicimi belirtir; her uc farkli sey donuyor. */
 async function istek<T>(govde: unknown): Promise<T> {
-  const r = await fetch("/api/islem", {
+  const r = await agIstegi("/api/islem", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(govde),
@@ -120,7 +121,7 @@ export function Planlar({
     let iptal = false;
     void (async () => {
       try {
-        const r = await fetch("/api/plan");
+        const r = await agIstegi("/api/plan");
         if (!r.ok || iptal) return;
         const { redler } = (await r.json()) as {
           redler: { ajan: string; planBasligi: string; sebep: string }[];
@@ -250,7 +251,7 @@ export function Planlar({
     if (!sebep) return;
     setMesgul(true);
     try {
-      const r = await fetch("/api/plan", {
+      const r = await agIstegi("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

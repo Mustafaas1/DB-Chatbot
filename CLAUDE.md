@@ -16,7 +16,7 @@ vitest · Zod 4 · MS SQL Server (`mssql`/tedious) · `node:sqlite`
 
 ```bash
 npm run dev        # geliştirme sunucusu
-npm test           # 390 test
+npm test           # 460 test
 npm run typecheck  # tsc --noEmit
 ```
 
@@ -70,7 +70,8 @@ Somut sonuçları:
 
 ## Boru hattı
 
-Soru → SSE akışı (`src/app/api/akis/route.ts`). Olay sözleşmesi:
+Soru → SSE akışı (`src/app/api/akis/route.ts`); arayüzde her olay bir
+sohbet mesajı olur. Olay sözleşmesi:
 `src/core/pipeline/olaylar.ts` (`StreamEvent`) — sunucu ve istemci aynı tipi
 kullanır.
 
@@ -90,11 +91,27 @@ kullanır.
 
 ### Doğrudan cevap: hibrit
 
-Kod yalnızca **tanıyabildiği şekli** çözer: *"&lt;tablo&gt;'dan &lt;varlık&gt;
-bazında adet ve tutar, &lt;zaman aralığı&gt; içinde"*. Üç koşul da gerekir —
-tablo seçilebilmeli, varlık/tarih kolonu bulunmalı, zaman aralığı
+Kod yalnızca **tanıyabildiği şekli** çözer. Üç ön koşul her şekil için
+ortak: tablo seçilebilmeli, varlık/tarih kolonu bulunmalı, zaman aralığı
 ayrıştırılabilmeli. Biri eksikse ajana düşer ve kartta **"sorguyu ajan
 yazdı"** rozeti çıkar.
+
+| Şekil | Örnek | Sonuç |
+|---|---|---|
+| `liste` | *"Son 1 ayda satın alım yapan müşterileri getir"* | varlık başına adet + tutar |
+| `sayim` | *"Bu ay kaç bilet açıldı?"* | tek sayı + benzersiz varlık |
+| `siralama` | *"En çok satan ürünler"* | sıralı ilk 15 |
+
+Şekil tanıma `pipeline/soruSekli.ts`'te, saf fonksiyon. **Tanıyamadığında
+`null` döner** — zaman ayrıştırıcıdaki kararın aynısı: yanlış tanıyıp
+yanlış SQL üretmektense ajana düşmek doğru. Sıralamada gruplama kolonu
+sorudan çıkarılamıyorsa (*"En çok gecikmeli teslimat"*) yine ajana
+düşülüyor; rastgele bir kolona gruplamak sessizce yanlış cevap üretirdi.
+
+Gerçek veriyle ölçüldü, hepsi **0 token**: sayım 13 ms (459 kayıt · 243
+benzersiz), sıralama 11 ms (15 ürün), tutar sıralaması 10 ms (SUM'a
+geçti). `DirectAnswerPlan` ayrık birleşim — sıralamaya ait kolonu sayım
+planında okumak derleme hatası.
 
 Zaman ayrıştırıcı (`pipeline/zamanAraligi.ts`) `"son 1 ay"` ile `"bu ay"`ı
 ayırır: ilki 30 gün geriye, ikincisi ayın 1'inden bugüne. Ayrıştıramadığı
@@ -154,6 +171,105 @@ Ajana yazdırılan listeleme ölçümü koşuya göre 20 satır ya da 0 satır
 dönüyordu; bu ölçümün işi KPI cevaplamak değil, aksiyonun bağlanacağı
 somut kimlikleri üretmek. Cevabı sabit olduğu için modelden geçmesinin
 faydası yok, zararı var. Sorgular yine `sqlDogrula`'dan geçiyor.
+
+### İstemlerin dili
+
+Model kuraldan çok **örneği** taklit ediyor. İstem örnekleri ASCII
+yazılmıştı ve çıktı da ASCII'ye düşüyordu: gerçek bir koşuda niyet alanı
+*"satisi yukseltilmek"* çıktı — hem bozuk hem devrik, ve bu metin
+kullanıcıya olduğu gibi gösteriliyor.
+
+`intent.ts` ve `hedef/istem.ts` örnekleri düzgün Türkçeye çevrildi, iki
+isteme de açık dil kuralı eklendi. `pipeline/__tests__/istemDili.test.ts`
+geri kaymayı yakalıyor ve kapsamı bilerek dar: **yalnızca örnek blokları**.
+Kural düzyazısı ASCII kalabilir, model onu taklit etmiyor — ilk sürüm
+bütün dosyaya bakıyordu ve kuralın içinde kasten alıntılanan bozuk örneği
+hata sanıyordu. Testin kendisi de mutasyonla doğrulandı: bir örnek
+ASCII'ye çevrildiğinde test başarısız oluyor.
+
+### Canlı destek arayüzü: yalnızca cevap
+
+Transkript müşteriye dönük sadeleştirildi. Kaldırılanlar: niyet kutusu,
+SQL gösterimi, `ms` süreleri, ajan ölçüm kartları, teşhis ve aksiyon
+planları. Kalanlar: **cevap kartı** (doğrudan cevap / varlık profili) ve
+**neden analizi**.
+
+**Ajan ölçüm aşaması kapatıldı.** Ölçüldü: kartlar kaldırıldıktan sonra
+bu aşama hiçbir görünür çıktı üretmiyordu — 130 saniye sonra hâlâ *"Elde
+Tutma Ajanı çalışıyor"* yazıyor, ekranda ise saniyeler içinde hazır olmuş
+iki kart duruyordu. Kapatınca koşu **130+ sn → ~20 sn**.
+
+Doğruluk açısından da kazanç: görünen her sayı artık **kodda üretilen
+SQL'den** geliyor. `dagit`, `olcumleriCalistir` ve `plan.ts` duruyor;
+hedef ağacı sekmesi ve yazma katmanı (F5, işlem kaydı) bağımsız çalışıyor.
+
+Doğrudan cevabın **ajan geri düşüşü korundu**: şekil tanınmayan soru
+cevapsız kalmasın diye. O yolda kartta **"sorguyu ajan yazdı"** rozeti
+çıkıyor ve sonuç koşudan koşuya değişebiliyor.
+
+### Para birimi karıştırma hatası
+
+`buildEntityQuery` yalnızca varlığa göre gruplayıp `MAX(ParaBirimi)`
+alıyordu. Hem TRY hem USD teklifi olan bir müşterinin iki birimdeki
+tutarı **tek toplamda birleşip** rastgele bir birimle etiketleniyordu.
+
+Gerçek veride yakalandı — ekranda USD toplamı **19.711,68**, doğrusu
+**5.311,68**; TRY adedi 79, doğrusu 80. Sebep tek bir müşteriydi
+(`YENERLER YAPI`, 3 teklif, 2 para birimi).
+
+`comparePeriods` bu kurala zaten uyuyordu (*"farklı birimleri tek
+toplamda birleştirmek anlamsız bir sayı üretir"*); `buildEntityQuery`
+uymuyordu. Gruplamaya para birimi eklendi, testle sabitlendi. Düzeltme
+sonrası ekrandaki dört toplam da veritabanıyla birebir tutuyor.
+
+### Boş ölçümler: iki farklı şey, iki farklı çare
+
+`bosMu` tek bayrağı **iki durumu aynı sayıyordu** ve hangisinin baskın
+olduğu ölçülemiyordu. `sorguCalisti` ile ayrıldı:
+
+| Durum | Anlamı | Çaresi |
+|---|---|---|
+| sorgu çalıştı, 0 satır | veri gerçeği | ağacın ürettiği ölçüm veriye oturmuyor |
+| ajan sorgu yazmadı | sistem hatası | kota, istem ya da döngü |
+
+Ölçüldü — *"Son 1 ayda satın alım yapan müşterileri getir"*, 8 ölçüm:
+**4 tanesi "0 satır", 2 tanesi "sorgu yazılmadı", 2 tanesi kullanılabilir.**
+
+Boşların başlıkları sebebi gösterdi: *"**Aktif** müşterilerin toplam
+harcaması"*, *"Ürün bazında **tekrar eden satın alma oranı**"* — veride
+karşılığı olmayan filtreler.
+
+**Sebep `veriOzeti.ts`'te bulundu:** `degerler` parametresi alınıyordu ama
+**gövdede hiç kullanılmıyordu**. Ağaç kolon *adlarını* görüyor, içindeki
+*değerleri* görmüyordu; `Durum` kolonunu görüp "Aktif" diye tahmin
+ediyordu. Oysa liste `ContractRecords.Asama = 'Aktif', 'Pasif'` diyor —
+"Aktif" var ama **sözleşmelerde**, müşteride değil. Değer listesi yalnızca
+**~213 token** ve ajan isteminde zaten vardı; boşa giden tek ölçüm ~3.000
+token.
+
+**Ölçüldü — aynı soru, öncesi ve sonrası:**
+
+| | Önce | Sonra |
+|---|---|---|
+| sorgu çalıştı, **0 satır** | **4 / 8** | **0 / 9** |
+| kullanılabilir sonuç | 2 / 8 | 6 / 9 |
+| ajan sorgu yazmadı (kota) | 2 | 3 |
+| üretilen plan | 2–6 | 12 |
+
+Hedeflenen metrik "0 satır" oranıydı çünkü ağacın kalitesini o ölçüyor;
+"sorgu yazmadı" kotaya bağlı ve ağaçla ilgisi yok. Başlıklar da düzeldi —
+uydurma filtre kalmadı: *"Müşteri başına ürün çeşitliliği"*, *"Tekliften
+faturalamaya dönüşüm oranı"*.
+
+**Tek koşu, tek karşılaştırma.** Ağaç modele bağlı ve koşular arası
+değişken; bu güçlü bir kanıt ama kesin bir ispat değil.
+
+Yan bulgu: kota dolduğunda arayüz *"Kriterlere uygun veri bulunamadı"*
+yazıyordu — kullanıcı veride kayıt yok sanıyordu. Artık ajanın gerçek
+cevabı (*"Yapay zeka kotası doldu"*) gösteriliyor.
+
+`AjanSekmeleri.tsx` `OlcumSonucu`'nun elle yazılmış bir kopyasını
+tutuyordu ve ayrışmıştı (`satirSayisi` yoktu). Kanonik tipe bağlandı.
 
 ---
 
@@ -274,6 +390,127 @@ Kod tarafından zorlanan invaryantlar:
 - `onayZorunlulugunuUygula()` — geri alınamaz ya da yüksek riskli aksiyon
   **mutlaka** onay ister; modelin `requiresApproval: false` demesi geçersiz
 - `dogrulanmisMi()` — kanıt yalnızca `llm-inference` ise değer doğrulanmamıştır
+
+---
+
+## Gömülü widget
+
+Arayüz portala `<script>` ile eklenen bir **canlı destek botu**: sağ altta
+yuvarlak buton, tıklayınca açılan panel.
+
+```
+Portal sayfası
+└── public/widget.js          host tarafı, ~140 satır
+    └── iframe (sağ alt sabit)
+        └── /widget           FAB + panel, CSS tamamen izole
+```
+
+**Neden iframe, shadow DOM değil:** portalın kendi CSS'i var. Shadow DOM
+sızıntıyı tek yönde durdurur, iframe iki yönde de keser. Yuvarlak buton
+dahil her şey iframe'in içinde; host tarafına yalnızca "çerçeveyi şu
+boyuta getir" işi kalıyor.
+
+**Protokol** (`widget.js` ↔ `widget/kabuk.ts`) — üç mesaj, başkası kabul
+edilmiyor:
+
+| Yön | Mesaj |
+|---|---|
+| iframe → host | `hazirim` (sır taşımaz) |
+| host → iframe | `hazir` + token |
+| iframe → host | `boyut`: `kapali` (88) / `panel` (452) / `genis` (912) |
+
+**El sıkışmayı iframe başlatır.** Önce host, iframe'in `load` olayında
+`hazir` gönderiyordu; React dinleyicisi `useEffect` içinde, yani `load`'dan
+*sonra* bağlanıyor ve mesaj kayboluyordu — panel açılıyor ama çerçeve
+büyümüyordu. Sıra tersine çevrildi: host'un dinleyicisi script yüklenirken
+bağlı olduğu için iframe mount olduğunda kesinlikle hazır.
+
+Gönderen üç kontrolden geçer: doğru origin, doğru pencere, doğru imza.
+Üçü olmadan sayfadaki herhangi bir script widget'ı yönetebilirdi.
+
+**Çerçeveleme izni** `CORS_ORIGINS`'ten üretilir (`next.config.ts`):
+boş → `'self'` (güvenli varsayılan), liste → `'self'` + adresler,
+`*` → harfiyen uygulanır ve uyarı basılır. `/widget` dışındaki her rota
+`X-Frame-Options: DENY` alır.
+
+`public/gomme-ornegi.html` gerçek portal **değildir**: kendi CSS'i olan
+yabancı bir host sayfada widget'ın doğru konumlanıp konumlanmadığını
+denemek için var, içeriği yer tutucudur.
+
+### Erişim belirteci
+
+`src/middleware.ts` **tüm** `/api/*` uçlarını kapatıyor; önce hiçbir
+kontrol yoktu ve içlerinde yazma tetikleyen `/api/islem` de var.
+Karşılaştırma `core/guvenlik/belirtec.ts` içinde ve **sabit sürede**:
+`===` ilk farklı karakterde döner, süreyi ölçen biri belirteci karakter
+karakter keşfedebilirdi.
+
+`API_TOKEN` boşsa kontrol kapalı ve süreç başına bir kez uyarı basılıyor —
+yerel geliştirmede yapılandırma zorunluluğu getirmemek için, ama sessizce
+değil.
+
+**Belirtecin tek yolu var: postMessage.** Önce `widget.js` onu iframe
+adresine `#token=` olarak da koyuyordu; widget bunu `sessionStorage`'a
+yazınca host `data-token`'ı kaldırsa bile sekme kapanana kadar eski
+belirteç geçerli kalıyordu. Artık `belirteciTopla()` çerçeve içindeyse
+hiç çalışmıyor — orada tek yetkili kaynak host.
+
+Belirteç sayfanın HTML'ine **gömülmüyor**. Gömülseydi `/` adresini
+açabilen herkes okuyabilir ve kapı hiçbir şey korumazdı; anahtarı kapının
+üzerine asmak olurdu.
+
+`/api/*` çağrıları tek kapıdan geçiyor (`app/istek.ts`): yeni bir uç
+eklendiğinde başlığı unutmak mümkün olmasın.
+
+**İstekler el sıkışmayı bekliyor.** Gerçek bir koşuda görüldü: widget
+açılır açılmaz `/api/plan` ve `/api/akis` çağrıları gidiyor ama belirteç
+`postMessage` ile *sonra* geliyordu — ilk istekler 401, belirteç gelince
+sonrakiler 200 dönüyordu. `agIstegi` artık `belirteciBekle()` ile
+bekliyor. Bozuk bir host'ta arayüz donmasın diye 3 sn emniyet zaman aşımı
+var ve uyarı basıyor. Hazırlık kurulumu hangi bileşenin önce mount
+olduğuna bağlı değil: React alt bileşenlerin efektlerini üsttekilerden
+önce çalıştırıyor, sıralamaya güvenmek kırılgan olurdu.
+
+**CORS bilerek yok.** Widget iframe'i kendi kaynağımızdan servis ediliyor,
+dolayısıyla `/api/*` çağrıları aynı kaynak. Kullanılmayan CORS makinesi
+eklemek, ileride yanlışlıkla güvenilen ölü bir kural bırakmak olurdu.
+Portalın kendi JavaScript'i API'yi doğrudan çağıracaksa o zaman eklenmeli.
+
+### Sohbet transkripti
+
+Boru hattı önce sayfada alt alta yığılıyordu. Canlı destek botunda doğru
+karşılık bu değil: SSE olayları zaten **sırayla** geliyor, yani akış doğal
+olarak bir konuşma. Soru kullanıcı balonu, her aşama ajanın bir mesajı.
+
+| Genişlik | Ne var |
+|---|---|
+| 452 (panel) | Transkript; sekme çubuğu yok, altta kısayol pilleri |
+| 912 (geniş) | Üstte Sohbet / Hedef ağacı / İşlemler sekmeleri |
+
+Dar panelde plan kartları, sonuç tabloları ve hedef ağacı sığmıyor.
+Sığmayanı küçültüp okunmaz yapmaktansa geniş mod var; **erişim de
+kapanmıyor** — dar moddaki kısayollar paneli genişletip ilgili sekmeyi
+açıyor. Tablolar daraltılmıyor, kendi içinde kaydırılıyor: sütunları
+sıkıştırmak sayıları okunmaz yapardı.
+
+**Tek render yolu.** `Sohbet.tsx` hem `/widget` panelinde hem `/`
+sayfasında aynı; akışın bütün durumu `app/akis.ts` kancasında. İki kopya
+tutmak, birinde yapılan düzeltmenin diğerine geçmemesi demekti — bu proje
+o hatayı F6'da bir kez yaşadı.
+
+**İlerleme göstergesi gerçek olaylara bağlı.** Önceki sürüm tanımadığı
+durum metninde 3 saniyede bir adım ilerletiyordu; bu, olmamış ilerlemeyi
+olmuş gibi göstermekti. Artık adım yalnızca gerçek aşama metniyle
+eşleşince ilerliyor, tanınmayan metinde olduğu yerde kalıyor.
+
+### Durum
+
+A (gömme katmanı), B (belirteç kapısı) ve C (sohbet arayüzü) bitti,
+üçü de uçtan uca doğrulandı: 88 → 452 → 912 → 88 döngüsü, CSP başlığı,
+belirteçli/belirteçsiz akış, dar ve geniş modda tam boru hattı.
+
+Eski sayfa düzeninden kalan 34 ölü CSS kuralı silindi (`.sarmal`,
+`.ai-adim*`, `.niyet-kart`…); `global.css` 791 → 670 satır.
 
 ---
 

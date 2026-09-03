@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { GeriBeslemeOlayi } from "@/core/geribesleme/tipler";
+import { agIstegi } from "./istek";
 
 interface GBKayit {
   id: string;
@@ -203,7 +204,7 @@ export function GeriBesleme() {
 
   async function yukle() {
     try {
-      const r = await fetch("/api/geribesleme");
+      const r = await agIstegi("/api/geribesleme");
       const g = await r.json();
       setKayitlar(g.kayitlar ?? []);
     } catch (e) {
@@ -222,7 +223,7 @@ export function GeriBesleme() {
     setHata("");
 
     try {
-      const r = await fetch("/api/geribesleme", {
+      const r = await agIstegi("/api/geribesleme", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denetimId }),

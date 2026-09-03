@@ -31,6 +31,33 @@ export interface ListSummary {
   cumle: string;
 }
 
+/**
+ * SQL takma adlarinin KULLANICIYA gosterilecek karsiligi.
+ *
+ * Sorgu takma adlari (`Varlik`, `Toplam`, `ParaBirimi`) kodun ic dili;
+ * kullaniciya boyle gostermek teknik ve anlamsiz duruyordu. Takma adlarin
+ * KENDISI degistirilemez -- `deriveSegments` ve bu dosya onlara gore
+ * kolon ariyor -- o yuzden esleme gosterim aninda yapiliyor.
+ *
+ * Tek kaynak: arayuz de bunu kullaniyor, iki kopya tutmak kaymaya
+ * acik olurdu.
+ */
+export const KOLON_ETIKETI: Record<string, string> = {
+  varlik: "müşteri",
+  deger: "değer",
+  adet: "adet",
+  toplam: "tutar",
+  olcu: "ölçü",
+  kayit: "kayıt",
+  parabirimi: "para birimi",
+  ay: "ay",
+};
+
+/** Kolon adini okunabilir Turkce etikete cevirir; bilinmiyorsa aynen doner. */
+export function kolonEtiketi(ad: string): string {
+  return KOLON_ETIKETI[ad.toLowerCase()] ?? ad;
+}
+
 const PARA_KOLON = /para\s*birim|currency|kur/i;
 /** "Adet", "Sayi", "Fatura Sayisi", "Satin Alma Adedi" gibi sayac kolonlari. */
 const ADET_KOLON = /adet|adedi|say[iı]s[iı]|toNumber|count|islem\s*say/i;
@@ -110,9 +137,10 @@ export function summarizeList(kolonlar: string[], satirlar: unknown[][]): ListSu
     for (const [kirilim, degerler] of gruplar) {
       if (!degerler.length) continue;
       const toplam = degerler.reduce((a, b) => a + b, 0);
-      const olcu: SummaryMeasure = { etiket: `${kolonlar[i]} toplamı`, deger: round2(toplam) };
+      const ad = kolonEtiketi(kolonlar[i] ?? "");
+      const olcu: SummaryMeasure = { etiket: `toplam ${ad}`, deger: round2(toplam) };
       const ort: SummaryMeasure = {
-        etiket: `${kolonlar[i]} ortalaması`, deger: round2(toplam / degerler.length),
+        etiket: `ortalama ${ad}`, deger: round2(toplam / degerler.length),
       };
       if (kirilim) { olcu.kirilim = kirilim; ort.kirilim = kirilim; }
       measures.push(olcu, ort);
@@ -123,7 +151,7 @@ export function summarizeList(kolonlar: string[], satirlar: unknown[][]): ListSu
 
   const parcalar = [`${satirlar.length} satır`];
   if (vi >= 0) {
-    parcalar.push(`${benzersiz} benzersiz ${kolonlar[vi]}`);
+    parcalar.push(`${benzersiz} benzersiz ${kolonEtiketi(kolonlar[vi] ?? "")}`);
     if (repeatRate != null) parcalar.push(`tekrar oranı %${repeatRate}`);
   }
 

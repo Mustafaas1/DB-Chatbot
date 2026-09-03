@@ -104,18 +104,34 @@ export function buildEntityQuery(
   k: AnalysisColumns,
   range: TimeRange = { kind: "relative", days: 30 }
 ): string {
+  // PARA BIRIMI DE GRUPLAMAYA GIRER.
+  //
+  // Onceden `MAX(ParaBirimi)` aliniyor ve gruplama yalnizca varliga
+  // gore yapiliyordu: hem TRY hem USD teklifi olan bir musterinin iki
+  // birimdeki tutari TEK TOPLAMDA birlesiyor ve rastgele bir birimle
+  // (alfabetik olarak sonuncu) etiketleniyordu.
+  //
+  // Gercek veride yakalandi: YENERLER YAPI'nin 3 teklifi iki birimde;
+  // ekranda USD toplami 19.711,68 gorunuyordu, gercegi 5.311,68.
+  //
+  // `comparePeriods` bu kurala zaten uyuyordu; burasi uymuyordu.
+  const birimVar = Boolean(k.paraBirimi);
   const secilen = [
     `${quote(k.varlik)} AS [Varlik]`,
     "COUNT(*) AS [Adet]",
     ...(k.tutar ? [`SUM(${quote(k.tutar)}) AS [Toplam]`] : []),
-    ...(k.paraBirimi ? [`MAX(${quote(k.paraBirimi)}) AS [ParaBirimi]`] : []),
+    ...(birimVar ? [`${quote(k.paraBirimi!)} AS [ParaBirimi]`] : []),
+  ];
+  const grup = [
+    quote(k.varlik),
+    ...(birimVar ? [quote(k.paraBirimi!)] : []),
   ];
   return [
     `SELECT TOP (500) ${secilen.join(", ")}`,
     `FROM dbo.${quote(k.tablo)}`,
     `WHERE ${k.silinmisVar ? "IsDeleted = 0 AND " : ""}` +
       timeRangeCondition(range, k.tarih),
-    `GROUP BY ${quote(k.varlik)}`,
+    `GROUP BY ${grup.join(", ")}`,
     "ORDER BY [Adet] DESC",
   ].join(" ");
 }

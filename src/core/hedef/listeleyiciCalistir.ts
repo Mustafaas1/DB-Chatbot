@@ -105,6 +105,8 @@ export async function runListingMeasurement(
     satirlar: sonuc.satirlar,
     satirSayisi: sonuc.satirSayisi,
     bosMu: sonuc.satirSayisi === 0,
+    // SQL kodda uretildi ve calistirildi; ajan devrede degil.
+    sorguCalisti: true,
     belirsiz: false,
     sureMs: Date.now() - t0,
     // Model cagrilmadi: token harcanmadi.

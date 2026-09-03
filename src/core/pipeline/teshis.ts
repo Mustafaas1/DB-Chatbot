@@ -1,4 +1,5 @@
 import type { OlcumSonucu } from "../ajan/olcum";
+import type { DurmaSebebi } from "../ajan/olcum";
 
 /**
  * S2 - DIAGNOSE (kod tarafi)
@@ -17,7 +18,10 @@ export type FindingKind =
   | "aykiri"         // ortalamadan cok sapan grup
   | "dengeli"        // belirgin bir yapi yok
   | "tek_grup"
-  | "bos";
+  /** Sorgu calisti ama eslesen kayit yok: veri gercegi. */
+  | "bos"
+  /** Ajan hic sorgu yazmadi: sistem hatasi, veri gercegi DEGIL. */
+  | "sorgusuz";
 
 export interface Finding {
   tur: FindingKind;
@@ -42,10 +46,25 @@ const YIGILMA_ESIGI = 0.6;      // tek grup toplamin %60'indan fazlasi
 const UZUN_KUYRUK_ESIGI = 0.15; // en kucuk gruplarin toplam payi
 const AYKIRI_KAT = 3;           // ortalamanin bu kati
 
-/** Tum hucreleri sayi olan ilk kolonun indisi. */
+/**
+ * Tum hucreleri sayi (veya null) olan ilk kolonun indisi.
+ *
+ * Onceki hali yalnizca `typeof s[n] === "number"` ariyordu; tek bir
+ * null hucre bile kolonu eliyor ve "sayisal olcu kolonu yok" uretiyordu.
+ * Sorgular cogunlukla LEFT JOIN veya CASE donerler; null dogal.
+ * En az bir gercek sayi SART: tamami null olan kolon olcu DEGIL.
+ */
 function measureColumn(kolonlar: string[], satirlar: unknown[][]): number {
+  if (!satirlar.length) return -1;
   for (let n = 0; n < kolonlar.length; n++) {
-    if (satirlar.length > 0 && satirlar.every((s) => typeof s[n] === "number")) return n;
+    let enAzBirSayi = false;
+    let uygun = true;
+    for (const s of satirlar) {
+      if (typeof s[n] === "number") { enAzBirSayi = true; continue; }
+      if (s[n] === null || s[n] === undefined) continue;
+      uygun = false; break;
+    }
+    if (uygun && enAzBirSayi) return n;
   }
   return -1;
 }
@@ -72,19 +91,41 @@ export function diagnose(s: OlcumSonucu): Diagnosis {
   const findings: Finding[] = [];
 
   if (!satirlar.length) {
-    return { dugumId: s.dugumId, baslik: s.baslik, toplam: 0, groupCount: 0,
-             findings: [{ tur: "bos", metin: "Sonuc bos; yorumlanacak veri yok." }] };
+    // IKI FARKLI DURUM, ayni gorunmemeli:
+    //
+    //   sorgu calisti, 0 satir  -> veriyle ilgili bir gercek. "Bu ayda
+    //                              boyle kayit yok" demek dogru cevaptir.
+    //   ajan sorgu yazmadi      -> olcum HIC yapilmadi. Bunu "veri yok"
+    //                              diye gostermek kullaniciyi yanlis
+    //                              bilgilendirir ve sorunu gizler.
+    //
+    // Ayirmadan once ikisi de "Sonuc bos" yaziyordu; hangisinin baskin
+    // oldugu olculemiyordu, dolayisiyla dogru duzeltme de secilemiyordu.
+    const bulgu: Finding = s.sorguCalisti
+      ? { tur: "bos", metin: "Sorgu çalıştı, eşleşen kayıt yok." }
+      : { tur: "sorgusuz", metin: sorgusuzMesaj(s.durmaSebebi) };
+
+    return {
+      dugumId: s.dugumId, baslik: s.baslik, toplam: 0, groupCount: 0,
+      findings: [bulgu],
+    };
   }
 
   const oi = measureColumn(kolonlar, satirlar);
   const ei = labelColumn(kolonlar, satirlar);
 
   // Olcu kolonu yoksa satir sayisi uzerinden konusuruz.
+  // Eski mesaj "sayisal olcu kolonu yok" diyordu; kullanici bunu bir hata
+  // saniyordu. Aslinda sonuc var ama yalnizca metin kolonlari donmus;
+  // sayisal dagilim analizi yapilamiyor, o kadar.
   if (oi === -1) {
     return {
       dugumId: s.dugumId, baslik: s.baslik, toplam: satirlar.length,
       groupCount: satirlar.length,
-      findings: [{ tur: "dengeli", metin: `${satirlar.length} kayit listelendi; sayisal olcu kolonu yok.` }],
+      findings: [{
+        tur: "dengeli",
+        metin: `${satirlar.length} kayıt listelendi. Yalnızca metin kolonları döndü; sayısal dağılım analizi yapılamadı.`,
+      }],
     };
   }
 
@@ -147,6 +188,28 @@ export function diagnose(s: OlcumSonucu): Diagnosis {
   }
 
   return { dugumId: s.dugumId, baslik: s.baslik, toplam, groupCount, findings };
+}
+
+/**
+ * "Sorgusuz" durumu icin kullaniciya yardimci mesaj.
+ *
+ * Eski tek mesaj: "Ajan sorgu yazmadı; ölçüm yapılmadı."
+ * Bu, UC FARKLI SEBEBI ayni cumleyle anlatiyordu. Artik durmaSebebi
+ * varsa onu acikliyoruz.
+ */
+function sorgusuzMesaj(sebep?: DurmaSebebi): string {
+  switch (sebep) {
+    case "kota":
+      return "Yapay zeka kotası dolduğu için sorgu yazılamadı. Bir süre sonra tekrar deneyin.";
+    case "tur_siniri":
+      return "Ajan izin verilen araç çağrısı sayısını aştı; sorgu tamamlanamadı. Soruyu daha dar kapsamlı sorun.";
+    case "uzunluk":
+      return "Ajan yanıtı çok uzun olduğu için kesildi; sorgu tamamlanamadı.";
+    case "hata":
+      return "Yapay zekaya ulaşılamadığı için sorgu yazılamadı.";
+    default:
+      return "Ajan bu ölçüm için sorgu yazmadı; ölçüm yapılmadı.";
+  }
 }
 
 /** Teshisleri modele verilecek kompakt metne cevirir. */

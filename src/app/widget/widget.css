@@ -1,0 +1,127 @@
+/**
+ * Widget kabugu.
+ *
+ * Renkler portalın tasarım dilinden alındı: lacivert-mor vurgu, 12–16px
+ * yuvarlaklık, ince kenar + yumuşak gölge. Değişkenler `global.css`'te
+ * tanımlı; burada yalnızca kabuk var, içerik değil.
+ */
+
+/* iframe'in zemini şeffaf olmalı ki yuvarlak buton gerçekten yuvarlak
+   görünsün. `:has()` kullanılıyor çünkü iç içe layout `<body>`ye sınıf
+   ekleyemiyor. */
+body:has(.gk-kok) {
+  background: transparent;
+  overflow: hidden;
+}
+
+.gk-kok {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  /* Kapalıyken host iframe'i 88px; buton sağ alta yaslanıyor. */
+  padding: 0;
+}
+
+/* --- Yuvarlak açılır buton --- */
+
+.gk-fab {
+  width: 56px;
+  height: 56px;
+  margin: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gk-mor), var(--gk-mor-koyu));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--gk-golge);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.gk-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.34);
+}
+.gk-fab:active { transform: translateY(0); }
+.gk-fab:focus-visible { outline: 3px solid #c7d2fe; outline-offset: 3px; }
+.gk-fab svg { width: 25px; height: 25px; }
+
+/* --- Panel --- */
+
+.gk-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: var(--gk-golge);
+  border: 1px solid var(--kenar);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Başlık: portaldaki hero banner'ın mor gradyanı. */
+.gk-baslik {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  background: linear-gradient(120deg, var(--gk-lacivert), var(--gk-mor-koyu) 70%, var(--gk-mor));
+  color: #fff;
+}
+.gk-rozet {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid;
+  place-items: center;
+}
+.gk-rozet svg { width: 17px; height: 17px; }
+.gk-baslik-metin { flex: 1; min-width: 0; line-height: 1.25; }
+.gk-baslik-ad { font-size: 13.5px; font-weight: 650; letter-spacing: -0.01em; }
+.gk-baslik-alt {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gk-baslik-dugme {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.gk-baslik-dugme:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.gk-baslik-dugme:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.gk-baslik-dugme svg { width: 16px; height: 16px; }
+
+/* Dar panelde genişletme düğmesinin anlamı yok; host zaten dar. */
+.gk-gizle-dar { display: none; }
+@media (min-width: 420px) {
+  .gk-gizle-dar { display: grid; }
+}
+
+.gk-govde {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--zemin);
+}
+

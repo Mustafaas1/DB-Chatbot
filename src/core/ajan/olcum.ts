@@ -1,12 +1,16 @@
 import type { AracKaydi } from "../tools/kayit";
 import type { Saglayici } from "../llm/tipler";
 import { donguCalistir } from "./dongu";
+import type { DonguSonucu } from "./dongu";
 import { sistemIstemi } from "./istem";
 import { cesitlilikSirasi, type Atama } from "./dagitici";
 import { validateMeasurement } from "../hedef/dogrula";
 import { schemaVocabulary, checkGrounding } from "../hedef/zemin";
 import type { Tablo } from "../db/sema";
 import type { KolonDegerleri } from "../db/degerler";
+
+/** Olcumun neden tamamlanamadigi. teshis.ts bunu aciklayici mesaja cevirir. */
+export type DurmaSebebi = "kota" | "tur_siniri" | "uzunluk" | "hata";
 
 export interface OlcumSonucu {
   dugumId: string;
@@ -20,10 +24,28 @@ export interface OlcumSonucu {
   kolonlar: string[];
   satirlar: unknown[][];
   satirSayisi: number;
-  /** 0 satir donduren olcum: dugum muhtemelen olmayan bir seye atif yapiyor. */
+  /** 0 satir donduren olcum. */
   bosMu: boolean;
+  /**
+   * Ajan GERCEKTEN bir sorgu calistirdi mi.
+   *
+   * `bosMu` tek basina IKI FARKLI SEYI ayni sayiyordu:
+   *   - sorgu calisti, 0 satir dondu   -> veri gercegi, normal
+   *   - ajan hic sorgu yazmadi         -> sistem hatasi
+   *
+   * Ikisinin caresi tamamen farkli (biri zemin dogrulamasi, digeri istem)
+   * ve tek bayrakla hangisinin baskin oldugu olculemiyordu.
+   */
+  sorguCalisti: boolean;
   /** Yonlendirme tahmine dayaliysa true. */
   belirsiz: boolean;
+  /**
+   * Olcumun neden tamamlanamadigi.
+   *
+   * Yalnizca `sorguCalisti === false` ise dolu; teshis bunu kullanarak
+   * "ajan sorgu yazmadi" yerine spesifik mesaj uretiyor.
+   */
+  durmaSebebi?: DurmaSebebi;
   sureMs: number;
   kullanim: { girdiTokeni: number; ciktiTokeni: number };
 }
@@ -171,6 +193,7 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
       azamiTur: ajan.limitler.azamiTur,
     });
 
+    // Basarili SON arac adimi; hic yoksa ajan sorgu yazmamis demektir.
     const sonAdim = [...sonuc.adimlar].reverse().find((a) => a.ok);
     let kolonlar: string[] = [];
     let satirlar: unknown[][] = [];
@@ -191,7 +214,14 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
         baslik: dugum.statement, soru, cevap: sonuc.cevap, sql,
         kolonlar, satirlar, satirSayisi: satirlar.length,
         bosMu: satirlar.length === 0,
+        sorguCalisti: sonAdim !== undefined,
         belirsiz: atama.belirsiz,
+        // `exactOptionalPropertyTypes` acik: istege bagli alana ACIKCA
+        // `undefined` atanamaz, alanin HIC OLMAMASI gerekir.
+        ...(() => {
+          const d = durmaSebebiBelirle(sonuc, sonAdim !== undefined);
+          return d ? { durmaSebebi: d } : {};
+        })(),
         sureMs: Date.now() - t0,
         kullanim: sonuc.kullanim,
       },
@@ -202,4 +232,29 @@ async function tekOlcum(s: OlcumSecenekleri, atama: Atama): Promise<OlcumOlayi[]
       mesaj: e instanceof Error ? e.message : String(e),
     }];
   }
+}
+
+/**
+ * Dongu sonucundan durma sebebini cikarir.
+ *
+ * Sorgu CALISTIYSA durma sebebi yok (basarili). Calismadiginda
+ * dongunun durmaSebebi'ni OlcumSonucu formatina ceviriyoruz.
+ *
+ * LlmHatasi "kota" durumunu cevap metnine yaziyor ama
+ * durmaSebebi olarak dondurmuyor; cevap metninden cikariyoruz.
+ */
+function durmaSebebiBelirle(
+  sonuc: DonguSonucu,
+  sorguCalisti: boolean
+): DurmaSebebi | undefined {
+  if (sorguCalisti) return undefined;
+  if (sonuc.durmaSebebi === "tur_siniri") return "tur_siniri";
+  if (sonuc.durmaSebebi === "uzunluk") return "uzunluk";
+  if (sonuc.durmaSebebi === "hata") {
+    // Kota hatalari cevap metninde belirtiliyor.
+    if (/kota/i.test(sonuc.cevap)) return "kota";
+    return "hata";
+  }
+  // Ajan hic arac cagirmadan cevap yazdi.
+  return undefined;
 }

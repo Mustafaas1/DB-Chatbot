@@ -1,0 +1,264 @@
+/**
+ * Sohbet transkripti.
+ *
+ * Ölçüler portalın diline göre: 13px gövde (15px panelde iri duruyordu),
+ * 12px kart yuvarlaklığı, ince kenar, mor-indigo vurgu, pill rozetler.
+ *
+ * Panel 452px olabildiği için buradaki her şey DAR ÖNCELİKLİ; geniş mod
+ * yalnızca üstteki sekme çubuğunu ve daha ferah bir iç boşluğu ekliyor.
+ */
+
+.sh {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--zemin);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* --- Geniş moddaki sekme çubuğu --- */
+
+.sh-sekmeler {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--kenar);
+}
+.sh-sekmeler button {
+  padding: 8px 14px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--soluk);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+}
+.sh-sekmeler button:hover:not(:disabled):not(.aktif) { color: var(--metin); }
+.sh-sekmeler button.aktif { color: var(--gk-mor-koyu); border-bottom-color: var(--gk-mor-koyu); }
+.sh-sekmeler button:disabled { opacity: 0.4; cursor: default; }
+
+/* --- Kaydırılan gövde --- */
+
+.sh-akis {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 12px;
+}
+
+/* --- Boş durum --- */
+
+.sh-bos { padding: 28px 6px; color: var(--soluk); }
+.sh-bos-baslik {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--metin);
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+.sh-bos p { margin: 0 0 16px; font-size: 12.5px; }
+.sh-ornekler { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+.sh-ornekler button {
+  max-width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  background: var(--panel);
+  color: var(--metin);
+  border: 1px solid var(--kenar);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.sh-ornekler button:hover { border-color: var(--gk-mor); color: var(--gk-mor-koyu); }
+
+/* --- Transkript --- */
+
+.sh-transkript { display: flex; flex-direction: column; gap: 12px; }
+
+/* Kullanıcı balonu: sağa yaslı, mor. */
+.sh-balon.sh-kullanici {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 9px 13px;
+  border-radius: 14px 14px 4px 14px;
+  background: linear-gradient(135deg, var(--gk-mor), var(--gk-mor-koyu));
+  color: #fff;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* Ajan mesajı: avatar + içerik. Avatar portaldaki baş harfli
+   dairelerin aynısı. */
+.sh-mesaj { display: flex; gap: 8px; align-items: flex-start; }
+.sh-avatar {
+  flex: none;
+  width: 27px;
+  height: 27px;
+  margin-top: 2px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--gk-mor), var(--gk-mor-koyu));
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: grid;
+  place-items: center;
+}
+.sh-icerik { flex: 1; min-width: 0; }
+
+/* Transkript içindeki kartların dış boşluğu kalkıyor: aralığı
+   `.sh-transkript` gap'i veriyor. */
+.sh-icerik .kart { margin-bottom: 0; padding: 14px; border-radius: 12px; }
+
+.sh-mesaj.sh-hata {
+  display: block;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: var(--hata-zemin);
+  border: 1px solid #fecaca;
+  color: var(--hata);
+  font-size: 12.5px;
+}
+
+/* --- Yazıyor göstergesi --- */
+
+.sh-dusunuyor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--panel);
+  border: 1px solid var(--kenar);
+  color: var(--soluk);
+  font-size: 12.5px;
+}
+.sh-nokta {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gk-mor);
+  animation: sh-zipla 1.3s infinite ease-in-out;
+}
+.sh-nokta:nth-child(2) { animation-delay: 0.18s; }
+.sh-nokta:nth-child(3) { animation-delay: 0.36s; margin-right: 3px; }
+@keyframes sh-zipla {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+/* Hareket duyarlılığı olan kullanıcılar için nabız yerine sabit nokta. */
+@media (prefers-reduced-motion: reduce) {
+  .sh-nokta { animation: none; opacity: 0.6; }
+}
+
+/* --- İkincil bilgi: katlı --- */
+
+.sh-ikincil summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--soluk);
+}
+.sh-ikincil[open] summary { margin-bottom: 10px; }
+
+/* --- Dar moddaki kısayollar --- */
+
+.sh-kisayollar { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 0 4px 35px; }
+.sh-kisayollar button {
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 550;
+  background: var(--panel);
+  color: var(--soluk);
+  border: 1px solid var(--kenar);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.sh-kisayollar button:hover { color: var(--gk-mor-koyu); border-color: var(--gk-mor); }
+
+/* --- Yazaç --- */
+
+.sh-yazac {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--kenar);
+}
+.sh-yazac input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 13px;
+  font-size: 13px;
+  border: 1px solid var(--kenar);
+  border-radius: 999px;
+  background: var(--zemin);
+}
+.sh-yazac input[type="text"]:focus {
+  outline: 2px solid var(--gk-mor);
+  outline-offset: -1px;
+  background: var(--panel);
+}
+.sh-yazac button {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--gk-mor), var(--gk-mor-koyu));
+}
+.sh-yazac button svg { width: 16px; height: 16px; }
+.sh-yazac button:disabled { opacity: 0.45; }
+
+.sh-bekleme {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: sh-don 0.7s linear infinite;
+}
+@keyframes sh-don { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sh-bekleme { animation-duration: 2.4s; } }
+
+/* --- Dar panelde taşanlar --- */
+
+/* Tablolar daraltılmıyor, KENDİ İÇİNDE kaydırılıyor: sütunları
+   sıkıştırmak sayıları okunmaz yapardı. */
+.sh-akis .tablo-sar { overflow-x: auto; }
+.sh-akis .sonuc-tablo { font-size: 11.5px; }
+.sh-akis .ozet-serit { gap: 7px; }
+.sh-akis .dugum-olcum { overflow-x: auto; font-size: 10.5px; }
+
+/* Geniş modda kartlar biraz daha ferah. */
+@media (min-width: 700px) {
+  .sh-akis { padding: 18px 20px; }
+  .sh-transkript { gap: 14px; }
+  .sh-icerik .kart { padding: 18px; }
+}
+
+/* Adım listesi: yalnızca GERÇEK aşamaya göre ilerler. */
+.sh-adimlar { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.sh-adim {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 550;
+  background: var(--ince);
+  border: 1px solid var(--kenar);
+  color: var(--soluk);
+}
+.sh-adim.tamam { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.sh-adim.aktif { background: #eef2ff; border-color: #c7d2fe; color: var(--gk-mor-koyu); }

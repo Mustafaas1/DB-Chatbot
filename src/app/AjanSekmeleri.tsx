@@ -1,21 +1,17 @@
 "use client";
 
-export interface OlcumSonucu {
-  dugumId: string;
-  ajanKod: string;
-  ajanAd: string;
-  renk: string;
-  baslik: string;
-  soru: string;
-  cevap: string;
-  sql: string;
-  kolonlar: string[];
-  satirlar: unknown[][];
-  bosMu: boolean;
-  belirsiz: boolean;
-  sureMs: number;
-  kullanim: { girdiTokeni: number; ciktiTokeni: number };
-}
+/**
+ * Olcum sonucunun tipi KANONIK kaynaktan geliyor.
+ *
+ * Burada elle yazilmis bir kopya vardi ve sessizce AYRISMISTI: `satirSayisi`
+ * hic yoktu, `sorguCalisti` eklenince de derleyici sunucu tarafini gecirip
+ * arayuzde patladi. Tip tek yerde durunca sunucu bir alan ekledigi anda
+ * arayuz de haberdar oluyor.
+ *
+ * `export type` calisma zamaninda silinir; sunucu modulu istemciye inmez.
+ */
+export type { OlcumSonucu } from "@/core/ajan/olcum";
+import type { OlcumSonucu } from "@/core/ajan/olcum";
 
 export interface CalisanOlcum {
   dugumId: string;
@@ -34,8 +30,18 @@ export interface OlcumHatasi {
 
 function sayisalKolonlar(kolonlar: string[], satirlar: unknown[][]): boolean[] {
   return kolonlar.map((_, n) =>
-    satirlar.length > 0 && satirlar.every((s) => typeof s[n] === "number")
+    satirlar.length > 0 && satirlar.every((s) =>
+      typeof s[n] === "number" || s[n] === null || s[n] === undefined
+    ) && satirlar.some((s) => typeof s[n] === "number")
   );
+}
+
+function hucreDegeri(h: unknown, sayiMi: boolean): string {
+  if (h === null || h === undefined) return "—";
+  if (sayiMi && typeof h === "number") {
+    return h.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+  }
+  return String(h);
 }
 
 function SonucKarti({ s }: { s: OlcumSonucu }) {
@@ -44,7 +50,6 @@ function SonucKarti({ s }: { s: OlcumSonucu }) {
     <div className="kart olcum-kart" style={{ borderLeftColor: "#0891b2" }}>
       <div className="olcum-ust">
         <span className="olcum-baslik">{s.baslik}</span>
-        <span className="alt-bilgi">{s.sureMs} ms</span>
       </div>
       <div className="olcum-soru">{s.soru}</div>
 
@@ -55,27 +60,49 @@ function SonucKarti({ s }: { s: OlcumSonucu }) {
         </div>
       )}
 
+      {/* BOS OLMANIN IKI SEBEBI VAR ve ayni cumleyle anlatilamaz.
+          Kota dolduğunda ajanın cevabı "Yapay zeka kotası doldu" oluyor
+          ama ekranda "Kriterlere uygun veri bulunamadı" yazıyordu --
+          kullanıcı veride kayıt yok sanıyordu. */}
       {s.bosMu ? (
-        <div className="olcum-bos">
-          Kriterlere uygun veri bulunamadı.
-        </div>
+        s.sorguCalisti ? (
+          <div className="olcum-bos">
+            Sorgu çalıştı; kriterlere uygun kayıt bulunamadı.
+          </div>
+        ) : (
+          <div className="olcum-bos olcum-yapilmadi">
+            <b>Ölçüm yapılamadı.</b>{" "}
+            {s.durmaSebebi === "kota"
+              ? "Yapay zeka kotası doldu; bir süre sonra tekrar deneyin."
+              : s.durmaSebebi === "tur_siniri"
+              ? "Ajan izin verilen araç çağrısı sayısını aştı; soruyu daraltın."
+              : s.durmaSebebi === "hata"
+              ? "Yapay zekaya ulaşılamadı."
+              : s.cevap || "Ajan sorgu yazmadı."}
+          </div>
+        )
       ) : (
         <>
           <div className="cevap olcum-cevap">{s.cevap}</div>
           {s.satirlar.length > 0 && (
-            <div className="tablo-sarici">
-              <table>
+            <div className="tablo-sarici olcum-tablo-sarici">
+              <table className="premium-tablo">
                 <thead><tr>{s.kolonlar.map((k, n) => (
                   <th key={k + n} className={sayisal[n] ? "sayi" : undefined}>{k}</th>
                 ))}</tr></thead>
                 <tbody>{s.satirlar.slice(0, 12).map((r, i) => (
                   <tr key={i}>{r.map((h, n) => (
                     <td key={n} className={sayisal[n] ? "sayi" : undefined}>
-                      {h === null || h === undefined ? "—" : String(h)}
+                      {hucreDegeri(h, sayisal[n]!)}
                     </td>
                   ))}</tr>
                 ))}</tbody>
               </table>
+              {s.satirlar.length > 12 && (
+                <div className="tablo-devam">
+                  İlk 12 satır gösteriliyor ({s.satirlar.length} satır döndü).
+                </div>
+              )}
             </div>
           )}
         </>

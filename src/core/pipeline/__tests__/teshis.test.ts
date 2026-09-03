@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { diagnose, diagnosisText } from "../teshis";
 import type { OlcumSonucu } from "../../ajan/olcum";
 
-function sonuc(kolonlar: string[], satirlar: unknown[][]): OlcumSonucu {
+function sonuc(
+  kolonlar: string[], satirlar: unknown[][], sorguCalisti = true
+): OlcumSonucu {
   return {
     dugumId: "d1", ajanKod: "destek", ajanAd: "Destek", renk: "#000",
     baslik: "test", soru: "s", cevap: "", sql: "",
     kolonlar, satirlar, satirSayisi: satirlar.length,
-    bosMu: satirlar.length === 0, belirsiz: false, sureMs: 1,
+    bosMu: satirlar.length === 0, sorguCalisti, belirsiz: false, sureMs: 1,
     kullanim: { girdiTokeni: 0, ciktiTokeni: 0 },
   };
 }
@@ -91,5 +93,27 @@ describe("teshisMetni", () => {
   it("bulgulari tek metne cevirir", () => {
     const t = diagnose(sonuc(["Asama", "Adet"], [["Tamamlandı", 4900], ["Beklemede", 47]]));
     expect(diagnosisText([t])).toContain("Tamamlandı");
+  });
+});
+
+describe("boş sonucun iki hali", () => {
+  it("sorgu çalıştıysa VERİ GERÇEĞİ olarak yazılır", () => {
+    const t = diagnose(sonuc(["Asama", "Adet"], [], true));
+    expect(turler(t)).toEqual(["bos"]);
+    expect(t.findings[0]!.metin).toContain("eşleşen kayıt yok");
+  });
+
+  it("ajan sorgu yazmadıysa SİSTEM HATASI olarak ayrılır", () => {
+    // Ikisini "Sonuc bos" diye ayni gostermek, olcumun hic yapilmadigini
+    // "veri yok" gibi sunmak olurdu -- kullaniciyi yanlis bilgilendirir.
+    const t = diagnose(sonuc(["Asama", "Adet"], [], false));
+    expect(turler(t)).toEqual(["sorgusuz"]);
+    expect(t.findings[0]!.metin).toContain("sorgu yazmadı");
+  });
+
+  it("iki hal AYNI metni vermez", () => {
+    const a = diagnose(sonuc([], [], true)).findings[0]!.metin;
+    const b = diagnose(sonuc([], [], false)).findings[0]!.metin;
+    expect(a).not.toBe(b);
   });
 });

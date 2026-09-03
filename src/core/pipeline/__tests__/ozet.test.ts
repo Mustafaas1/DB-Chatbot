@@ -23,8 +23,8 @@ describe("liste ozeti", () => {
 
   it("sayisal kolonun toplam ve ortalamasini verir", () => {
     const o = summarizeList(["MusteriAdi", "Tutar"], [["A", 100], ["B", 200]]);
-    const toplam = o.measures.find((m) => m.etiket.includes("toplamı"));
-    const ort = o.measures.find((m) => m.etiket.includes("ortalaması"));
+    const toplam = o.measures.find((m) => m.etiket.startsWith("toplam "));
+    const ort = o.measures.find((m) => m.etiket.startsWith("ortalama "));
     expect(toplam?.deger).toBe(300);
     expect(ort?.deger).toBe(150);
   });
@@ -35,8 +35,8 @@ describe("liste ozeti", () => {
       ["MusteriAdi", "ParaBirimi", "Tutar"],
       [["A", "TRY", 100], ["B", "USD", 10], ["C", "TRY", 200]]
     );
-    const tr = o.measures.find((m) => m.kirilim === "TRY" && m.etiket.includes("toplamı"));
-    const usd = o.measures.find((m) => m.kirilim === "USD" && m.etiket.includes("toplamı"));
+    const tr = o.measures.find((m) => m.kirilim === "TRY" && m.etiket.startsWith("toplam "));
+    const usd = o.measures.find((m) => m.kirilim === "USD" && m.etiket.startsWith("toplam "));
     expect(tr?.deger).toBe(300);
     expect(usd?.deger).toBe(10);
   });
@@ -44,7 +44,7 @@ describe("liste ozeti", () => {
   it("null tutarlar toplama girmez", () => {
     // Gercek veride 29 faturanin ParaBirimi ve Tutar'i null.
     const o = summarizeList(["MusteriAdi", "Tutar"], [["A", 100], ["B", null], ["C", 50]]);
-    const toplam = o.measures.find((m) => m.etiket.includes("toplamı"));
+    const toplam = o.measures.find((m) => m.etiket.startsWith("toplam "));
     expect(toplam?.deger).toBe(150);
   });
 

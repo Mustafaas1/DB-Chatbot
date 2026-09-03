@@ -24,11 +24,11 @@ export function nextKind(tur: DugumTuru): DugumTuru | null {
 }
 
 const TUR_ACIKLAMA: Record<DugumTuru, string> = {
-  goal: "kullanicinin asil amaci",
-  lever: "hedefi hareket ettiren kaldirac (nedensel ya da matematiksel)",
-  metric: "VERITABANINDAN OLCULEBILIR somut soru",
+  goal: "kullanıcının asıl amacı",
+  lever: "hedefi hareket ettiren kaldıraç (nedensel ya da matematiksel)",
+  metric: "VERİTABANINDAN ÖLÇÜLEBİLİR somut soru",
   action: "bulguya dayanan somut, uygulanabilir aksiyon",
-  resource: "kaldiraci kullanmak icin gereken kaynak ya da kisit",
+  resource: "kaldıracı kullanmak için gereken kaynak ya da kısıt",
 };
 
 export function expansionPrompt(hedefTur: DugumTuru, veriOzetiMetni?: string): string {
@@ -61,6 +61,9 @@ export function expansionPrompt(hedefTur: DugumTuru, veriOzetiMetni?: string): s
     "- Her cocuk ust dugumden MANTIKEN turemeli; 'gerekce' bu bagi tek",
     "  cumleyle kurmali.",
     "- Cocuklar birbirinden FARKLI olmali; ayni seyi iki kez yazma.",
+    "- DIL: 'baslik', 'gerekce' ve 'olcumSorusu' alanlarini DUZGUN",
+    "  TURKCE yaz ve Turkce karakterleri kullan (ç ğ ı ö ş ü). Bu",
+    "  metinler kullaniciya oldugu gibi gosteriliyor.",
     hedefTur === "metric"
       ? "- Her cocuk icin 'olcumSorusu' yaz: veritabanina sorulabilecek, tek ve net bir soru."
       : "- 'olcumSorusu' alanini bos birak.",
@@ -76,30 +79,30 @@ export function expansionPrompt(hedefTur: DugumTuru, veriOzetiMetni?: string): s
 export function examples(hedefTur: DugumTuru): { girdi: string; cikti: string }[] {
   if (hedefTur === "lever") {
     return [{
-      girdi: "DUGUM (goal): Destek yukumuzu azaltmak",
+      girdi: "DUGUM (goal): Destek yükümüzü azaltmak",
       cikti: JSON.stringify([
-        { baslik: "Gelen bilet sayisini dusurmek", gerekce: "Yuk once hacimden gelir; hic acilmayan bilet en ucuzudur.", olcumSorusu: "" },
-        { baslik: "Bilet cozum suresini kisaltmak", gerekce: "Ayni hacim daha hizli kapanirsa birikme olusmaz.", olcumSorusu: "" },
-        { baslik: "Yuku ekibe dengeli dagitmak", gerekce: "Toplam makul olsa bile birkac kiside yigilma darbogaz yaratir.", olcumSorusu: "" },
+        { baslik: "Gelen bilet sayısını düşürmek", gerekce: "Yük önce hacimden gelir; hiç açılmayan bilet en ucuzudur.", olcumSorusu: "" },
+        { baslik: "Bilet çözüm süresini kısaltmak", gerekce: "Aynı hacim daha hızlı kapanırsa birikme oluşmaz.", olcumSorusu: "" },
+        { baslik: "Yükü ekibe dengeli dağıtmak", gerekce: "Toplam makul olsa bile birkaç kişide yığılma darboğaz yaratır.", olcumSorusu: "" },
       ]),
     }];
   }
 
   if (hedefTur === "metric") {
     return [{
-      girdi: "DUGUM (lever): Gelen bilet sayisini dusurmek",
+      girdi: "DUGUM (lever): Gelen bilet sayısını düşürmek",
       cikti: JSON.stringify([
-        { baslik: "Biletlerin konu dagilimi", gerekce: "Hacmi hangi konularin urettigini bilmeden azaltilamaz.", olcumSorusu: "Destek biletlerini kategorilerine gore say" },
-        { baslik: "Acik biletlerin asama dagilimi", gerekce: "Biletlerin nerede takildigini gosterir.", olcumSorusu: "Asamalarina gore acik destek biletleri" },
+        { baslik: "Biletlerin konu dağılımı", gerekce: "Hacmi hangi konuların ürettiğini bilmeden azaltılamaz.", olcumSorusu: "Destek biletlerini kategorilerine göre say" },
+        { baslik: "Açık biletlerin aşama dağılımı", gerekce: "Biletlerin nerede takıldığını gösterir.", olcumSorusu: "Aşamalarına göre açık destek biletleri" },
       ]),
     }];
   }
 
   return [{
-    girdi: "DUGUM (metric): Acik biletlerin asama dagilimi\nBULGU: 59 acik biletin 47'si Beklemede.",
+    girdi: "DUGUM (metric): Açık biletlerin aşama dağılımı\nBULGU: 59 açık biletin 47'si Beklemede.",
     cikti: JSON.stringify([
-      { baslik: "Beklemede takilan biletlere sahip atamak", gerekce: "Biletlerin %80'i beklemede; sahipsizlik en olasi sebep.", olcumSorusu: "" },
-      { baslik: "Bekleme suresi icin esik ve uyari kurmak", gerekce: "Esik asildiginda uyari, birikmeyi erken yakalar.", olcumSorusu: "" },
+      { baslik: "Beklemede takılan biletlere sahip atamak", gerekce: "Biletlerin %80'i beklemede; sahipsizlik en olası sebep.", olcumSorusu: "" },
+      { baslik: "Bekleme süresi için eşik ve uyarı kurmak", gerekce: "Eşik aşıldığında uyarı, birikmeyi erken yakalar.", olcumSorusu: "" },
     ]),
   }];
 }

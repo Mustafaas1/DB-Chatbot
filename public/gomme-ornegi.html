@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gömme örneği — İş Zekâsı Ajanı</title>
+<!--
+  BU SAYFA GERCEK PORTAL DEGIL.
+
+  Widget'in yabanci bir sayfaya gomuldugunde nasil davrandigini denemek
+  icin var: kendi CSS'i, kendi renkleri, kendi z-index'leri olan bir host.
+  Icerik tamamen uydurma yer tutucudur ve hicbir gercek veri icermez.
+-->
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; display: flex; min-height: 100vh;
+    background: #f5f6fa; color: #1a1d26;
+    font: 14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  aside {
+    width: 208px; flex: none; background: #191a3d; color: #cfd0e8;
+    padding: 18px 12px;
+  }
+  aside .marka { color: #fff; font-weight: 700; font-size: 15px; padding: 0 8px 18px; }
+  aside a {
+    display: block; padding: 9px 12px; margin-bottom: 2px; border-radius: 8px;
+    color: #a9abd0; text-decoration: none; font-size: 13px;
+  }
+  aside a.aktif { background: #2a2b57; color: #fff; font-weight: 600; }
+  main { flex: 1; padding: 22px 26px; min-width: 0; }
+  .hero {
+    background: linear-gradient(120deg, #2b2a6b, #4f46e5 70%, #6d5cf5);
+    color: #fff; border-radius: 14px; padding: 22px 24px; margin-bottom: 18px;
+  }
+  .hero h1 { margin: 6px 0 0; font-size: 20px; }
+  .hero span { font-size: 12px; opacity: .8; }
+  .kutular { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .kutu { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; }
+  .kutu .etiket { font-size: 10.5px; font-weight: 650; letter-spacing: .05em; color: #6b7280; text-transform: uppercase; }
+  .kutu .sayi { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -0.02em; }
+  .kutu .alt { font-size: 12px; color: #6b7280; }
+  .not { margin-top: 20px; font-size: 12.5px; color: #6b7280; max-width: 60ch; }
+</style>
+</head>
+<body>
+  <aside>
+    <div class="marka">Örnek Portal</div>
+    <a class="aktif" href="#">Dashboard</a>
+    <a href="#">Takvim</a>
+    <a href="#">Müşteriler</a>
+    <a href="#">Sözleşmeler</a>
+    <a href="#">Destek Talepleri</a>
+    <a href="#">Satış</a>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <span>Gömme denemesi</span>
+      <h1>Widget bu sayfaya gömülü</h1>
+    </div>
+
+    <div class="kutular">
+      <div class="kutu"><div class="etiket">Yer tutucu</div><div class="sayi">—</div><div class="alt">örnek kutu</div></div>
+      <div class="kutu"><div class="etiket">Yer tutucu</div><div class="sayi">—</div><div class="alt">örnek kutu</div></div>
+      <div class="kutu"><div class="etiket">Yer tutucu</div><div class="sayi">—</div><div class="alt">örnek kutu</div></div>
+      <div class="kutu"><div class="etiket">Yer tutucu</div><div class="sayi">—</div><div class="alt">örnek kutu</div></div>
+    </div>
+
+    <p class="not">
+      Bu sayfa gerçek portal değildir; sayılar yer tutucudur. Amacı, widget'ın
+      kendi CSS'i olan yabancı bir sayfada doğru konumlanıp konumlanmadığını
+      denemek. Sağ alttaki yuvarlak düğmeye tıklayın.
+    </p>
+  </main>
+
+  <!--
+    Belirtec BU DOSYAYA YAZILMIYOR: depo public ve gercek bir belirtecin
+    kaynak kontrolune girmesi onu sizdirmak olur. Deneme icin adresten
+    aliniyor:  /gomme-ornegi.html?token=<belirtec>
+
+    Gercek portalda script etiketi elbette dogrudan yazilir:
+      <script src=".../widget.js" data-gokkusagi-ajan data-token="..."></script>
+  -->
+  <script>
+    (function () {
+      var belirtec = new URLSearchParams(location.search).get("token") || "";
+      var s = document.createElement("script");
+      s.src = "/widget.js";
+      s.setAttribute("data-gokkusagi-ajan", "");
+      s.setAttribute("data-token", belirtec);
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

@@ -197,3 +197,32 @@ describe("tutar hic yoksa sifir GOSTERILMEZ", () => {
     expect(f.toplam!.sonra).toBe(1000);
   });
 });
+
+describe("varlık sorgusu para birimini KARIŞTIRMAZ", () => {
+  const k = pickAnalysisColumns(invoices)!;
+
+  it("gruplamaya para birimini de katar", () => {
+    // Gercek hata: `MAX(ParaBirimi)` + yalnizca varliga gore gruplama,
+    // hem TRY hem USD teklifi olan musterinin iki birimdeki tutarini tek
+    // toplamda birlestirip rastgele bir birimle etiketliyordu. Gercek
+    // veride YENERLER YAPI boyleydi; USD toplami 19.711,68 gorunuyordu,
+    // dogrusu 5.311,68.
+    const sql = buildEntityQuery(k);
+    expect(sql).toContain("GROUP BY [MusteriAdi], [ParaBirimi]");
+    expect(sql).not.toContain("MAX([ParaBirimi])");
+  });
+
+  it("para birimi kolonu yoksa yalnızca varlığa gruplar", () => {
+    const birimsiz = pickAnalysisColumns({
+      ad: "T",
+      kolonlar: [
+        { ad: "MusteriAdi", tip: "nvarchar" },
+        { ad: "Tutar", tip: "decimal" },
+        { ad: "CreatedAt", tip: "datetime2" },
+      ],
+    } as unknown as Tablo)!;
+    const sql = buildEntityQuery(birimsiz);
+    expect(sql).toContain("GROUP BY [MusteriAdi]");
+    expect(sql).not.toContain("ParaBirimi");
+  });
+});
